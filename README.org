@@ -25,14 +25,14 @@ This git repository contains RNA-seq pipelines for transcriptome assembly, gene 
 | Pipeline               | Package  | Author    | Year | Related Publication |
 |------------------------+----------+-----------+------+---------------------|
 | Data mining            | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash]]     | S. Bassim | 2016 |                     |
-| Transcriptome assembly | [[https://github.com/neocruiser/shell/blob/master/trinity-bridges.slurm][trinity]]  | S. Bassim | 2016 |                     |
-|                        | [[https://github.com/neocruiser/shell/blob/master/genome_guided_assemblies.pbs][bwa]]      | S. Bassim | 2016 |                     |
-| Gene annotation        | [[https://github.com/neocruiser/shell/blob/master/diamond-bridges.slurm][diamond]]  | S. Bassim | 2016 |                     |
-|                        | [[https://github.com/neocruiser/shell/blob/master/interproscan-bridges.slurm][interpro]] | S. Bassim | 2016 |                     |
-|                        | [[https://github.com/neocruiser/shell/blob/master/hmmscan-iacs.pbs][hmmer]]    | S. Bassim | 2016 |                     |
-|                        | [[https://github.com/neocruiser/shell/blob/master/blast-iacs.split.pbs][blast]]    | S. Bassim | 2016 |                     |
-| Gene expression        | [[https://github.com/neocruiser/shell/blob/master/degs-bridges.slurm][R]]        | S. Bassim | 2016 |                     |
-| Shotgun annotation     | [[https://github.com/neocruiser/shell/blob/master/kraken.db-bridges.slurm][kraken]]   | S. Bassim | 2016 |                     |
+| Transcriptome assembly | [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][trinity]]  | S. Bassim | 2016 |                     |
+|                        | [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][bwa]]      | S. Bassim | 2016 |                     |
+| Gene annotation        | [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][diamond]]  | S. Bassim | 2016 |                     |
+|                        | [[https://github.com/neocruiser/pipelines/blob/master/annotation/interproscan-bridges.slurm][interpro]] | S. Bassim | 2016 |                     |
+|                        | [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][hmmer]]    | S. Bassim | 2016 |                     |
+|                        | [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][blast]]    | S. Bassim | 2016 |                     |
+| Gene expression        | [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][R]]        | S. Bassim | 2016 |                     |
+| Shotgun annotation     | [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][kraken]]   | S. Bassim | 2016 |                     |
 |                        |          |           |      |                     |
 
 
