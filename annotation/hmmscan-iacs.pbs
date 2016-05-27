@@ -1,0 +1,29 @@
+#!/bin/bash
+#PBS -l nodes=80:ppn=16,walltime=8:00:00
+#PBS -N hmm.BR.large
+#PBS -q large
+#PBS -V
+
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+
+hmmscan=/gpfs/home/ballam/hmmer-3.1b2-linux-intel-x86_64/binaries/hmmscan
+
+## File names _CHANGE_
+file=br100
+input=$scratch/ganglia/peptides/$file.peptides.rscf.fa
+output=$scratch/ganglia/pfam/$file.pfam.rscf.txt
+db=$scratch/db/pfam/Pfam-A.hmm
+
+## START HMMER _DONT CHANGE_
+time=$home/time
+jobid=hmmGG
+start=$(date); echo "Job started at: $start" > $time/$file.$jobid.time
+
+#### !!!!! ####
+# its better to cut the original big file into smaller ones
+
+
+$hmmscan --domtblout $output $db $input
+
+end=$(date); echo "Job ended at: $end" >> $time/$file.$jobid.time

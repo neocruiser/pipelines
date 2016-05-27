@@ -1,0 +1,31 @@
+#!/bin/bash
+#PBS -l nodes=2:ppn=16,walltime=48:00:00
+#PBS -N PARA_GG5
+#PBS -q long
+#PBS -V
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -j oe
+#PBS -m abe
+
+
+# __CHANGE__
+transcriptome=5
+lib=RF
+
+# IACS directories
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+
+# __DONT CHANGE__
+workdir=${scratch}/ganglia/blat/parasite.$transcriptome
+target=$workdir/parasite.$transcriptome.selected.500.fa
+cd ${workdir}
+
+## Map reads to REFERENCE GENOME
+_DIR=$workdir/mapped.reads.genome_trinity
+_REF=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*fna")
+_INDEX=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*sa")
+mkdir -p $_DIR
+
+$home/trinityrnaseq-2.2.0/Trinity --genome_guided_bam $workdir/all.reads.sorted.bam --genome_guided_max_intron 1000 --output $_DIR --CPU 15 --max_memory 50G

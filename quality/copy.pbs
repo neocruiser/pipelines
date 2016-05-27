@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --job-name="copy"
+#SBATCH --output="copy.%j.%N.out"
+#SBATCH --partition=compute
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=32
+#SBATCH --export=ALL
+#SBATCH -t 10:00:00
+#SBATCH --qos=large-shared-normal
+#SBATCH --partition=large-shared
+#SBATCH -A ddp232
+#SBATCH --reservation=large-testing
+#SBATCH --mem=1000G
+
+# set stack to unlimited
+# because of large datasets
+ulimit -s unlimited
+# echo stdout to output file
+set -x
+# xsede directories
+oasis=/oasis/projects/nsf/sun108
+scratch=/oasis/scratch/comet/silo/temp_project
+home=/home/silo
+
+time cp -r $scratch/ganglia/trinity/trinity_out_dir_gg100 $scratch/ganglia/trinity/trinity_out_dir_gg100_copy

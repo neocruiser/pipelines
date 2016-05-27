@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -l nodes=8:ppn=16,walltime=4:00:00
+#PBS -N diam.pfam.bx
+#PBS -j oe
+#PBS -q long
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -m abe
+#PBS -V
+
+# DONT CHANGE #
+###############
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
+
+# Files _CHANGE_
+db=pfam
+blast=blastx
+maxseq=10
+
+project=$scratch/ganglia
+query=$project/assembled/raw.all.rscf.contigs.fa
+file=raw.all.rscf
+output=$project/blast/$file.$db.$blast.diamond.$pbs.txt
+tmp=$project/blast/tmp_$pbs
+
+mkdir -p $tmp
+
+# blast libraries
+diamond=/gpfs/home/ballam/diamond.0.7/diamond
+export PATH="$PATH:/gpfs/home/ballam/ncbi-blast-2.2.31+/bin"
+export BLASTDB="/gpfs/scratch/ballam/db/$db"
+
+## Full blastx
+time=$home/time
+jobid=$file.$db
+start=$(date); echo "Job started at: $start" > $time/$jobid.$pbs.time
+
+cd $scratch/db/$db
+
+$diamond $blast -d $db -q $query -a $output -t $tmp -k $maxseq
+rm -r $tmp
+
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.$pbs.time

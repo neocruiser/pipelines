@@ -1,0 +1,104 @@
+#!/bin/bash
+#PBS -l nodes=2:ppn=16,walltime=168:00:00
+#PBS -N PARA_GG.5
+#PBS -q extended
+#PBS -V
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -j oe
+#PBS -m abe
+
+# __CHANGE__
+transcriptome=5
+lib=RF
+
+# IACS directories
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+
+# __DONT CHANGE__
+workdir=${scratch}/ganglia/blat/parasite.$transcriptome
+target=$workdir/parasite.$transcriptome.selected.500.fa
+cd ${workdir}
+
+# fastq raw files, reads
+#sense=$(find ${scratch} -maxdepth 3 -name "r*all.R1*q")
+#antisense=$(find ${scratch} -maxdepth 3 -name "r*all.R2*q")
+#sense=$(find $scratch/ganglia/raw.reads -maxdepth 2 -name "*R1*gz" | paste -s -d,)
+#antisense=$(find $scratch/ganglia/raw.reads -maxdepth 2 -name "*R2*gz" | paste -s -d,)
+
+
+## MAP READS TO REFERENCE TRANSCRIPTOME
+for t in br gg; do
+    for s in {1..24}; do
+
+# Get read files one by one
+sense=$(find $scratch/ganglia/raw.reads.trimmed -maxdepth 1 -name "$t.$s.R1.P*gz")
+antisense=$(find $scratch/ganglia/raw.reads.trimmed -maxdepth 1 -name "$t.$s.R2.P*gz")
+
+# align reads to transcriptome
+$home/trinityrnaseq-2.2.0/util/bowtie_PE_separate_then_join.pl --seqType fq --SS_lib_type $lib --left $sense --right $antisense --target $target --aligner bowtie -- -p 4 --all --best --strata -m 300 >& $workdir/bowtie_stats.T$t.S${s}_$pbs.joined
+
+# get the number of proper mate reads
+$home/trinityrnaseq-2.2.0/util/SAM_nameSorted_to_uniq_count_stats.pl $workdir/bowtie_out/bowtie_out.nameSorted.bam >& $workdir/bowtie_stats.T$t.S${s}_$pbs.counts
+
+# extract proper paired reads to transcriptome into R1 and R2 files
+mapped=$workdir/fastq_transcriptome_bowtie
+mkdir -p $mapped
+for i in 1 2; do
+    samtools view -f 0x02 -F12 $workdir/bowtie_out/bowtie_out.nameSorted.bam | samtools fastq -$i $mapped/$t.$s.R$i.fastq -
+done
+
+# Clean up from previous runs
+rm -r $workdir/bowtie_out
+ls $workdir/*ebwt | xargs rm
+    done
+done
+
+
+## Map reads to REFERENCE GENOME
+mapped2=$workdir/fastq_genome_bwa
+_DIR=$workdir/mapped.reads.genome_trinity
+_REF=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*fna")
+_INDEX=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*sa")
+mkdir -p $mapped2 $_DIR
+
+## __DONT CHANGE
+# index genome                
+if [ ! -f "$_INDEX" ]; then
+    bwa index $_REF
+fi
+
+for t in br gg; do
+    for s in {1..24}; do
+
+# Get read files one by one
+sense=$(find $scratch/ganglia/raw.reads.trimmed -maxdepth 1 -name "$t.$s.R1.P*gz")
+antisense=$(find $scratch/ganglia/raw.reads.trimmed -maxdepth 1 -name "$t.$s.R2.P*gz")
+
+# map reads to genome and sort them by coordinate
+bwa mem -t 32 $_REF $sense $antisense | samtools view -Sb -f 0x02 -F12 - | samtools sort -@32 - -o $_DIR/$t.$s.sorted.proper.bam
+samtools index $_DIR/$t.$s.sorted.proper.bam
+
+# keep proper paired and discard unmapped reads and mates
+for i in 1 2; do
+    samtools fastq -$i $mapped2/$t.$s.R$i.fastq $_DIR/$t.$s.sorted.proper.bam
+done
+
+    done
+done
+
+# merge all bams into 1 file for genome guided assembly 
+samtools merge $_DIR/all.reads.sorted.bam $_DIR/*proper.bam
+samtools index $_DIR/all.reads.sorted.bam
+rm $_DIR/*proper.bam
+
+$home/trinityrnaseq-2.2.0/Trinity --genome_guided_bam $_DIR/all.reads.sorted.bam --genome_guided_max_intron 1000 --output $_DIR --CPU 16 --max_memory 12G
+
+if [ -f "$_DIR/Trinity-GG.fasta" ]; then
+    mv $_DIR/Trinity-GG.fasta $workdir
+    cd $_DIR
+    perl -e 'for(<*>){((stat)[9]<(unlink))}'
+    else
+    echo -e "\nDid not find Trinity-GG.fasta so the genome guided assembly wasnt successful\n"
+fi

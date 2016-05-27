@@ -1,0 +1,28 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -l nodes=1:ppn=16:native
+#PBS -l walltime=02:00:00
+#PBS -N fastqc.out
+#PBS -e fastqc.err
+#PBS -A sun108
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -m abe
+#PBS -V
+
+#export PATH="$PATH:/home/silo/blast/bin"
+#export BLASTDB="/oasis/projects/nsf/sun108/bassem/db/string"
+
+oasis=/oasis/projects/nsf/sun108/
+
+
+for i in {1..24}
+do
+    for j in 1 2
+    do
+
+zcat ${oasis}/silo/data/ganglia/gg.${i}.R${j}.fastq.gz | \
+fastqc/fastqc ${oasis}/silo/data/ganglia/gg.${i}.R${j}.fastq.gz \
+--outdir=${oasis}/silo/ganglia/fastqc/
+
+done
+done

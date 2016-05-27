@@ -1,0 +1,59 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -l nodes=1:ppn=16:native
+#PBS -l walltime=10:00:00
+#PBS -N detonate
+#PBS -e detonate.err
+#PBS -A sun108
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -m abe
+#PBS -V
+
+# set stack to unlimited
+# because of large datasets
+ulimit -s unlimited
+# echo stdout to output file
+set -x
+# xsede directories
+oasis=/oasis/projects/nsf/sun108
+scratch=/oasis/scratch/silo/temp_project
+home=/home/silo
+##################################
+# output directories for trinity #
+##################################
+jobid=gg60
+fileid=60p/gg.60p
+
+########################
+# Dont change anything #
+########################
+workdir=${scratch}/ganglia/detonate/trinity_stat_${jobid}/
+mkdir -p ${workdir}
+cd ${workdir}
+
+# fastq raw files, reads
+sense=${scratch}/ganglia/data/$fileid.R1.fastq
+antisense=${scratch}/ganglia/data/$fileid.R2.fastq
+target=$scratch/ganglia/omics/$jobid.contigs.fa
+
+module load R
+export PATH:"$PATH:/home/silo/detonate-1.10/rsem-eval"
+export PATH=$PATH:/home/silo/bowtie2
+
+# average length of transcipts
+average=560
+
+# memory used by samtools
+JM=48
+
+$home/detonate-1.10/rsem-eval/rsem-eval-calculate-score \
+--seed 3471609 \
+--samtools-sort-mem $JM \
+--bowtie2 \
+--strand-specific \
+--num-threads 16 \
+--time \
+--paired-end \
+$sense $antisense $target \
+gg60 \
+$average

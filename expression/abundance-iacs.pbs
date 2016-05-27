@@ -1,0 +1,68 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=16,walltime=20:00:00
+#PBS -N eX.br.nonorm.Bo
+#PBS -q long
+#PBS -j oe
+#PBS -m abe
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -V
+
+## !! ##
+# 20h for 26 eXpress datasets
+
+nthreads=128
+
+method=eXpress
+
+# Files _CHANGE_
+# choose from br100, gg100, raw.all
+file=br.100.nonorm
+exe=P.fastq.gz
+#exe=fastq.gz
+
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+project=$scratch/ganglia/abundance_${file}_${method}_$pbs
+#reads=$scratch/ganglia/original.reads/br.renamed
+reads=$scratch/ganglia/trimmed
+
+
+# _CHANGE_
+#assembly=$scratch/ganglia/assembled/$file.rscf.contigs.fa
+assembly=$scratch/ganglia/assembled/$file.fa
+abundance=$home/trinityrnaseq-2.1.1/util/align_and_estimate_abundance.pl
+
+time=$home/time
+jobid=$pbs.$method.abundance
+start=$(date); echo "Job started at: $start" > $time/$jobid.$file.time
+
+## Express uses bowtie, so its slow
+## Kallisto is fast delivering short summary
+
+# run the alignment/estimation
+for f in br
+do
+    for i in {1..24}
+    do
+	mkdir -p $project/$f$i
+	
+	perl $abundance --transcripts $assembly \
+	    --SS_lib_type RF --seqType fq \
+	    --left $reads/$f.${i}.R1.$exe \
+	    --right $reads/$f.${i}.R2.$exe \
+	    --est_method $method \
+	    --aln_method bowtie \
+	    --trinity_mode \
+	    --thread_count $nthreads \
+	    --output_dir $project/$f$i \
+	    --output_prefix $f$i.$method \
+	    --prep_reference
+
+    done
+done
+
+
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.$file.time
+
+#	    --aln_method bowtie \

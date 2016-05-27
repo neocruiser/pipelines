@@ -1,0 +1,96 @@
+#!/bin/bash
+#SBATCH --job-name="TRtest"
+#SBATCH --output="trinity.%j.%N.out"
+#SBATCH --partition=compute
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=64
+#SBATCH --export=ALL
+#SBATCH -t 1:00:00
+#SBATCH --qos=large-shared-normal
+#SBATCH --partition=large-shared
+#SBATCH -A ddp232
+#SBATCH --reservation=large-testing
+#SBATCH --mem=1450GB
+
+# set stack to unlimited
+# because of large datasets
+ulimit -s unlimited
+# echo stdout to output file
+set -x
+
+# xsede directories
+oasis=/oasis/projects/nsf/sun108
+scratch=/oasis/scratch/comet/silo/temp_project
+home=/home/silo
+
+##################################
+# output directories for trinity #
+##################################
+jobid=test
+fileid=test/gg.11
+
+########################
+# Dont change anything #
+########################
+workdir=${scratch}/ganglia/trinity/trinity_out_dir_${jobid}
+ssddir=/scratch/silo/$SLURM_JOBID/trinity_out_dir_$jobid
+# fastq raw files, reads
+sense=${scratch}/ganglia/data/$fileid.R1.fastq
+antisense=${scratch}/ganglia/data/$fileid.R2.fastq
+
+############
+# Inchworm #
+############
+## Phase 1: construct Kmers
+# maximum memory for jellyfish to use
+# 10 GB * nb of nodes (64)
+JMi=10G
+nthreads=64
+
+#${home}/trinity2/Trinity --seqType fq --SS_lib_type RF --left ${sense} --right ${antisense} --quality_trimming_params "ILLUMINACLIP:adapters.fa:2:30:10 LEADING:5 TRAILING:5 SLIDINGWINDOW:4:15 MINLEN:36" --normalize_max_read_cov 50 --max_memory ${JMi} --CPU $nthreads --min_contig_length 200 --output $workdir --no_run_chrysalis --verbose >& ${home}/trinity.${jobid}_output.log
+
+## Backup inchworm directory
+#cd /scratch/silo/$SLURM_JOBID
+#tar -cvf $workdir.tar trinity_out_dir_$jobid
+#mv $workdir.tar $workdir.tar.inchworm
+
+####################### STOP ###########################
+
+## Copy inchworm directory (phase 1) to SSD workdirectory
+#mv $workdir.tar.inchworm $workdir.tar
+#cd /scratch/silo/$SLURM_JOBID/
+#tar -xvf ${workdir}.tar
+#mv $workdir.tar $workdir.tar.inchworm
+
+JMc=1450G
+
+## Do not assemble the partitioned reads
+#${home}/trinity2/Trinity --seqType fq --SS_lib_type RF --left ${sense} --right ${antisense} --quality_trimming_params "ILLUMINACLIP:adapters.fa:2:30:10 LEADING:5 TRAILING:5 SLIDINGWINDOW:4:15 MINLEN:36" --normalize_max_read_cov 50 --max_memory ${JMc} --CPU $nthreads --min_contig_length 200 --output $workdir --no_distributed_trinity_exec --verbose >& ${home}/trinity.${jobid}_output.log
+
+
+
+#############
+# Butterfly #
+#############
+## Phase 2: cluster reads, DeBruijn, and map to kmers
+
+JMb=1450G
+nthreads=16
+heap=350G
+gc=6
+init=2G
+
+## Copy inchworm directory (phase 1) to SSD workdirectory
+#mv $workdir.tar.inchworm $workdir.tar
+#cd /scratch/silo/$SLURM_JOBID
+#tar -xvf ${workdir}.tar
+#mv $workdir.tar $workdir.tar.inchworm
+
+## Run butterfly
+${home}/trinity2/Trinity --seqType fq --SS_lib_type RF --left ${sense} --right ${antisense} --quality_trimming_params "ILLUMINACLIP:adapters.fa:2:30:10 LEADING:5 TRAILING:5 SLIDINGWINDOW:4:15 MINLEN:36" --normalize_max_read_cov 50 --max_memory ${JMb} --CPU $nthreads --bflyCPU $nthreads --bflyHeapSpaceMax $heap --bflyHeapSpaceInit $init --bflyGCThreads $gc --min_contig_length 200 --output $workdir --verbose >& ${home}/trinity.${jobid}_output.log
+
+## only backup assembled contigs (fasta file 50 MB max)
+cp $ssddir/Trinity.fasta $home/$jobid.contigs.fa
+
+## Get the timiing of the first phase
+cp $ssddir/Trinity.timing $home/$jobid.bfly.timing

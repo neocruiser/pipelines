@@ -1,0 +1,57 @@
+#!/bin/bash
+#PBS -l nodes=8:ppn=16,walltime=24:00:00
+#PBS -N NR.gg
+#PBS -q long
+#PBS -V
+
+# Files _CHANGE_
+file=gg100
+exe=rscf.contigs.fa
+extra=assembled
+db=nr
+ev=1e-10
+maxT=1
+
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+project=$home/ganglia/blast
+tophit=$home/trinityrnaseq-2.1.1/util/analyze_blastPlus_topHit_coverage.pl
+mkdir -p $project
+###############
+# DONT CHANGE #
+###############
+# blast libraries
+export PATH="$PATH:/gpfs/home/ballam/ncbi-blast-2.2.31+/bin"
+export BLASTDB="/gpfs/scratch/ballam/db/swissprot"
+# supercomputing power
+nthreads=128
+# blast output format index
+n=6
+
+################
+## Full blast ##
+################
+#blastx -query ${oasis}/silo/nodule/assembled/A.assembl.QPXgv5.fasta \
+#-db swissprot \
+#-outfmt " 7 qseqid qlen sseqid slen qstart qend sstart send evalue bitscore length pident nident mismatch gaps " \
+#-max_target_seqs 10 \
+#-num_threads 16 \
+#-out ${oasis}/silo/nodule/blast/A.blastx.string.txt
+
+########################################
+## Partial blast for transcriptome QC ##
+########################################
+blastx \
+-db $db \
+-query $scratch/$extra/$file.$exe \
+-out $project/$file.$db.$ev.outfmt$n \
+-evalue $ev \
+-num_threads $nthreads \
+-max_target_seqs $maxT \
+-outfmt $n
+
+perl $tophit \
+$project/$file.$db.$ev.outfmt$n \
+$scratch/$extra/$file.$exe \
+$scratch/db/$db/$db \
+>& $project/$file.$db.$ev.tophit

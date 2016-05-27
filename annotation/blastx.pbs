@@ -1,0 +1,16 @@
+#!/bin/bash
+#PBS -l nodes=3:ppn=16,walltime=24:00:00
+#PBS -N NRblast
+#PBS -q long
+#PBS -V
+
+export PATH="$PATH:/gpfs/home/ballam/ncbi-blast-2.2.31+/bin"
+export BLASTDB="/gpfs/scratch/ballam/db/swissprot"
+
+
+blastx -query ${oasis}/silo/nodule/assembled/A.assembl.QPXgv5.fasta \
+-db string \
+-outfmt " 7 qseqid qlen sseqid slen qstart qend sstart send evalue bitscore length pident nident mismatch gaps " \
+-max_target_seqs 10 \
+-num_threads 16 \
+-out ${oasis}/silo/nodule/blast/A.blastx.string.txt

@@ -1,0 +1,71 @@
+#!/bin/bash
+#PBS -l nodes=4:ppn=16,walltime=168:00:00
+#PBS -q extended
+#PBS -V
+#PBS -j oe
+#PBS -N trin.vir.13S9
+#PBS -m abe
+#PBS -M sleiman.bassim@stonybrook.edu
+
+# set stack to unlimited
+# because of large datasets
+ulimit -s unlimited
+# echo stdout to output file
+set -x
+
+# IACS directories
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+
+# name of sequencing reads, name of files ?
+fileid=13_S9
+#pid=35627
+
+########################
+# Dont change anything #
+########################
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+workdir=$scratch/ganglia/assembled/trinity_out_dir_${pbs}
+mkdir -p $workdir
+cd $workdir
+
+# fastq raw files, reads
+sense=${scratch}/amelie/virome/${fileid}_R1_001.fastq.gz
+antisense=${scratch}/amelie/virome/${fileid}_R2_001.fastq.gz
+
+############
+# Inchworm #
+############
+## Phase 1: construct Kmers
+# maximum memory for jellyfish to use
+# 10 GB * nb of nodes (64)
+JMi=10G
+nthreads=128
+
+### with trimming
+#${home}/trinity2/Trinity --seqType fq --SS_lib_type RF --left ${sense} --right ${antisense} --quality_trimming_params "ILLUMINACLIP:adapters.fa:2:30:10 LEADING:5 TRAILING:5 SLIDINGWINDOW:4:15 MINLEN:36" --normalize_max_read_cov 50 --max_memory ${JMi} --CPU $nthreads --min_contig_length 200 --output $workdir --no_run_chrysalis --verbose >& ${home}/trinity.${pbs}_output.log
+
+### with trimming without adapter removal
+clength=75
+${home}/trinityrnaseq-2.1.1/Trinity --seqType fq --SS_lib_type RF --left ${sense} --right ${antisense} --quality_trimming_params "ILLUMINACLIP:2:30:10 LEADING:5 TRAILING:5 SLIDINGWINDOW:4:15 MINLEN:36" --normalize_max_read_cov 50 --max_memory ${JMi} --CPU $nthreads --min_contig_length $clength --output $workdir --verbose >& ${home}/trinity.$fileid.${pbs}_output.log
+
+### without trimming
+#${home}/trinityrnaseq-2.1.1/Trinity --seqType fq --SS_lib_type RF --left ${sense} --right ${antisense} --normalize_max_read_cov 50 --max_memory ${JMi} --CPU $nthreads --min_contig_length 200 --output $workdir --no_run_chrysalis --verbose >& ${home}/trinity.${pbs}_output.log
+
+# prep inchworm directory
+#workdir=$scratch/ganglia/assembled/trinity_out_dir_${pid}
+#rm -rf $workdir
+#cp -r ${workdir}_backup ${workdir}
+#cd $workdir
+#############
+# Butterfly #
+#############
+## Phase 2: cluster reads, DeBruijn, and map to kmers
+
+JMb=10G
+nthreads=16
+heap=350G
+gc=6
+init=2G
+
+#${home}/trinityrnaseq-2.1.1/Trinity --seqType fq --SS_lib_type RF --left ${sense} --right ${antisense} --normalize_max_read_cov 50 --max_memory ${JMb} --CPU $nthreads --bflyCPU $nthreads --bflyHeapSpaceMax $heap --bflyHeapSpaceInit $init --bflyGCThreads $gc --min_contig_length 200 --output $workdir >& ${home}/trinity.${pbs}_output.log

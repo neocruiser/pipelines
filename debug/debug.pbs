@@ -1,0 +1,51 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=16,walltime=1:00:00
+#PBS -N PARA_GG.4
+#PBS -q debug
+#PBS -V
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -j oe
+#PBS -m abe
+
+# __CHANGE__
+transcriptome=4
+lib=RF
+
+# IACS directories
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+
+# __DONT CHANGE__
+workdir=${scratch}/ganglia/blat/parasite.$transcriptome
+target=$scratch/ganglia/trinity/trinity_out_dir_00000/Trinity.fasta
+cd ${workdir}
+
+## MAP READS TO REFERENCE TRANSCRIPTOME
+for t in br; do
+    for s in 1; do
+
+# Get read files one by one
+#sense=$(find $workdir -maxdepth 2 -name "$t.$s.R1*tq")
+#antisense=$(find $workdir -maxdepth 2 -name "$t.$s.R2*tq")
+sense=$(find $scratch/ganglia/raw.reads -maxdepth 2 -name "$t.$s.R1*gz")
+antisense=$(find $scratch/ganglia/raw.reads -maxdepth 2 -name "$t.$s.R2*gz")
+
+# Run bowtie
+$home/trinityrnaseq-2.2.0/util/bowtie_PE_separate_then_join.pl --seqType fq --SS_lib_type $lib --left $sense --right $antisense --target $target --aligner bowtie -- -p 15 --all --best --strata -m 300 >& $workdir/bowtie_stats.T$t.S${s}_$pbs.joined
+
+# run trinity integrated stat algorithm
+$home/trinityrnaseq-2.2.0/util/SAM_nameSorted_to_uniq_count_stats.pl $workdir/bowtie_out/bowtie_out.nameSorted.bam >& $workdir/bowtie_stats.T$t.S${s}_$pbs.counts
+
+# extract proper paired reads to transcriptome into R1 and R2 files
+mapped=$workdir/fastq_transcriptome_bowtie
+mkdir -p $mapped
+for i in 1 2; do
+    samtools view -f 0x02 -F12 $workdir/bowtie_out/bowtie_out.nameSorted.bam | samtools fastq -$i $mapped/$t.$s.R$i.fastq -
+done
+
+# Clean up from previous runs
+#rm -r $workdir/bowtie_out
+ls $workdir/*ebwt | xargs rm
+    done
+done

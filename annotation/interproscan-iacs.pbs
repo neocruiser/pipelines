@@ -1,0 +1,53 @@
+
+#!/bin/bash
+#PBS -l nodes=1:ppn=16,walltime=168:00:00
+#PBS -N ips
+#PBS -j oe
+#PBS -q extended
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -m abe
+#PBS -V
+
+# DONT CHANGE #
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+#ips=$scratch/db/ips/interproscan-5.18-57.0
+ips=$scratch/db/ips/interproscan-5.16-55.0
+pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
+
+peptides=$(find $scratch/ganglia -maxdepth 3 -iname "contig*deseq*fa")
+output=$(dirname $peptides)
+tmp=$output/tmp_$pbs
+mkdir -p $tmp
+
+# Files _CHANGE_
+#p=4
+#c=2
+#file=edgeR.raw.all.eXpress.tissue.p$p.c$c
+#log=$scratch/ganglia/deg.raw.all/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
+#assembled=$scratch/ganglia/assembled/raw.all.rscf.contigs.fa
+#contigs=$tmp/$file.contigs.fa
+#peptides=$tmp/$file.peptides.fa
+
+time=$home/time
+jobid=$pbs.ips
+start=$(date); echo "Job started at: $start" > $time/$jobid.time
+# Get gene ids (only differentially expressed)
+# Get gene sequences
+#cat $assembled | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $log | cut -f1 | grep "^TRINITY" | sort - | uniq) - > $contigs
+# Translate
+#transeq $contigs $peptides -frame=6 --clean=yes
+# Run interpro Scans
+# Dont run HAMAP PRINTS
+$ips/interproscan.sh -t p \
+    -i $peptides \
+    -appl ProDom,PANTHER,TIGRFAM,SUPERFAMILY,PIRSF,Gene3D,Pfam,SMART,PROSITEPROFILES,PROSITEPATTERNS,COILS \
+    -iprlookup -goterms --pathways \
+    -f TSV \
+    --tempdir $tmp -d $output
+
+rm -r $tmp
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
+
+#    -f TSV, SVG, GFF3, XML, HTML \
+#    -appl ProDom,PANTHER,TIGRFAM,SUPERFAMILY,PIRSF,Gene3D,Pfam,SMART,PROSITEPROFILES,PROSITEPATTERNS,COILS \

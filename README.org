@@ -1,0 +1,39 @@
+#+TITLE: Summary of RNA-seq tutorials, R, MySQL, and D3.js
+#+AUTHOR: Sleiman Bassim, PhD
+#+EMAIL: slei.bass@gmail.com
+
+#+STARTUP: content
+#+STARTUP: hidestars
+#+OPTIONS: toc:5 H:5 num:3
+#+LANGUAGE: english
+#+LaTeX_HEADER: \usepackage[ttscale=.875]{libertine}
+#+LATEX_HEADER: \usepackage[T1]{fontenc}
+#+LaTeX_HEADER: \sectionfont{\normalfont\scshape}
+#+LaTeX_HEADER: \subsectionfont{\normalfont\itshape}
+#+LATEX_HEADER: \usepackage[innermargin=1.5cm,outermargin=1.25cm,vmargin=3cm]{geometry}
+#+LATEX_HEADER: \linespread{1}
+#+LATEX_HEADER: \setlength{\itemsep}{-30pt}
+#+LATEX_HEADER: \setlength{\parskip}{0pt}
+#+LATEX_HEADER: \setlength{\parsep}{-5pt}
+#+LATEX_HEADER: \usepackage[hyperref]{xcolor}
+#+LATEX_HEADER: \usepackage[colorlinks=true,urlcolor=SteelBlue4,linkcolor=Firebrick4]{hyperref}
+#+EXPORT_SELECT_TAGS: export
+#+EXPORT_EXCLUDE_TAGS: noexport
+
+This git repository contains RNA-seq pipelines for transcriptome assembly, gene expression, gene annotation, and other. All scripts are running on [[https://www.xsede.org/][XSEDE]] and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]]1 clusters in the US, including Greenfield, Bridges, and LIred servers.
+
+| Pipeline               | Package  | Author    | Year | Publication |
+|------------------------+----------+-----------+------+-------------|
+| Data mining            | [[https://github.com/neocruiser/shell/blob/master/automated_analyses.sh][bash]]     | S. Bassim | 2016 |             |
+| Transcriptome assembly | [[https://github.com/neocruiser/shell/blob/master/trinity-bridges.slurm][trinity]]  | S. Bassim | 2016 |             |
+|                        | [[https://github.com/neocruiser/shell/blob/master/genome_guided_assemblies.pbs][bwa]]      | S. Bassim | 2016 |             |
+| Gene annotation        | [[https://github.com/neocruiser/shell/blob/master/diamond-bridges.slurm][diamond]]  | S. Bassim | 2016 |             |
+|                        | [[https://github.com/neocruiser/shell/blob/master/interproscan-bridges.slurm][interpro]] | S. Bassim | 2016 |             |
+|                        | [[https://github.com/neocruiser/shell/blob/master/hmmscan-iacs.pbs][hmmer]]    | S. Bassim | 2016 |             |
+|                        | [[https://github.com/neocruiser/shell/blob/master/blast-iacs.split.pbs][blast]]    | S. Bassim | 2016 |             |
+| Gene expression        | [[https://github.com/neocruiser/shell/blob/master/degs-bridges.slurm][R]]        | S. Bassim | 2016 |             |
+| Shotgun annotation     | [[https://github.com/neocruiser/shell/blob/master/kraken.db-bridges.slurm][kraken]]   | S. Bassim | 2016 |             |
+|                        |          |           |      |             |
+
+
+

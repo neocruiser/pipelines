@@ -1,0 +1,24 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -l nodes=1:ppn=16:native
+#PBS -l walltime=5:00:00
+#PBS -N count_R1
+#PBS -e count_R1.err
+#PBS -A sun108
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -m abe
+#PBS -V
+# set stack to unlimited
+# because of large datasets
+ulimit -s unlimited
+# echo stdout to output file
+set -x
+# xsede directories
+oasis=/oasis/projects/nsf/sun108
+scratch=/oasis/scratch/silo/temp_project
+home=/home/silo
+# fastq raw files, reads
+sense=${scratch}/ganglia/data/raw.all.R1.fq.gz
+antisense=${scratch}/ganglia/data/raw.all.R2.fq.gz
+# count raw reads
+time zcat ${sense} | grep -i "@acb052" | wc -l >& ${home}/count_R1_output.log
