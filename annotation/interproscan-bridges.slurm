@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -p LM
-#SBATCH -t 20:00:00
-#SBATCH --job-name="IPS"
+#SBATCH -t 2:00:00
+#SBATCH --job-name="IPS4"
 #SBATCH --output="ips.parasite.%j.%N.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
@@ -24,10 +24,10 @@ mkdir -p $tmp
 # Files _CHANGE_
 p=3
 c=2
-transcriptome=1
+transcriptome=4
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_parasite.$transcriptome
 
-file=deg*221/DESeq2.eXpress.tissue.p$p.c$c*
+file=deg*248/DESeq2.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 assembled=$_DIR/Trinity-GG.fasta
 contigs=$tmp/contigs.fa
