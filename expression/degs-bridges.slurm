@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=RM
 #SBATCH --nodes=1
-#SBATCH -t 10:00:00
+#SBATCH -t 1:00:00
 #SBATCH --job-name="degEX4"
 #SBATCH --output="degs.%j.%N.out"
 #SBATCH --mail-type=ALL
@@ -63,7 +63,7 @@ if [ ! -d "$project" ]; then
 fi
 
 # Get the alignment type that was used to compute contig abundance
-cd $_DIR
+project=$(find $_DIR -name "abundance_*")
     if [ ! -z "$project" ]; then
         e=$(grep -oci "express" <(echo $project))
         k=$(grep -oci "kallisto" <(echo $project))
