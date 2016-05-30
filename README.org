@@ -20,7 +20,7 @@
 #+EXPORT_SELECT_TAGS: export
 #+EXPORT_EXCLUDE_TAGS: noexport
 
-This git repository contains RNA-seq pipelines for transcriptome assembly, gene expression, gene annotation, and other. All scripts are running on [[https://www.xsede.org/][XSEDE]] and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]] clusters in the US, including Greenfield, Bridges, and LIred servers.
+This git repository contains RNA-seq pipelines for transcriptome assembly, gene expression, gene annotation, and other. All scripts are running on [[https://www.xsede.org/][XSEDE]] supercomputers and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]] cluster in the US, including Greenfield, Bridges, and LIred servers.
 
 | Pipeline               | Package  | Author    | Year | Related Publication |
 |------------------------+----------+-----------+------+---------------------|
