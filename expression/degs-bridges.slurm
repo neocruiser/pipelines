@@ -97,10 +97,10 @@ fi
 
 ## Get the length of contigs that contribute to 50% of the assembled trxome (N50)
 # Also get the transcript abundance for each Nx
-$home/$version/util/misc/contig_ExN50_statistic.pl $project/$prefix.TMM.EXPR.matrix $_DIR/$_FASTA > $_DIR/ExN50.$pbs.stats
+$home/$version/util/misc/contig_ExN50_statistic.pl $project/$prefix.TMM.EXPR.matrix $_DIR/$_FASTA > $_FOLD/ExN50.TRX-$transcriptome.$pbs.stats
 
 # Get discriptive stats of the assembled trxome
-$home/$version/util/TrinityStats.pl $_DIR/$_FASTA > $_DIR/descriptive.stats.$transcriptome
+$home/$version/util/TrinityStats.pl $_DIR/$_FASTA > $_FOLD/descriptive.TRX-$transcriptome.$pbs.stats
 
 ## Choose__matrices [i]
 jobid[1]=tissue
