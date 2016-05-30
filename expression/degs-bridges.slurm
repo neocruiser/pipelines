@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --partition=LM
+#SBATCH --partition=RM
 #SBATCH --nodes=1
 #SBATCH -t 10:00:00
 #SBATCH --job-name="degEX4"
@@ -45,19 +45,16 @@ prefix=trans_counts
 cd $_DIR
 if [ ! -d "$project" ]; then
     if [ "$method" == eXpress ]; then
-        for f in br gg
-        do
-	          for i in {1..24}
-	          do
+        for f in br gg; do
+	          for i in {1..24}; do
 	              mkdir -p $_FOLD/$f$i
 	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f.${i}.R1.fastq --right $reads/$f.${i}.R2.fastq --est_method $method --aln_method bowtie --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
             done
         done
-    else
-        for f in br gg
-        do
-	          for i in {1..24}
-	          do
+
+    elif [ "$method" == kallisto || "$method" == salmon ]; then
+        for f in br gg; do
+	          for i in {1..24}; do
 	              mkdir -p $_FOLD/$f$i
 	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f/$f.${i}.R1.fastq.gz --right $reads/$f/$f.${i}.R2.fastq.gz --est_method $method --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
             done
@@ -66,6 +63,7 @@ if [ ! -d "$project" ]; then
 fi
 
 # Get the alignment type that was used to compute contig abundance
+cd $_DIR
     if [ ! -z "$project" ]; then
         e=$(grep -oci "express" <(echo $project))
         k=$(grep -oci "kallisto" <(echo $project))
@@ -143,6 +141,8 @@ done
 cd $_DIR
 ls *ebwt | xargs rm
 mv $project $_DIR/eXpress.${pbs}_abundance
+ls *gene_trans_map | xargs rm
+ls *bowtie.ok | xargs rm
 
 # Create a table for the number of differentially expressed genes
 #tissue tissue-diet tissue-br tissue-gg tissue-br-females tissue-gg-females tissue-br-bucephalus
