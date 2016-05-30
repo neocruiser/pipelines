@@ -140,6 +140,7 @@ do
 done
 
 ## backup abundance folder and cleanup
+cd $_DIR
 ls *ebwt | xargs rm
 mv $project $_DIR/eXpress.${pbs}_abundance
 
