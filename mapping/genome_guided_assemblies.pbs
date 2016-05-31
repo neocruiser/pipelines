@@ -93,7 +93,7 @@ samtools merge $_DIR/all.reads.sorted.bam $_DIR/*proper.bam
 samtools index $_DIR/all.reads.sorted.bam
 rm $_DIR/*proper.bam
 
-$home/trinityrnaseq-2.2.0/Trinity --genome_guided_bam $_DIR/all.reads.sorted.bam --genome_guided_max_intron 1000 --output $_DIR --CPU 16 --max_memory 12G
+$home/trinityrnaseq-2.2.0/Trinity --genome_guided_bam $_DIR/all.reads.sorted.bam --genome_guided_max_intron 1000 --output $_DIR --CPU 32 --max_memory 200G
 
 if [ -f "$_DIR/Trinity-GG.fasta" ]; then
     mv $_DIR/Trinity-GG.fasta $workdir
