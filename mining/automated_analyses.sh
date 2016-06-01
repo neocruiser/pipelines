@@ -31,7 +31,7 @@ function summary () {
     local VAR2=$2
     local VAR3=$3
     local VAR4=$4
-    local __out=$VAR3.$VAR1.10-$VAR2.tmp    
+    local __out=$VAR3.$VAR1.10-$VAR2.tmp
 ## create a correct e-value number by repeating zeros
     ZEROS=$(seq -s. "$(echo "${VAR2}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
     local VARe="0.${ZEROS}1"
@@ -66,18 +66,22 @@ function guidelines () {
 	extra $tmp 1
 	echo
     elif [ "$CHOICE" == b ]; then
-	echo -e "\nHere is 10 of the most abundant model species found by aligning your proteins to 13GB of PANTHER sequences:\nwait ..."
+        _LN=$(grep -c "^" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt)
+        _PN=$(head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt | grep -c "^")
+	echo -e "\nHere is $_PN of the $_LN most abundant species found by aligning your proteins to 13GB of PANTHER sequences:\nwait ..."
 	extra $tmp 2
 	cat $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt | column -t | less
 	head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
 	echo -e "\nI also put the distribution of all other species in:" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
 	echo
     elif [ "$CHOICE" == c ]; then
-	echo -e "\nHere is 10 of the most abundant protein functions found among queried sequences in PANTHER:\nwait ..."
+        _LN=$(grep -c "^" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt)
+        _PN=$(head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | grep -c "^")
+	echo -e "\nHere is $_PN of the $_LN most abundant protein functions found among the queried sequences in PANTHER:\nwait ..."
 	extra $tmp 3
 	cat $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | column -t | less
 	head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
-	echo -e "\nI also put the full list in:" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
+	echo -e "\nI also put the full list in:" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
 	echo
     elif [ "$CHOICE" == d ]; then
 	echo -e "\nWriting the protein alignment output from PANTHER to a file. It will contains E-values, protein acc. numbers, contig IDs, and GOs"
@@ -113,7 +117,7 @@ function extractFasta () {
 	read STRING
 	egrep -i "$STRING" $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.txt >> $FILENAME.PANselected.tsv
 	cat $FILENAME.PANselected.tsv | cut -f1 | sed 's/..$//g' | sort - | uniq >> $FILENAME.PANcontigs
-	
+
 	else
 	extra $TMP 4
     fi
@@ -198,7 +202,7 @@ elif [ "$ANALYSIS" == p ]; then
 
     if [ -f "$TMP" ]; then
 	while [ -f "$TMP" ]; do
-	    quest $COUNTS  
+	    quest $COUNTS
 	    guidelines
 	    read -n 1 -s
 	done
@@ -211,7 +215,7 @@ elif [ "$ANALYSIS" == p ]; then
 	    read -n 1 -s
 	done
     fi
-    
+
 elif [ "$ANALYSIS" == b ]; then
     while true; do
 #======================================================== BLAST output
@@ -288,7 +292,7 @@ elif [ "$ANALYSIS" == b ]; then
 	echo "Extracted $(grep -c "^>" $_FA) fasta sequences based on the options you provided at an E-value of 10-$REP_"
 	read -n 1 -s
 
-    else 
+    else
 	exit
     fi
     done
