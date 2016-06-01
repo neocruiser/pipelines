@@ -64,7 +64,7 @@ _INDEX=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*sa")
 mkdir -p $mapped2 $_DIR
 
 ## __DONT CHANGE
-# index genome                
+# index genome
 if [ ! -f "$_INDEX" ]; then
     bwa index $_REF
 fi
@@ -88,12 +88,12 @@ done
     done
 done
 
-# merge all bams into 1 file for genome guided assembly 
+# merge all bams into 1 file for genome guided assembly
 samtools merge $_DIR/all.reads.sorted.bam $_DIR/*proper.bam
 samtools index $_DIR/all.reads.sorted.bam
 rm $_DIR/*proper.bam
 
-$home/trinityrnaseq-2.2.0/Trinity --genome_guided_bam $_DIR/all.reads.sorted.bam --genome_guided_max_intron 1000 --output $_DIR --CPU 32 --max_memory 200G
+$home/trinityrnaseq-2.2.0/Trinity --genome_guided_bam $_DIR/all.reads.sorted.bam --genome_guided_max_intron 1000 --output $_DIR --CPU 32 --max_memory 200G >& $home/trinity.guided.$pbs.log
 
 if [ -f "$_DIR/Trinity-GG.fasta" ]; then
     mv $_DIR/Trinity-GG.fasta $workdir
