@@ -155,9 +155,11 @@ function files () {
     local OUTPUT=$1
     local EXE=$2
     if [ "$EXE" == txt ]; then
-	find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl | tee blast.tmp
+        echo
+	      find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl | tee blast.tmp
     else
-	find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl | tee ips.tmp
+        echo
+	      find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl | tee ips.tmp
     fi
     echo
 }
@@ -179,17 +181,19 @@ FILE__PATH=$1
 if [ "$ANALYSIS" == s ]; then
 #===================== summary analysis, showcase all database entries
 #=====================================================================
-    files $FILE__PATH tsv
-    printf "Choose one annotated file from the list above (number) -> "
-    read _FN
-    FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' ips.tmp)
     while true; do
-	printf "Choose an E-value for an alignment score [e-0..35] -> "
-	read NUM
-	ZEROS=$(seq -s. "$(echo "$NUM+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
-	EVAL="0.${ZEROS}1"
-	echo "Below is the number of proteins annotated for each database at an E-value of $EVAL"
-	cat $FILENAME | sed 's/ /./g' | cut -f4,9 | awk -ve="$EVAL" '{if($2<=e)print$1}' | sort - | uniq -c | sort -n
+        files $FILE__PATH tsv
+        printf "1. Choose one annotated file from the list above (number) -> "
+        read _FN
+        FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' ips.tmp)
+        rm ips.tmp
+	      printf "2. Choose an E-value for an alignment score [e-0..35] -> "
+	      read NUM
+	      ZEROS=$(seq -s. "$(echo "$NUM+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
+	      EVAL="0.${ZEROS}1"
+	      echo "Below is the number of proteins annotated for each database at an E-value of $EVAL"
+	      cat $FILENAME | sed 's/ /./g' | cut -f4,9 | awk -ve="$EVAL" '{if($2<=e)print$1}' | sort - | uniq -c | sort -n
+        read -n 1 -s
     done
 
 elif [ "$ANALYSIS" == p ]; then
@@ -199,6 +203,7 @@ elif [ "$ANALYSIS" == p ]; then
     printf "1. Choose one PANTHER file from the list above (number) -> "
     read _FN
     FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' ips.tmp)
+    rm ips.tmp
     printf "2. Choose an acceptable alignment length [20..1000] -> "
     read ALIGNMENT
     printf "3. Choose an E-value for an alignment score [e-0..35] -> "
@@ -226,13 +231,14 @@ elif [ "$ANALYSIS" == p ]; then
     fi
 
 elif [ "$ANALYSIS" == b ]; then
-    while true; do
 #======================================================== BLAST output
 #=====================================================================
+    while true; do
     files $FILE__PATH txt
     printf "1. Choose one BLAST file from the list above (number) -> "
     read _FN
     FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' blast.tmp)
+    rm blast.tmp
     printf "2. Choose an E-value for an alignment score [e-0..35] -> "
     read REP_
 ## create a correct e-value number by repeating zeros
