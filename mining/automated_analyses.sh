@@ -50,7 +50,7 @@ function extra () {
 	cat $VAR1 | sort -k2 - | cut -f6 | egrep -o "0_.*:" | sed -e 's/0_//g' -e 's/://g' | sort - | uniq -c | sort -nrk1 > $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
     elif [ "$VAR2" == 3 ]; then
 ## select protein function column
-	cat $VAR1 | cut -f9 | sort - | uniq -c | sort -nr > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
+	cat $VAR1 | cut -f9 | sort - | uniq -c | sort -nr | sed 's/\./ /g' > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
     elif [ "$VAR2" == 4 ]; then
 ## get all entries
 	cp $VAR1 $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.txt
@@ -66,21 +66,21 @@ function guidelines () {
 	extra $tmp 1
 	echo
     elif [ "$CHOICE" == b ]; then
+	      extra $tmp 2
         _LN=$(grep -c "^" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt)
         _PN=$(head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt | grep -c "^")
 	echo -e "\nHere is $_PN of the $_LN most abundant species found by aligning your proteins to 13GB of PANTHER sequences:\nwait ..."
-	extra $tmp 2
 	cat $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt | column -t | less
 	head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
 	echo -e "\nI also put the distribution of all other species in:" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
 	echo
     elif [ "$CHOICE" == c ]; then
+	      extra $tmp 3
         _LN=$(grep -c "^" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt)
         _PN=$(head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | grep -c "^")
 	echo -e "\nHere is $_PN of the $_LN most abundant protein functions found among the queried sequences in PANTHER:\nwait ..."
-	extra $tmp 3
-	cat $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | column -t | less
-	head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
+	cat $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | sed 's/\./ /g' | less
+	head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | sed 's/\./ /g'
 	echo -e "\nI also put the full list in:" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
 	echo
     elif [ "$CHOICE" == d ]; then
