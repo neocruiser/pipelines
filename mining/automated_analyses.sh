@@ -30,13 +30,20 @@ function summary () {
     local VAR1=$1
     local VAR2=$2
     local VAR3=$3
-    local VAR4=$4
     local __out=$VAR3.$VAR1.10-$VAR2.tmp
 ## create a correct e-value number by repeating zeros
     ZEROS=$(seq -s. "$(echo "${VAR2}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
     local VARe="0.${ZEROS}1"
+## path to panther database
+    if [ "$4" == "bridges" ]; then
+        VAR4=/pylon2/oc4ifip/bassim/db/panther
+    elif [ "$4" == "lired" ]; then
+        VAR4=/gpfs/scratch/ballam/db/panther
+    else
+        VAR4="$4"
+    fi
 ## select panther only proteins by evalue and alignment length
-    awk 'NR==FNR {h[$3] = sprintf ("%s\t%s\t%s\t%s\t%s\t",$1,$3,$4,$5,$6); next} {print h[$2],$0}' <(cat $VAR3 | sed 's/ /./g' | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" -) <(grep -RFwf <(cat $VAR3 | sed 's/ /./g' | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" - | cut -f3) $VAR4/panther) | sed 's/ /./g' | sort -k2 - > $__out
+    awk 'NR==FNR {h[$3] = sprintf ("%s\t%s\t%s\t%s\t%s\t",$1,$3,$4,$5,$6); next} {print h[$2],$0}' <(cat $VAR3 | sed 's/ /./g' | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" -) <(grep -RFwf <(cat $VAR3 | sed 's/ /./g' | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" - | cut -f3) $VAR4) | sed 's/ /./g' | sort -k2 - > $__out
 }
 
 function extra () {
@@ -194,7 +201,7 @@ elif [ "$ANALYSIS" == p ]; then
     read ALIGNMENT
     printf "3. Choose an E-value for an alignment score [e-0..35] -> "
     read EVAL
-    printf "4. Give the path of a PANTHER database -> "
+    printf "4. Choose a PANTHER database (bridges|lired|...) -> "
     read DB
 
     COUNTS=$(grep -c "^" $FILENAME)
