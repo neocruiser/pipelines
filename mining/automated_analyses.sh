@@ -155,9 +155,9 @@ function files () {
     local OUTPUT=$1
     local EXE=$2
     if [ "$EXE" == txt ]; then
-	find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl
+	find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl | tee blast.tmp
     else
-	find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl
+	find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl | tee ips.tmp
     fi
     echo
 }
@@ -180,8 +180,9 @@ if [ "$ANALYSIS" == s ]; then
 #===================== summary analysis, showcase all database entries
 #=====================================================================
     files $FILE__PATH tsv
-    printf "Give one path and file name from the tsv list above -> "
-    read FILENAME
+    printf "Choose one annotated file from the list above (number) -> "
+    read _FN
+    FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' ips.tmp)
     while true; do
 	printf "Choose an E-value for an alignment score [e-0..35] -> "
 	read NUM
@@ -195,8 +196,9 @@ elif [ "$ANALYSIS" == p ]; then
 #==================================== analysis on panther output files
 #=====================================================================
     files $FILE__PATH tsv
-    printf "1. Give one path and PANTHER file name from the tsv list above -> "
-    read FILENAME
+    printf "1. Choose one PANTHER file from the list above (number) -> "
+    read _FN
+    FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' ips.tmp)
     printf "2. Choose an acceptable alignment length [20..1000] -> "
     read ALIGNMENT
     printf "3. Choose an E-value for an alignment score [e-0..35] -> "
@@ -228,8 +230,9 @@ elif [ "$ANALYSIS" == b ]; then
 #======================================================== BLAST output
 #=====================================================================
     files $FILE__PATH txt
-    printf "1. Give one path and BLAST file name from the txt list above -> "
-    read FILENAME
+    printf "1. Choose one BLAST file from the list above (number) -> "
+    read _FN
+    FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' blast.tmp)
     printf "2. Choose an E-value for an alignment score [e-0..35] -> "
     read REP_
 ## create a correct e-value number by repeating zeros
