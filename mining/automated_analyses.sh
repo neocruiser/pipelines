@@ -310,7 +310,7 @@ elif [ "$ANALYSIS" == b ]; then
 	  echo "Wait ..."
 	  _FA=$(dirname $TRANSCRIPTOME)/matching.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
 	  cat $TRANSCRIPTOME | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq) - > $_FA
-	  echo "Extracted $(grep -c "^>" $_FA) fasta sequences based on the options you provided at an E-value of 10-$REP_"
+	  echo "Extracted $(grep -c "^>" $_FA) from $(grep -c "^>" $TRANSCRIPTOME) fasta sequences based on the options you provided at an E-value of 10-$REP_"
 	  read -n 1 -s
 
 
@@ -329,7 +329,7 @@ elif [ "$ANALYSIS" == b ]; then
 
 	  _FA=$(dirname $TRANSCRIPTOME)/nonmatching.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
     cat $TRANSCRIPTOME  | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(comm -13 <(grep "^>" <(cat $TRANSCRIPTOME | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq) -) | sort -) <(grep "^>" $TRANSCRIPTOME | cut -f1 -d ' ' | sort -) | sed 's/>//g') - > $_FA
-	  echo "Extracted $(grep -c "^>" $_FA) fasta sequences based on the options you provided at an E-value of 10-$REP_"
+	  echo "Extracted $(grep -c "^>" $_FA) from $(grep -c "^>" $TRANSCRIPTOME) fasta sequences based on the options you provided at an E-value of 10-$REP_"
 	  read -n 1 -s
 
 
