@@ -253,7 +253,7 @@ elif [ "$ANALYSIS" == b ]; then
     echo -e "\n--------------------------------------------------------------"
     echo "a. Count sequences based on length, eval, identity, mismatches..."
     echo "b. Extract fasta sequences from QUALITY blast"
-    echo "c. Extract fasta sequences that do not match the quality blast alignment"
+    echo "c. Extract fasta sequences that do NOT match the quality blast alignment"
     echo "d. Do nothing and exit"
     echo
     printf "Input only one of the above letters -> "
