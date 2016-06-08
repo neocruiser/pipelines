@@ -1,13 +1,13 @@
 #!/bin/bash
-#PBS -l nodes=2:ppn=16,walltime=10:00:00
+#PBS -l nodes=1:ppn=16,walltime=00:10:00
 #PBS -N diamond
 #PBS -j oe
-#PBS -q long
+#PBS -q debug
 #PBS -M sleiman.bassim@stonybrook.edu
 #PBS -m abe
 #PBS -V
 
-## (1) index any nucleotide fasta file first with diamond makedb
+## (1) index any protein fasta file first with diamond makedb
 ## (2) queries must be proteins, run transeq with -clean=yes
 
 # DONT CHANGE #
@@ -17,12 +17,13 @@ home=/gpfs/home/ballam
 pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
 
 # Files _CHANGE_
-db=martia
+db=pfam
 blast=blastx
 maxseq=10
 
 #project=$scratch/ganglia
-query=$(find $scratch -maxdepth 4 -name "Trinit*GG*prot*fa*" | egrep "para.*1")
+query=$(find $scratch -maxdepth 3 -name "raw.all.peptides.fa")
+#query=$(find $scratch -maxdepth 4 -name "Trinit*GG*prot*fasta" | egrep "para.*1")
 output=$query.$db.$blast.diamond.$pbs.txt
 tmp=$(dirname $query)/tmp_$pbs
 
