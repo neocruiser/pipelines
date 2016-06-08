@@ -157,6 +157,9 @@ function files () {
     if [ "$EXE" == txt ]; then
         echo
 	      find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl | tee blast.tmp
+    elif [ "$EXE" == fa ]; then
+        echo
+        find $(dirname $(dirname $FILENAME))  -maxdepth 2 -iname "*trinity*fa*" | nl | tee fasta.tmp
     else
         echo
 	      find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl | tee ips.tmp
@@ -261,11 +264,11 @@ elif [ "$ANALYSIS" == b ]; then
 ## blast categories found in any blast+ output
 	    s[2]="1. Query length [max-min] ->"
 	    s[4]="2. Target length [max-min] ->"
-	    s[10]="3. Bit Score [max-min] ->"
+	    s[10]="3. Bit Score [max-min] (Higher better) ->"
 	    s[11]="4. Alignment length [max-min] ->"
 	    s[12]="5. Percentage identity [max-min] ->"
 	    s[14]="6. Indentical nt [max-min] ->"
-	    s[15]="7. Mismatches [max-min] ->"
+	    s[15]="7. Mismatches [max-min] (Important) ->"
 ## show both [max and min] intervals for each blast category
 	    egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vg="$i" '{if($9<=e)print$g}' | sort - | uniq -c | sort -k2 -nr | awk -vf="${s[$i]}" 'NR==1{print f,$2"--"}END{print$2}' | sed 'N;s/\n//g'
 ## get the maximum range of each category
@@ -294,22 +297,23 @@ elif [ "$ANALYSIS" == b ]; then
 
 	elif [ "$CHOICE_BLAST" == b ]; then
 ## extract fasta based on quality sequences
-	find $(dirname $(dirname $FILENAME))  -maxdepth 2 -iname "*trinity*fa*" | nl
-	echo
-	printf "1. Provide path and filename of transcriptome -> "
-	read TRANSCRIPTOME
-	echo -e "\nQuery length, target length, bit score, align length, % identity, identical, mismatches"
-	printf "2. Input 7 scores for sequence quality filtering (space separated) -> "
-	IFS=" "
-	read _Q _T _B _A _P _I _M
-	echo "Wait ..."
-	_FA=$(dirname $TRANSCRIPTOME)/selected.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
-	cat $TRANSCRIPTOME | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq) - > $_FA
-	echo "Extracted $(grep -c "^>" $_FA) fasta sequences based on the options you provided at an E-value of 10-$REP_"
-	read -n 1 -s
+    files $FILE__PATH fa
+    printf "1. Choose TRANSCRIPTOME (number) -> "
+    read _FN
+    TRANSCRIPTOME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' fasta.tmp)
+    rm fasta.tmp
+	  echo -e "\nQuery length, target length, bit score, align length, % identity, identical, mismatches"
+	  printf "2. Input 7 scores for sequence quality filtering (space separated) -> "
+	  IFS=" "
+	  read _Q _T _B _A _P _I _M
+	  echo "Wait ..."
+	  _FA=$(dirname $TRANSCRIPTOME)/selected.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
+	  cat $TRANSCRIPTOME | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq) - > $_FA
+	  echo "Extracted $(grep -c "^>" $_FA) fasta sequences based on the options you provided at an E-value of 10-$REP_"
+	  read -n 1 -s
 
     else
-	exit
+	      exit
     fi
     done
 ## from blast of STRING
