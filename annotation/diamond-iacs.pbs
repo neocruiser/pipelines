@@ -1,11 +1,14 @@
 #!/bin/bash
-#PBS -l nodes=8:ppn=16,walltime=4:00:00
-#PBS -N diam.pfam.bx
+#PBS -l nodes=2:ppn=16,walltime=10:00:00
+#PBS -N diamond
 #PBS -j oe
 #PBS -q long
 #PBS -M sleiman.bassim@stonybrook.edu
 #PBS -m abe
 #PBS -V
+
+## (1) index any nucleotide fasta file first with diamond makedb
+## (2) queries must be proteins, run transeq with -clean=yes
 
 # DONT CHANGE #
 ###############
@@ -14,15 +17,14 @@ home=/gpfs/home/ballam
 pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
 
 # Files _CHANGE_
-db=pfam
+db=martia
 blast=blastx
 maxseq=10
 
-project=$scratch/ganglia
-query=$project/assembled/raw.all.rscf.contigs.fa
-file=raw.all.rscf
-output=$project/blast/$file.$db.$blast.diamond.$pbs.txt
-tmp=$project/blast/tmp_$pbs
+#project=$scratch/ganglia
+query=$(find $scratch -maxdepth 4 -name "Trinit*GG*prot*fa*" | egrep "para.*1")
+output=$query.$db.$blast.diamond.$pbs.txt
+tmp=$(dirname $query)/tmp_$pbs
 
 mkdir -p $tmp
 
@@ -38,7 +40,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.$pbs.time
 
 cd $scratch/db/$db
 
-$diamond $blast -d $db -q $query -a $output -t $tmp -k $maxseq
+$diamond $blast -d $db -q $query -a $output -t $tmp -k $maxseq -f tab
 rm -r $tmp
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.$pbs.time
