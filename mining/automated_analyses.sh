@@ -252,8 +252,9 @@ elif [ "$ANALYSIS" == b ]; then
 
     echo -e "\n--------------------------------------------------------------"
     echo "a. Count sequences based on length, eval, identity, mismatches..."
-    echo "b. Extract a fasta file for QUALITY sequences"
-    echo "c. Do nothing and exit"
+    echo "b. Extract fasta sequences from QUALITY blast"
+    echo "c. Extract fasta sequences that do not match the quality blast alignment"
+    echo "d. Do nothing and exit"
     echo
     printf "Input only one of the above letters -> "
     read CHOICE_BLAST
@@ -307,10 +308,30 @@ elif [ "$ANALYSIS" == b ]; then
 	  IFS=" "
 	  read _Q _T _B _A _P _I _M
 	  echo "Wait ..."
-	  _FA=$(dirname $TRANSCRIPTOME)/selected.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
+	  _FA=$(dirname $TRANSCRIPTOME)/matching.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
 	  cat $TRANSCRIPTOME | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq) - > $_FA
 	  echo "Extracted $(grep -c "^>" $_FA) fasta sequences based on the options you provided at an E-value of 10-$REP_"
 	  read -n 1 -s
+
+
+    elif [ "$CHOICE_BLAST" == c ]; then
+## extract fasta that did not align by blast
+    files $FILE__PATH fa
+    printf "1. Choose TRANSCRIPTOME (number) -> "
+    read _FN
+    TRANSCRIPTOME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' fasta.tmp)
+    rm fasta.tmp
+	  echo -e "\nQuery length, target length, bit score, align length, % identity, identical, mismatches"
+	  printf "2. Input 7 scores for sequence quality filtering (space separated) -> "
+	  IFS=" "
+	  read _Q _T _B _A _P _I _M
+	  echo "Wait ..."
+
+	  _FA=$(dirname $TRANSCRIPTOME)/nonmatching.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
+    cat $TRANSCRIPTOME  | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(comm -13 <(grep "^>" <(cat $TRANSCRIPTOME | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq) -) | sort -) <(grep "^>" $TRANSCRIPTOME | cut -f1 -d ' ' | sort -) | sed 's/>//g') - > $_FA
+	  echo "Extracted $(grep -c "^>" $_FA) fasta sequences based on the options you provided at an E-value of 10-$REP_"
+	  read -n 1 -s
+
 
     else
 	      exit
@@ -323,3 +344,4 @@ fi
 
 
 
+#cat $transcriptome  | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(comm -13 <(grep "^>" $selected | sort -) <(grep "^>" $transcriptome | cut -f1 -d ' ' | sort -) | sed 's/>//g') - > $output
