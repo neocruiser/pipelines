@@ -1,28 +1,35 @@
 #!/bin/bash
-#PBS -q normal
-#PBS -l nodes=1:ppn=16:native
-#PBS -l walltime=02:00:00
-#PBS -N fastqc.out
-#PBS -e fastqc.err
-#PBS -A sun108
+#PBS -l nodes=1:ppn=16,walltime=04:00:00
+#PBS -N fastqc
+#PBS -j oe
+#PBS -q debug
 #PBS -M sleiman.bassim@stonybrook.edu
 #PBS -m abe
 #PBS -V
 
-#export PATH="$PATH:/home/silo/blast/bin"
-#export BLASTDB="/oasis/projects/nsf/sun108/bassem/db/string"
+# DONT CHANGE #
+###############
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
+reads=$scratch/ganglia/raw.reads
+output=$scratch/ganglia/qc
 
-oasis=/oasis/projects/nsf/sun108/
+mkdir -p $output
 
+fastqc=$home/FastQC/fastqc
 
-for i in {1..24}
-do
-    for j in 1 2
-    do
+for s in br gg; do
+    for i in {1..24}; do
+        for j in {1..2}; do
 
-zcat ${oasis}/silo/data/ganglia/gg.${i}.R${j}.fastq.gz | \
-fastqc/fastqc ${oasis}/silo/data/ganglia/gg.${i}.R${j}.fastq.gz \
---outdir=${oasis}/silo/ganglia/fastqc/
+zcat $reads/$s/$s.$i.R$j.fastq.gz | $fastqc $reads/$s/$s.$i.R$j.fastq.gz --outdir=$output
 
+        done
+    done
 done
-done
+
+
+cd $output
+source activate bassim
+multiqc .
