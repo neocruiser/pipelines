@@ -117,6 +117,7 @@ function guidelines () {
 }
 
 
+## TESTING (ongoing preogress)
 function extractFasta () {
 ##panther output
     if [ -f $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.txt ]; then
