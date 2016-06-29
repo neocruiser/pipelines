@@ -20,7 +20,7 @@ mkdir -p $tmp
 p=4
 c=2
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
-file=deg*/DESeq2.eXpress.tissue.p$p.c$c*
+file=deg.eX*/DESeq2.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 output=$_DIR/networks
 mkdir -p $output
@@ -30,7 +30,7 @@ jobid=$SLURM_JOBID.ips
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
-cp $log .
+cp $log $output
 
 R CMD BATCH $home/scripts/weighted.nets.R
 

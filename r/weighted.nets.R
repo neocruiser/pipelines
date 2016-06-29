@@ -3,7 +3,8 @@ lapply(pkgs, require, character.only = TRUE)
 
 
 #load data
-counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
+counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
+#counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
 #create similarity matrix
 cordist <- function(dat) {
     cor_matrix  <- cor(t(dat))
@@ -133,5 +134,5 @@ export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
     return(g)
 }
 #extract network
-g <- export_network_to_graphml(adj_matrix, filename='./data/network.graphml',
+g <- export_network_to_graphml(adj_matrix, filename='./network.graphml',
                                threshold=0.4, nodeAttrDataFrame=NULL)
