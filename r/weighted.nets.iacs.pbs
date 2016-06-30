@@ -1,0 +1,40 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=16,walltime=01:00:00
+#PBS -N networks
+#PBS -q short
+#PBS -V
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -j oe
+#PBS -m abe
+
+# IACS directories
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+
+# Files _CHANGE_
+p=4
+c=2
+_P=4
+_DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
+file=DESeq2.eXpress.tissue.p$p.c$c*
+log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
+output=$_DIR/networks
+mkdir -p $output
+
+time=$home/time
+jobid=$pbs.ips
+start=$(date); echo "Job started at: $start" > $time/$jobid.time
+
+cd $output
+cp $log $output
+
+R CMD BATCH $home/scripts2016/weighted.nets.R
+
+if [ -f network.graphml ]; then
+    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.$pbs.graphml
+    rm weighted.nets.Rout
+done
+
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
+
