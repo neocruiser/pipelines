@@ -1,10 +1,11 @@
-pkgs <- c('limma','reshape2','gplots', 'WGCNA')
+pkgs <- c('limma','reshape2','gplots','WGCNA')
 lapply(pkgs, require, character.only = TRUE)
 
 
 #load data
-counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
-#counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
+#counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
+counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
+allowWGCNAThreads()
 #create similarity matrix
 cordist <- function(dat) {
     cor_matrix  <- cor(t(dat))
@@ -17,10 +18,10 @@ cordist <- function(dat) {
 }
 sim_matrix <- cordist(counts)
 #Convert similarity matrix to adjacency matrix.
-allowWGCNAThreads()
-adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=12, type='signed')
+adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=2, type='signed')
 rm(sim_matrix)
 gc()
+## gene ids are Trinity IDs
 gene_ids <- rownames(adj_matrix)
 adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
 rownames(adj_matrix) <- gene_ids
@@ -30,7 +31,7 @@ gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
 gc()
 module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=15,deepSplit=TRUE)
 module_colors <- labels2colors(module_labels)
-disableWGCNAThreads()
+
 # function
 export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
                                        threshold=0.5, max_edge_ratio=3,
@@ -136,3 +137,5 @@ export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
 #extract network
 g <- export_network_to_graphml(adj_matrix, filename='./network.graphml',
                                threshold=0.4, nodeAttrDataFrame=NULL)
+
+disableWGCNAThreads()
