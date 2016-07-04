@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=01:00:00
+#PBS -l nodes=1:ppn=16,walltime=00:20:00
 #PBS -N networks
 #PBS -q short
 #PBS -V
@@ -15,7 +15,9 @@ pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 # Files _CHANGE_
 p=4
 c=2
-_P=4
+_P=10
+_M=15
+_COR=average
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
 file=DESeq2.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
@@ -28,13 +30,14 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
 cp $log $output
+cp $_DIR/contigs*p$p.c$c*id2description.txt $output
 
 R CMD BATCH $home/scripts2016/weighted.nets.R
 
 if [ -f network.graphml ]; then
-    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.$pbs.graphml
+    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.MOD$_M.COR$_COR.$pbs.graphml
     rm weighted.nets.Rout
-done
+fi
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 

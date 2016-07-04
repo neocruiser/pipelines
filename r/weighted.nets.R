@@ -1,7 +1,8 @@
 pkgs <- c('limma','reshape2','gplots','WGCNA')
 lapply(pkgs, require, character.only = TRUE)
 
-
+pow <- 10
+min.mods <- 15
 #load data
 #counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
 counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
@@ -18,7 +19,7 @@ cordist <- function(dat) {
 }
 sim_matrix <- cordist(counts)
 #Convert similarity matrix to adjacency matrix.
-adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=2, type='signed')
+adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=pow, type='signed')
 rm(sim_matrix)
 gc()
 ## gene ids are Trinity IDs
@@ -27,11 +28,25 @@ adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
 rownames(adj_matrix) <- gene_ids
 colnames(adj_matrix) <- gene_ids
 #Detect co-expression modules
+#gene_tree <- hclust(as.dist(1-cor(t(adj_matrix), method="pearson")), method="complete")
 gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
 gc()
-module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=15,deepSplit=TRUE)
+module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=min.mods,deepSplit=TRUE)
 module_colors <- labels2colors(module_labels)
+## get gene description from annotation tsv files
+gene_info <- data.frame(id = gene_ids, modules=module_colors)
+gene_info$color_rgb<- col2hex(gene_info$modules)
+#cat contigs.deseq2.p4.c2.prot.fa.tsv | sed 's/ /./g' | cut -f1,9,13 | awk '{if($2<=0.00001)print$1,$3}' | sed 's/_. / /g' | sort - | uniq -u | wc -l
+annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = NA)
+dim(annotations)
+dim(gene_info)
 
+df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
+df <- df[!duplicated(df$id),]
+dim(df)
+colnames(df) <- c('gene_id','modules','colors_rgb','description')
+df$description <- as.character(df$description)
+head(df)
 # function
 export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
                                        threshold=0.5, max_edge_ratio=3,
@@ -136,6 +151,7 @@ export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
 }
 #extract network
 g <- export_network_to_graphml(adj_matrix, filename='./network.graphml',
-                               threshold=0.4, nodeAttrDataFrame=NULL)
+                               threshold=0.4, nodeAttrDataFrame=df)
 
 disableWGCNAThreads()
+gc()
