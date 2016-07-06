@@ -15,9 +15,8 @@ pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 # Files _CHANGE_
 p=4
 c=2
-_P=10
-_M=15
-_COR=average
+_P=6
+_COR=pearson.average
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
 file=DESeq2.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
@@ -35,7 +34,7 @@ cp $_DIR/contigs*p$p.c$c*id2description.txt $output
 R CMD BATCH $home/scripts2016/weighted.nets.R
 
 if [ -f network.graphml ]; then
-    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.MOD$_M.COR$_COR.$pbs.graphml
+    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.COR$_COR.$pbs.graphml
     rm weighted.nets.Rout
 fi
 

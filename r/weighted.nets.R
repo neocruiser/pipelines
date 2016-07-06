@@ -1,8 +1,7 @@
 pkgs <- c('limma','reshape2','gplots','WGCNA')
 lapply(pkgs, require, character.only = TRUE)
 
-pow <- 10
-min.mods <- 15
+pow <- 6
 #load data
 #counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
 counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
@@ -27,16 +26,52 @@ gene_ids <- rownames(adj_matrix)
 adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
 rownames(adj_matrix) <- gene_ids
 colnames(adj_matrix) <- gene_ids
-#Detect co-expression modules
-#gene_tree <- hclust(as.dist(1-cor(t(adj_matrix), method="pearson")), method="complete")
-gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
-gc()
-module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=min.mods,deepSplit=TRUE)
+
+
+## Detect co-expression modules
+## Hierarchical clustering first
+gene_tree <- hclust(as.dist(1-cor(t(adj_matrix),
+                                  method="pearson")),
+                    method="average")
+#gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
+
+
+## create only a dendrogram from cluster visualization
+dend <- as.dendrogram(hclust(as.dist(1-cor(t(adj_matrix),
+                                           method="pearson")),
+                             method="average"))
+#x11(); plot(dend);gc()
+
+## Get the number of clusters (modules) and the number of genes per cluster
+d <- NULL
+imax=200
+for ( i in seq(15,imax,10) ) {
+    module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=i,
+                                       deepSplit=TRUE)
+    d <- rbind(d, data.frame(genes = i, modules = summary(module_labels)[[6]]))
+}
+## The mean of the number of clusters will be used to cut the dendrogram
+min.mods <- apply(d, 2, function(x) mean(x))
+fm <- floor(min.mods[[1]])
+fm <- floor(((imax-fm)/2) + fm)
+module_labels <- cutreeDynamicTree(dendro=gene_tree,
+                                   minModuleSize=fm,
+                                   deepSplit=TRUE)
+pdf("minimum.module.sizes.pdf")
+plot(d, main = paste("Module (cluster) size selected = ", fm, sep=""))
+abline(lm(d$modules ~ d$genes), col="red")
+lines(lowess(d$genes,d$modules), col="blue")
+dev.off()
+
 module_colors <- labels2colors(module_labels)
-## get gene description from annotation tsv files
 gene_info <- data.frame(id = gene_ids, modules=module_colors)
 gene_info$color_rgb<- col2hex(gene_info$modules)
+
+
 #cat contigs.deseq2.p4.c2.prot.fa.tsv | sed 's/ /./g' | cut -f1,9,13 | awk '{if($2<=0.00001)print$1,$3}' | sed 's/_. / /g' | sort - | uniq -u | wc -l
+
+
+### Merge annotated contigs with coexpressed modules
 annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = NA)
 dim(annotations)
 dim(gene_info)
@@ -47,7 +82,9 @@ dim(df)
 colnames(df) <- c('gene_id','modules','colors_rgb','description')
 df$description <- as.character(df$description)
 head(df)
-# function
+
+
+# Export network into file
 export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
                                        threshold=0.5, max_edge_ratio=3,
                                        nodeAttr=NULL, nodeAttrDataFrame=NULL,
