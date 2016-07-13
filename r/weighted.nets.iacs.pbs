@@ -15,7 +15,8 @@ pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 # Files _CHANGE_
 p=4
 c=2
-_P=6
+_P=10
+_T=01
 _COR=pearson.average
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
 file=DESeq2.eXpress.tissue.p$p.c$c*
@@ -24,7 +25,7 @@ output=$_DIR/networks
 mkdir -p $output
 
 time=$home/time
-jobid=$pbs.ips
+jobid=$pbs.R.networks
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
@@ -34,7 +35,7 @@ cp $_DIR/contigs*p$p.c$c*id2description.txt $output
 R CMD BATCH $home/scripts2016/weighted.nets.R
 
 if [ -f network.graphml ]; then
-    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.COR$_COR.$pbs.graphml
+    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.COR$_COR.Th$_T.$pbs.graphml
     rm weighted.nets.Rout
 fi
 
