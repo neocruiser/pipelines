@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -p RM
-#SBATCH -t 00:45:00
+#SBATCH -t 02:00:00
 #SBATCH --job-name="R.nets"
 #SBATCH --output="R.nets.out"
 #SBATCH --mail-type=ALL
@@ -19,13 +19,13 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 # Files _CHANGE_
 p=4
 c=2
-_P=10
-_T=05
+#_P=6
+#_T=01
 _COR=pearson.average
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
 file=deg.eXpress*/DESeq2.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
-output=$_DIR/networks
+output=$_DIR/networks/$SLURM_JOBID
 mkdir -p $output
 
 time=$home/time
@@ -35,12 +35,14 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 cd $output
 cp $log $output
 cp $_DIR/contigs*p$p.c$c*id2description.txt $output
+cp $home/script*/convertMatrix2graph.R $output
+
 
 R CMD BATCH $home/script*/weighted.nets.R
 
-if [ -f network.graphml ]; then
-    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.COR$_COR.Th$_T.$pbs.graphml
-    rm weighted.nets.Rout
-fi
+#if [ -f network.graphml ]; then
+#    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.COR$_COR.Th$_T.$SLURM_JOBID.graphm#l
+#    rm weighted.nets.Rout
+#fi
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
