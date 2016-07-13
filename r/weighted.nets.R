@@ -1,7 +1,8 @@
-pkgs <- c('limma','reshape2','gplots','WGCNA')
+pkgs <- c('limma','reshape2','gplots','WGCNA','dplyr','igraph')
 lapply(pkgs, require, character.only = TRUE)
 
-pow <- 6
+pow <- 10
+th <- 0.5
 #load data
 #counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
 counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
@@ -53,7 +54,8 @@ for ( i in seq(15,imax,10) ) {
 ## The mean of the number of clusters will be used to cut the dendrogram
 min.mods <- apply(d, 2, function(x) mean(x))
 fm <- floor(min.mods[[1]])
-fm <- floor(((imax-fm)/2) + fm)
+fm <- floor(((imax-fm)/1.5) + fm)
+fm
 module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                    minModuleSize=fm,
                                    deepSplit=TRUE)
@@ -72,9 +74,10 @@ gene_info$color_rgb<- col2hex(gene_info$modules)
 
 
 ### Merge annotated contigs with coexpressed modules
-annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = NA)
-dim(annotations)
 dim(gene_info)
+annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = TRUE, na.strings = c("", "NA")) %>% na.omit()
+tbl_df(annotations)
+annotations <- annotations[!duplicated(annotations[,1]), ]
 
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
 df <- df[!duplicated(df$id),]
@@ -89,7 +92,6 @@ export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
                                        threshold=0.5, max_edge_ratio=3,
                                        nodeAttr=NULL, nodeAttrDataFrame=NULL,
                                        edgeAttributes=NULL, verbose=FALSE) {
-    library('igraph')
 
     # Determine filename to use
     if (is.null(filename)) {
@@ -188,7 +190,7 @@ export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
 }
 #extract network
 g <- export_network_to_graphml(adj_matrix, filename='./network.graphml',
-                               threshold=0.4, nodeAttrDataFrame=df)
+                               threshold=th, nodeAttrDataFrame=df)
 
 disableWGCNAThreads()
 gc()
