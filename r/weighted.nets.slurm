@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -p RM
-#SBATCH -t 02:00:00
+#SBATCH -t 01:00:00
 #SBATCH --job-name="R.nets"
 #SBATCH --output="R.nets.out"
 #SBATCH --mail-type=ALL

@@ -1,6 +1,6 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(2, 12, 1)
-th <- seq(.1, 1, .1)
+pow <- seq(5, 12, 1)
+th <- seq(.1, .6, .1)
 
 #################
 ### RUN CODE ####
@@ -26,11 +26,21 @@ cordist <- function(dat) {
 }
 sim_matrix <- cordist(counts)
 
+pdf("similarity.matrix.sample.heatmap.R")
+heatmap_indices <- sample(nrow(sim_matrix), 500)
+heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
+            col=redgreen(75),
+            labRow=NA, labCol=NA, 
+            trace='none', dendrogram='row',
+            xlab='Gene', ylab='Gene',
+            main='Similarity matrix',
+            density.info='none', revC=TRUE)
+dev.off()
+
 for(p in pow) {
 
 #Convert similarity matrix to adjacency matrix.
 adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=p, type='signed')
-rm(sim_matrix)
 gc()
 ## gene ids are Trinity IDs
 gene_ids <- rownames(adj_matrix)
@@ -38,6 +48,15 @@ adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
 rownames(adj_matrix) <- gene_ids
 colnames(adj_matrix) <- gene_ids
 
+    pdf("adjacency.matrix.heatmap.pdf")
+    heatmap.2(t(adj_matrix[heatmap_indices, heatmap_indices]),
+              col=redgreen(75),
+              labRow = =NA, labCol=NA, 
+              trace='none', dendrogram='row',
+              xlab='Gene', ylab='Gene',
+              main='Adjacency matrix',
+              density.info='none', revC=TRUE)
+    dev.off()
 
 ## Detect co-expression modules
 ## Hierarchical clustering first
@@ -63,8 +82,10 @@ for ( i in seq(15,imax,10) ) {
 }
 ## The mean of the number of clusters will be used to cut the dendrogram
 min.mods <- apply(d, 2, function(x) mean(x))
-fm <- floor(min.mods[[1]])
-fm <- floor(((imax-fm)/1.5) + fm)
+    # change the number of genes per cluster
+    for ( f in c(1, 2) ) {
+fm <- floor(min.mods[[f]])
+fm <- floor(((imax-fm)/2.5) + fm)
 fm
 module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                    minModuleSize=fm,
@@ -99,6 +120,7 @@ df$description <- as.character(df$description)
         g <- export_network_to_graphml(adj_matrix,
                                        filename = paste("network.PVAL4.FOLD2.POW",p,".Th",t,".GEN",fm,".graphml",sep = "" ),
                                        threshold=t, nodeAttrDataFrame=df)
+    }
     }
 }
 
