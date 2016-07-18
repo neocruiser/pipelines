@@ -51,7 +51,7 @@ colnames(adj_matrix) <- gene_ids
     pdf("adjacency.matrix.heatmap.pdf")
     heatmap.2(t(adj_matrix[heatmap_indices, heatmap_indices]),
               col=redgreen(75),
-              labRow = =NA, labCol=NA, 
+              labRow = NA, labCol=NA, 
               trace='none', dendrogram='row',
               xlab='Gene', ylab='Gene',
               main='Adjacency matrix',
@@ -106,9 +106,13 @@ gene_info$color_rgb<- col2hex(gene_info$modules)
 
 ### Merge annotated contigs with coexpressed modules
 dim(gene_info)
+# this simply removes annotated genes without a description content being found in any gene database.
+# however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
 annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = TRUE, na.strings = c("", "NA")) %>% na.omit()
 tbl_df(annotations)
+dim(annotations)
 annotations <- annotations[!duplicated(annotations[,1]), ]
+dim(annotations)
 
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
 df <- df[!duplicated(df$id),]
@@ -124,6 +128,6 @@ df$description <- as.character(df$description)
     }
 }
 
-
+save(file = "log.Rdata")
 disableWGCNAThreads()
 gc()
