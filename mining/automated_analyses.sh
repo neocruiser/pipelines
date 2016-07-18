@@ -43,6 +43,9 @@ function summary () {
         VAR4="$4"
     fi
 ## select panther only proteins by evalue and alignment length
+####
+####
+# There is a small issue with this code. It will only print 1 of 2 panther gene IDs. If 2 different contigs have the same panther ID, one will only be printed
     awk 'NR==FNR {h[$3] = sprintf ("%s\t%s\t%s\t%s\t%s\t",$1,$3,$4,$5,$6); next} {print h[$2],$0}' <(cat $VAR3 | sed 's/ /./g' | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" -) <(grep -RFwf <(cat $VAR3 | sed 's/ /./g' | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" - | cut -f3) $VAR4) | sed 's/ /./g' | sort -k2 - > $__out
 }
 
