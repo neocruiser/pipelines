@@ -1,0 +1,92 @@
+#+TITLE: RNA-seq packages
+#+AUTHOR: Sleiman Bassim, PhD
+#+DATE: Marine Animal Disease Laboratory @ SoMAS
+#+EMAIL: slei.bass@gmail.com
+
+#+STARTUP: content
+#+STARTUP: hidestars
+#+OPTIONS: toc:5 H:5 num:3
+#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline
+#+OPTIONS: author:t c:nil creator:comment d:(not LOGBOOK) date:t e:t
+#+OPTIONS: email:nil f:t inline:t num:t p:nil pri:nil stat:t tags:t
+#+OPTIONS: tasks:t tex:t timestamp:t toc:t todo:t |:t
+#+LANGUAGE: english
+#+LaTeX_HEADER: \usepackage[ttscale=.875]{libertine}
+#+LATEX_HEADER: \usepackage[T1]{fontenc}
+#+LaTeX_HEADER: \sectionfont{\normalfont\scshape}
+#+LaTeX_HEADER: \subsectionfont{\normalfont\itshape}
+#+LATEX_HEADER: \usepackage[innermargin=1.5cm,outermargin=1.25cm,vmargin=3cm]{geometry}
+#+LATEX_HEADER: \linespread{1}
+#+LATEX_HEADER: \setlength{\itemsep}{-30pt}
+#+LATEX_HEADER: \setlength{\parskip}{0pt}
+#+LATEX_HEADER: \setlength{\parsep}{-5pt}
+#+LATEX_HEADER: \usepackage[hyperref]{xcolor}
+#+LATEX_HEADER: \usepackage[colorlinks=true,urlcolor=SteelBlue4,linkcolor=Firebrick4]{hyperref}
+#+EXPORT_SELECT_TAGS: export
+#+EXPORT_EXCLUDE_TAGS: noexport
+#+KEYWORDS:
+
+
+* Sequence analysis
+1. Bowtie [[http://tophat.cbcb.umd.edu/][TopHat]] [[http://cufflinks.cbcb.umd.edu/][Cufflinks]] Cuffdiff (Align Annotate Compare DEG for sequenced genome)
+2. [[https://github.com/trinityrnaseq/trinityrnaseq/wiki][Trinity]] (and its [[https://groups.google.com/forum/#!forum/trinityrnaseq-users][Google Group]]) TransAbyss [[http://www.ebi.ac.uk/~zerbino/oases/][Oases]] (gene discovery on de novo transcriptome)
+3. [[http://sreeramkannan.github.io/Shannon/][Shannon]] for transcriptome assembly [[http://biorxiv.org/content/early/2016/02/09/039230][Kannan 2016]]
+4. RSEM IsoEM (DEF on de novo transcriptome)
+5. Aliners of reads to transriptome (tophat2 GSNAP SpliceMap Subread STAR) =uses reference transcriptome=
+6. SAMtools [[http://www.htslib.org/doc/samtools.html][HomePage]] [[http://www.htslib.org/doc/samtools.html][Documentation]]
+7. Count map reads [[http://www-huber.embl.de/users/anders/HTSeq/doc/overview.html][HTSeq]]
+8. [[http://genome.sph.umich.edu/wiki/Bam_read_count#Download][ReadCount]] reads in a bam file
+9. MEGA-CC (command line) and MEGA-PRO (GUI) -- [[http://megasoftware.net/MEGA7-CC-Quick-Start-Tutorial.pdf][Intro]]
+10. CLC Genomics =Xeon Desktop= [[http://www.clcsupport.com/clcgenomicsworkbench/current/index.php?manual%3DIntroduction_CLC_Genomics_Workbench.html][tutorial]]
+11. MG-RAST [[http://metagenomics.anl.gov/metagenomics.cgi?page%3DHome][homepage]]
+12. [[http://bioconductor.org/][Bioconductor]]
+13. Gene Ontology Packages: GOseq topGO GOstat Ontologizer DAVID ontoCAT([[http://www.ontocat.org/browser/trunk/ontoCAT/src/uk/ac/ebi/ontocat/examples/R/Example1.R][help]]) biomaRT
+14. Draft genome assemblers: Velvet Oasis ABySS SOAPdenovo (reads to contigs) or hybrid methods: celera MIRA ALLPATHS-LG
+15. Genome Finishing Tools: AHA SSPACE-LongRead (reduce contiguous assembled pair-ends) =scaffolding routine= [[http://www.biomedcentral.com/1471-2105/15/211][Boetzer 2014]]
+16. Proteogenomics (w/ circos and D3) [[http://qcmg.org/bioinformatics/PGTools][PGTools]]
+17. Integrated Genome Viewer [[https://www.broadinstitute.org/igv/][BroadInstitute]] [[http://www.broadinstitute.org/igv/projects/downloads/IGV_2.3.46.zip][IGV]]
+18. Burrows-Wheeler Aligner (BWA) [[http://sourceforge.net/projects/bio-bwa/files/][sourceforge.net]] or on [[https://github.com/lh3/bwa][github]]
+19. MAUVE [[http://genome.cshlp.org/content/14/7/1394.short][paper]] for genomic alignment & identification of recombination and horizontal transfer.
+20. QIIME for bacterial rna seq data processing [[http://qiime.org/][main site]]
+21. [[http://www.scfbm.org/content/10/1/8/abstract][PrimerView]] CPAN module for primer design on multiple sequences
+22. R and [[https://github.com/qinwf/awesome-R][awesomeR]] (summary of best used packages)
+23. Bpipe [[http://docs.bpipe.org/][documentation]]
+24. Emboss package for nucleotide seq analysis [[http://emboss.sourceforge.net/download/][(includes Transeq)]] for contig translation. Package includes [[http://emboss.sourceforge.net/apps/][a list of applications]]
+25. Reverse translate aligned peptides into DNA sequences [[http://www.cbs.dtu.dk/services/RevTrans-2.0/web/download.php][RevTrans]]
+26. Axel and aria2 alternatives for wget and curl [[http://www.cyberciti.biz/tips/download-accelerator-for-linux-command-line-tools.html][here]]
+27. Parallel computing in GNU [[http://figshare.com/articles/GNU_parallel_for_Bioinformatics_my_notebook/822138][here]]
+28. QIIME for DNA sequencing data of microbiome analysis [[http://qiime.org/][website]]
+29. [[http://www.genomebiology.com/2014/15/3/R46/abstract][Kraken]] for fast read classification for metganomics =taxonomy=
+30. List of sequence analysis [[https://en.wikipedia.org/wiki/List_of_sequence_alignment_software][packages]]
+31. [[https://www.gatb.fr/leon-read-compression/][Leon]] read compression of fastq/fasta files (up to 22 folds)
+32. [[http://hpcgridrunner.github.io/][HPC Gridrunner]] for high performance computing and job executing
+33. [[http://binf.snipcademy.com/tutorials/simulating-ngs-data/fastq/wgsim][WGSIM]] simulate fastq reads from a reference genome
+34. [[http://qualimap.bioinfo.cipf.es/][Qualimap]] for QC of aligned SAM/BAM seq data
+35. [[http://ascr-discovery.science.doe.gov/2015/11/assembling-a-flood/][HipMer]] genome annotation tool =in development= check availability in =Jan2016=
+36. [[https://github.com/NCBI-Hackathons][NCBI Hackaton]] and collection of of NGS tools and methods =hithub=
+37. [[http://biogps.org/#goto=welcome][BioGPS]] online free tool for gene annotation
+38. [[http://bioinf.uni-greifswald.de/bioinf/downloads/][BRAKER]] gene unsupervised annotation from bam and genome files [[http://bioinformatics.oxfordjournals.org/content/early/2015/11/11/bioinformatics.btv661.abstract][Hoff 2015]]
+39. [[https://github.com/Xinglab/rPGA][rPGA]] search for splice junctions from aligning reads to reference genome [[http://nar.oxfordjournals.org/content/early/2015/11/16/nar.gkv1099.long][Stein 2015]]
+40. [[http://www.iipl.fudan.edu.cn/lenseq/][LenSeq]] gene expression and gene length normalization
+41. [[http://www.ncbi.nlm.nih.gov/pmc/articles/PMC4670015/][Love 2015]]  =review= guideline for gene expression
+42. [[https://github.com/Reedwarbler/SpliceJumper][SpliceJumper]] to call splice junctions =machine learing= [[http://www.ncbi.nlm.nih.gov/pmc/articles/PMC4674845/][Chu 2015]]
+43. [[https://github.com/gengit/FRAMA][FRAMA]] structurally annotate mRNAs
+44. [[http://edge.readthedocs.org/en/latest/index.html][EDGE]] pipeline for fastq analysis (including metagenome analysis)
+45. Metagenome tools: FaQCs FastTree GOTTCHA IDBA_UD SPAdes JBrowse jsPhyloSVG [[http://ccb.jhu.edu/software/kraken/MANUAL.html#introduction][Kraken]] KronaTools MetaPhlAn MUMmer3 Phage_Finder PhaME Prokka RATT RAxML [[http://biorxiv.org/content/early/2016/02/21/040477.full-text.pdf+html][Li 2016]] [[http://www.nature.com/articles/srep19233][Lindgreend 2016]]
+46. [[http://www.sciencedirect.com/science/article/pii/S0378111915012378][V-GAP]] assembly pipeline for virus genomes
+47. [[https://sourceforge.net/projects/transcriptomeassembly/][BinPacker]] for transcriptome assembly [[http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004772][Liu 2016]]
+48. [[http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3441218/][Arapan-S]] small genome assembler that generate 1 scaffold
+49. [[http://www.bcgsc.ca/platform/bioinfo/software/ssake][SSAKE]] assembler for small genomes
+50. [[http://ab.inf.uni-tuebingen.de/data/software/megan5/download/welcome.html][MEGAN5]] metagenome analyzer [[http://ab.inf.uni-tuebingen.de/software/megan5/][homepage]]1
+51. [[http://ab.inf.uni-tuebingen.de/software/diamond/][DIAMOND]] fast alternative to BLASTX [[http://www.nature.com/nmeth/journal/v12/n1/full/nmeth.3176.html][Buchfink 2015]]
+52. [[http://www.rna-seqblog.com/trapline-a-standardized-and-automated-pipeline-for-rna-sequencing-data-analysis-evaluation-and-annotation/][TRAPLINE]] pipeline in galaxy for rna-seq to gene network analysis
+53. [[https://github.com/alexdobin/STAR/releases][STAR]] for read mapping to genomes [[http://link.springer.com/protocol/10.1007/978-1-4939-3572-7_13][Dobin 2016]] =human=
+54. [[http://ccb.jhu.edu/software/hisat2/index.shtml][HISAT2]] replaced TOPHAT for read mapping
+55. [[https://broadinstitute.github.io/picard/explain-flags.html][SAM flags]] explained
+56. [[http://bio-bwa.sourceforge.net/bwa.shtml][bwa settings]] explained
+57. [[http://www.htslib.org/doc/samtools.html][samtools settings]] explained
+58. [[http://nar.oxfordjournals.org/content/early/2016/06/07/nar.gkw501][JunctionSeq]] an alternative to DEXSeq for exonic and junction differential expression
+59. [[https://github.com/COMBINE-lab/RapMap][RapMap]] mapping reads to de novo transcriptome [[https://github.com/COMBINE-lab/RapMap][Patro 2016]]
+60. [[http://multiqc.info/][MultiQC]] compile all of FastQC output results into one HTML file [[http://bioinformatics.oxfordjournals.org/content/early/2016/06/23/bioinformatics.btw354][Ewels 2016]]
+61. [[https://github.com/rdpstaff/RDPTools][RDP classifier]] bayesian classifier for 16S rRNAs =github=
+62. [[http://baderlab.org/Software/EnrichmentMap][Enrichment maps]] for =Cytoscape= as plugin for GO-term clustering
