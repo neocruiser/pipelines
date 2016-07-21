@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=RM
 #SBATCH --nodes=1
-#SBATCH -t 00:30:00
+#SBATCH -t 01:00:00
 #SBATCH --job-name="diamond"
 #SBATCH --output="diamond.%j.%N.out"
 #SBATCH --mail-type=ALL
@@ -13,10 +13,11 @@ module load boost
 
 # Files _CHANGE_
 ## OPTIONS: Pfam-A nr
-db=Pfam-A
+db=nr
 blast=blastx
 maxseq=10
 transcriptome=00000
+index=graph.pow8.thd05.gen115
 
 # DONT CHANGE #
 ###############
@@ -24,11 +25,14 @@ scratch=/pylon2/oc4ifip/bassim
 home=/home/bassim
 pbs=$SLURM_JOBID
 project=$scratch/ganglia/trinity/trinity_out_dir_$transcriptome
-query=$project/Trinity.fasta
-output=$project/diamond/diamond.$db.$blast.$transcriptome.$pbs
+query=$project/$index.fa
+output=$project/diamond/diamond.$index.$db.$blast.$transcriptome.$pbs
 tmp=/dev/shm/tmp_$pbs
 
 mkdir -p $tmp $project/diamond
+
+## extract Fasta sequences from selected networks
+cat $project/Trinity.fasta | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$index.txt | cut -f13 | awk 'NR>1') - > $query
 
 # blast libraries
 #diamond=$home/diamond.0.7/diamond
