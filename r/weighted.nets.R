@@ -109,8 +109,6 @@ dim(gene_info)
 # this simply removes annotated genes without a description content being found in any gene database.
 # however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
 ### To make the annotation file, merge IPS output and Panther output
-# cat $annotation_tsv | sed 's/ /./g' | cut -f1,9,13 | awk '{if($2<=0.00001)print$1,$3}' | sed 's/_. / /g' | sort - | uniq -u | wc -l
-# paste <(awk '{print $4}' $panther.txt ) <(awk '{print $3}' $panther.txt ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq -u 
 raw.annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = TRUE, na.strings = c("", "NA")) %>% na.omit()
 tbl_df(raw.annotations)
 dim(raw.annotations)
