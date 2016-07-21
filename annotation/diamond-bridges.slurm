@@ -1,7 +1,8 @@
 #!/bin/bash
-#SBATCH --partition=RM
+#SBATCH --partition=LM
 #SBATCH --nodes=1
-#SBATCH -t 01:00:00
+#SBATCH --mem=3000GB
+#SBATCH -t 05:00:00
 #SBATCH --job-name="diamond"
 #SBATCH --output="diamond.%j.%N.out"
 #SBATCH --mail-type=ALL

@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=LM
 #SBATCH --nodes=1
+#SBATCH --mem=3000GB
 #SBATCH -t 24:00:00
 #SBATCH --job-name="trin98799"
 #SBATCH --output="trinity.%j.%N.out"
