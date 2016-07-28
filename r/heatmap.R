@@ -13,8 +13,14 @@ genre <- as.matrix(genre)
 
 
 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
-## adapted from source : http://tinyurl.com/lqs76tf
-source("http://faculty.ucr.edu/~tgirke/Documents/R_BioCond/My_R_Scripts/my.colorFct.R")
+# Color function to generate green-red heat maps
+my.colorFct <- function(n = 50, low.col = 0.45, high.col=1, saturation = 1) { 
+	if (n < 2) stop("n must be greater than 2")
+	n1 <- n%/%2
+	n2 <- n - n1
+	c(hsv(low.col, saturation, seq(1,0,length=n1)), hsv(high.col, saturation, seq(0,1,length=n2))) 
+}
+
 ## by sample
 rawdata <- t(genre)
 scaledata=t(scale(genre))
@@ -29,7 +35,6 @@ hca <- hclust(as.dist(1-cor(scaledata, method="spearman")), method="complete")
 heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=my.colorFct(), scale="row")
 
 ## CUT THE TREE
-source("http://faculty.ucr.edu/~tgirke/Documents/R_BioCond/My_R_Scripts/my.colorFct.R")
 mycl <- cutree(hra, h=max(hra$height)/2)
 mycolhc <- sample(rainbow(256))
 mycolhc <- mycolhc[as.vector(mycl)]
@@ -47,8 +52,23 @@ dev.off()
 
 ## RETRIEVE MEMBERS OF SIGNIFICANT CLUSTERS.
 clsig <- unlist(pvpick(pvData, alpha=0.95, pv="au", type="geq", max.only=TRUE)$clusters)
-source("http://faculty.ucr.edu/~tgirke/Documents/R_BioCond/My_R_Scripts/dendroCol.R") # Import tree coloring function.
+
+## Function to Color Dendrograms
+dendroCol <- function(dend=dend, keys=keys, xPar="edgePar", bgr="red", fgr="blue", pch=20, lwd=1, ...) {
+        if(is.leaf(dend)) {
+                myattr <- attributes(dend)
+                if(length(which(keys==myattr$label))==1){
+                	attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=fgr, col=fgr, pch=pch, lwd=lwd))
+                	# attr(dend, xPar) <- c(attr$edgePar, list(lab.col=fgr, col=fgr, pch=pch))
+                } else {
+                	attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=bgr, col=bgr, pch=pch, lwd=lwd))
+                }
+        }
+  return(dend)
+}
+
 dend_colored <- dendrapply(as.dendrogram(pvData$hclust), dendroCol, keys=clsig, xPar="edgePar", bgr="black", fgr="red", pch=20)
+# use xPar="nodePar" to color tree labels
 heatmap(rawdata, Rowv=dend_colored, Colv=as.dendrogram(hca), col=my.colorFct(), scale="row", RowSideColors=mycolhc)
 
 ## PLOT HEATMAP
