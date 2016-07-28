@@ -26,7 +26,7 @@ cordist <- function(dat) {
 }
 sim_matrix <- cordist(counts)
 
-pdf("similarity.matrix.sample.heatmap.R")
+pdf("similarity.matrix.sample.heatmap.pdf")
 heatmap_indices <- sample(nrow(sim_matrix), 500)
 heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
             col=redgreen(75),
@@ -82,10 +82,11 @@ for ( i in seq(15,imax,10) ) {
 }
 ## The mean of the number of clusters will be used to cut the dendrogram
 min.mods <- apply(d, 2, function(x) mean(x))
-    # change the number of genes per cluster
-    for ( f in c(1, 2) ) {
-fm <- floor(min.mods[[f]])
-fm <- floor(((imax-fm)/2.5) + fm)
+# change the number of genes per cluster
+    for ( fm in c(50, 100) ) {
+#    for ( f in c(1, 2) ) {        
+#fm <- floor(min.mods[[f]])
+#fm <- floor(((imax-fm)/2.5) + fm)
 fm
 module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                    minModuleSize=fm,
