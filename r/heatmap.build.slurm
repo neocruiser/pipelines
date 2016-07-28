@@ -16,6 +16,7 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 #mkdir -p $tmp
 
 # Files _CHANGE_
+SUB_NET=1
 p=4
 c=2
 _COR=pearson.average
@@ -34,7 +35,7 @@ cd $output
 cp $log $output
 # get the node ID (contigs) from network or sub-networks
 if [ -f $home/heatmaps*/*csv ]; then
-    mv $home/heatmaps.data/*csv $output
+    cp $home/heatmaps.data/*_$SUB_NET.csv $output
 fi
 
 
