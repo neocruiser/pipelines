@@ -31,8 +31,12 @@ jobid=$SLURM_JOBID.networks.R
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
-mv $home/heatmaps.data/*csv $output
 cp $log $output
+# get the node ID (contigs) from network or sub-networks
+if [ -f $home/heatmaps*/*csv ]; then
+    mv $home/heatmaps.data/*csv $output
+fi
+
 
 # get the gene expression logged FPKMs
 grep -Fwf <(cat $output/*csv | sed 's/","/ /g' | cut -f7 -d' ' | sed 's/"//g' | awk 'NR>1') $log > $output/fpkms.logs
