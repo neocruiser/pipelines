@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -p RM
-#SBATCH -t 01:00:00
+#SBATCH -t 00:10:00
 #SBATCH --job-name="R.heatmaps"
 #SBATCH --output="R.heatmaps.out"
 #SBATCH --mail-type=ALL

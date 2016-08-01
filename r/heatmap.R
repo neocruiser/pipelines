@@ -9,7 +9,6 @@ genre <- read.table("./fpkms.logs", header = FALSE, row.names = 1)
 slogs <- read.table("./samples.logs")
 colnames(genre) <- as.matrix(slogs)
 genre <- as.matrix(genre)
-#heatmap.g <- heatmap(genre, Rowv=NA, Colv=NA, col=palett, margins=c(1,40), scale="row", labCol=c(seq(1:16)))
 
 
 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
@@ -30,9 +29,10 @@ rawdata <- genre
 scaledata=scale(genre)
 
 
-hra <- hclust(as.dist(1-cor(t(scaledata), method="pearson")), method="complete")
-hca <- hclust(as.dist(1-cor(scaledata, method="spearman")), method="complete")
-heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=my.colorFct(), scale="row")
+## Clustering using dissimilarity analysis
+hra <- hclust(as.dist(1-cor(t(scaledata), method="pearson")), method="ward")
+hca <- hclust(as.dist(1-cor(scaledata, method="spearman")), method="ward")
+
 
 ## CUT THE TREE
 mycl <- cutree(hra, h=max(hra$height)/2)
@@ -40,7 +40,7 @@ mycolhc <- sample(rainbow(256))
 mycolhc <- mycolhc[as.vector(mycl)]
 heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=my.colorFct(), scale="row", RowSideColors=mycolhc)
 
-## BOOTSTRAPING
+## BOOTSTRAPING to create pvalues
 n=5000
 a=0.95
 pvData <- pvclust(scale(t(rawdata)), method.dist="correlation", method.hclust="ward.D2", nboot=n)
@@ -69,7 +69,7 @@ dendroCol <- function(dend=dend, keys=keys, xPar="edgePar", bgr="red", fgr="blue
 
 dend_colored <- dendrapply(as.dendrogram(pvData$hclust), dendroCol, keys=clsig, xPar="edgePar", bgr="black", fgr="red", pch=20)
 # use xPar="nodePar" to color tree labels
-heatmap(rawdata, Rowv=dend_colored, Colv=as.dendrogram(hca), col=my.colorFct(), scale="row", RowSideColors=mycolhc)
+
 
 ## PLOT HEATMAP
 #x11(height=5,width =8)
