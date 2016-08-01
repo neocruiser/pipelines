@@ -22,18 +22,19 @@
 
 This git repository contains RNA-seq pipelines for transcriptome assembly, gene expression, gene annotation, and other. All scripts are running on [[https://www.xsede.org/][XSEDE]] supercomputers and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]] cluster in the US, including Greenfield, Bridges, and LIred servers.
 
-| Pipeline                | Package     | Author      | Year | Related Publication |
-|-------------------------+-------------+-------------+------+---------------------|
-| Data mining             | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash]]        | S. Bassim   | 2016 |                     |
-| Transcriptome assembly  | [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][trinity]]     | S. Bassim   | 2016 |                     |
-|                         | [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][bwa]]         | S. Bassim   | 2016 |                     |
-| Gene expression         | [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][R]]           | S. Bassim   | 2016 |                     |
-| Shotgun annotation      | [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][kraken]]      | S. Bassim   | 2016 |                     |
-| Gene annotation         | [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][diamond]]     | S. Bassim   | 2016 |                     |
-|                         | [[https://github.com/neocruiser/pipelines/blob/master/annotation/interproscan-bridges.slurm][interpro]]    | S. Bassim   | 2016 |                     |
-|                         | [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][hmmer]]       | S. Bassim   | 2016 |                     |
-|                         | [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][blast]]       | S. Bassim   | 2016 |                     |
-| Network analysis        | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.R][R]] | S. Bassim   | 2016 |                     |
-| Hierarchical clustering | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.build.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.R][R]] | S. Bassim   | 2016 |                     |
-| Packages                |             | [[https://github.com/neocruiser/pipelines/blob/master/packages.org][Open Source]] |      |                     |
+| Pipeline                          | Package     | Author      | Year | Related Publication |
+|-----------------------------------+-------------+-------------+------+---------------------|
+| Data mining                       | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash]]        | S. Bassim   | 2016 |                     |
+| Transcriptome assembly            | [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][trinity]]     | S. Bassim   | 2016 |                     |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][bwa]]         | S. Bassim   | 2016 |                     |
+| Gene expression                   | [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][R]]           | S. Bassim   | 2016 |                     |
+| Shotgun annotation                | [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][kraken]]      | S. Bassim   | 2016 |                     |
+| Gene annotation                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][diamond]]     | S. Bassim   | 2016 |                     |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/interproscan-bridges.slurm][interpro]]    | S. Bassim   | 2016 |                     |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][hmmer]]       | S. Bassim   | 2016 |                     |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][blast]]       | S. Bassim   | 2016 |                     |
+| Network analysis                  | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.R][R]] | S. Bassim   | 2016 |                     |
+| Hierarchical clustering           | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.build.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.R][R]] | S. Bassim   | 2016 |                     |
+| Regularization (machine learning) | coming ...  |             |      |                     |
+| Packages                          |             | [[https://github.com/neocruiser/pipelines/blob/master/packages.org][Open Source]] |      |                     |
 
