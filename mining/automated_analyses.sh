@@ -43,7 +43,7 @@ function summary () {
         VAR4="$4"
     fi
 ## select panther only proteins by evalue and alignment length
-## the awk part will merge output 1 and 2 using second column of output 1 and third column of output 2
+## the awk part will merge PANTHER identified genes and IPS output results using second column of output 1 and third column of output 2
 # Panther columns $2=ID $3=family_name $4=subfamily_name $5=GOs
     awk 'NR==FNR {h[$2] = sprintf ("%s\t%s\t%s\t",$2,$3,$4); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" - | cut -f3) $VAR4 | sed 's/ /./g' | sort -k2 -) <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" - | sort -k3 -) | sort -k1 - > $__out
 }
@@ -257,7 +257,8 @@ elif [ "$ANALYSIS" == b ]; then
     echo "a. Count sequences based on length, eval, identity, mismatches..."
     echo "b. Extract fasta sequences from QUALITY blast"
     echo "c. Extract fasta sequences that do NOT match the quality blast alignment"
-    echo "d. Do nothing and exit"
+    echo "d. Associate STRING connections to contig IDs"
+    echo "e. Do nothing and exit"
     echo
     printf "Input only one of the above letters -> "
     read CHOICE_BLAST
@@ -333,6 +334,44 @@ elif [ "$ANALYSIS" == b ]; then
 	  _FA=$(dirname $TRANSCRIPTOME)/nonmatching.BLAST.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}.fa
     cat $TRANSCRIPTOME  | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(comm -13 <(grep "^>" <(cat $TRANSCRIPTOME | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq) -) | sort -) <(grep "^>" $TRANSCRIPTOME | cut -f1 -d ' ' | sort -) | sed 's/>//g') - > $_FA
 	  echo "Extracted $(grep -c "^>" $_FA) from $(grep -c "^>" $TRANSCRIPTOME) fasta sequences based on the options you provided at an E-value of 10-$REP_"
+	  read -n 1 -s
+
+
+	elif [ "$CHOICE_BLAST" == d ]; then
+## extract STRING connections
+	  echo -e "\nQuery length, target length, bit score, align length, % identity, identical, mismatches"
+	  printf "1. Input 7 scores for sequence quality filtering (space separated) -> "
+	  IFS=" "
+	  read _Q _T _B _A _P _I _M
+    printf "2. Choose a STRING database (bridges|lired|...) -> "
+    read DB
+
+	  _TX=$(dirname $FILENAME)/string2string.q$_Q.t$_T.b$_B.a$_A.p$_P.i$_I.m$_M.EVAL${REP_}
+
+## set the string DB path
+    if [ "$DB" == "bridges" ]; then
+        STRING_DB=/pylon2/oc4ifip/bassim/db/string/protein.links.full.v10.txt
+    elif [ "$DB" == "lired" ]; then
+        STRING_DB=/gpfs/scratch/ballam/db/string/protein.links.full.v10.txt
+    else
+        STRING_DB="$DB"
+    fi
+
+## get the number of hits found by blast in string database
+    _strings=$(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $3}' | sort - | uniq | wc -l)
+    _contigs=$(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq | wc -l)
+
+    echo -e "10-20 minutesto retrieve STRING connections for $_strings hits\n"
+
+## get connections
+	  grep -Fwf <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $3}' | sort - | uniq) $STRING_DB > $_TX.tmp
+
+## merge string/blast results (input 1) with string connections (input 2)
+    awk 'NR==FNR {h[$3] = sprintf ("%s\t%s\t%s\t",$1,$3,$9); next} {print h[$1],$0}' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $0}') <(cat $_TX.tmp) > $_TX.txt
+
+
+	  echo "Extracted $(cat $_TX.txt | wc -l) STRING connections for $_contigs unique genes at an E-value of 10-$REP_"
+    rm $_TX.tmp
 	  read -n 1 -s
 
 
