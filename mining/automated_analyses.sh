@@ -244,12 +244,12 @@ elif [ "$ANALYSIS" == b ]; then
     printf "1. Choose one BLAST file from the list above (number) -> "
     read _FN
     FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' blast.tmp)
-    rm blast.tmp
     printf "2. Choose an E-value for an alignment score [e-0..35] -> "
     read REP_
 ## create a correct e-value number by repeating zeros
     ZEROS=$(seq -s. "$(echo "${REP_}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
     EVAL="0.${ZEROS}1"
+    rm blast.tmp
 ## get the synthax used to identify each assembled contig
 
 
@@ -367,7 +367,7 @@ elif [ "$ANALYSIS" == b ]; then
 	  grep -Fwf <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $3}' | sort - | uniq) $STRING_DB > $_TX.tmp
 
 ## merge string/blast results (input 1) with string connections (input 2)
-    awk 'NR==FNR {h[$3] = sprintf ("%s\t%s\t%s\t",$1,$3,$9); next} {print h[$1],$0}' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $0}') <(cat $_TX.tmp) > $_TX.txt
+    awk 'NR==FNR {h[$3] = sprintf ("%s\t%s\t%s\t",$1,$3,$9); next} {print h[$1],$0}' <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $0}') <(cat $_TX.tmp) | grep "^TRINITY" > $_TX.txt
 
 
 	  echo "Extracted $(cat $_TX.txt | wc -l) STRING connections for $_contigs unique genes at an E-value of 10-$REP_"
