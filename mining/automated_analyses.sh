@@ -36,7 +36,7 @@ function summary () {
     local VARe="0.${ZEROS}1"
 ## path to panther database
     if [ "$4" == "bridges" ]; then
-        VAR4=/pylon2/oc4ifip/bassim/db/panther
+        VAR4=/pylon1/oc4ifip/bassim/db/panther
     elif [ "$4" == "lired" ]; then
         VAR4=/gpfs/scratch/ballam/db/panther
     else
@@ -350,7 +350,7 @@ elif [ "$ANALYSIS" == b ]; then
 
 ## set the string DB path
     if [ "$DB" == "bridges" ]; then
-        STRING_DB=/pylon2/oc4ifip/bassim/db/string/protein.links.full.v10.txt
+        STRING_DB=/pylon1/oc4ifip/bassim/db/string/protein.links.full.v10.txt
     elif [ "$DB" == "lired" ]; then
         STRING_DB=/gpfs/scratch/ballam/db/string/protein.links.full.v10.txt
     else
@@ -361,7 +361,7 @@ elif [ "$ANALYSIS" == b ]; then
     _strings=$(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $3}' | sort - | uniq | wc -l)
     _contigs=$(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $1}' | sort - | uniq | wc -l)
 
-    echo -e "10-20 minutes to retrieve STRING-STRING connections for $_strings STRING IDs that matched to $_contigs genes\nWait..."
+    echo -e "\n10-20 minutes to retrieve STRING-STRING connections for $_strings STRING IDs that matched to $_contigs genes\nWait..."
 
 ## get connections
 	  grep -Fwf <(egrep "^[^#]" $FILENAME | awk -ve="$EVAL" -vq="$_Q" -vt="$_T" -vb="$_B" -va="$_A" -vp="$_P" -vi="$_I" -vm="$_M" '{if($9<=e && $2>=q && $4>=t && $10>=b && $11>=a && $12>=p && $14>=i && $15<=m) print $3}' | sort - | uniq) $STRING_DB > $_TX.tmp
