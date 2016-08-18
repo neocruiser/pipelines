@@ -42,14 +42,15 @@ function summary () {
     if [ "$4" == "bridges" ]; then
         VAR4=/pylon1/oc4ifip/bassim/db/panther
     elif [ "$4" == "lired" ]; then
-        VAR4=/gpfs/scratch/ballam/db/panther
+        VAR4=/gpfs/scratch/ballam/db/panther2
     else
         VAR4="$4"
     fi
  ## select panther only proteins by evalue and alignment length
 ## the awk part will merge PANTHER identified genes and IPS output results using second column of output 1 and third column of output 2
 # Panther columns $2=ID $3=family_name $4=subfamily_name $5=GOs
-    awk 'NR==FNR {h[$2] = sprintf ("%s\t%s\t%s\t",$2,$3,$4); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | cut -f3) $VAR4 | sed 's/ /./g' | sort -k2 -) <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | sort -k3 -) | sort -k1 - > $__out
+    awk 'NR==FNR {h[$1] = sprintf ("%s\t%s\t",$1,$2); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | cut -f3  | sed '/^.*\:.*$/d') $VAR4 | sed 's/ /./g' | sort - | cut -f3,4,5 | uniq | sed 's/\:SF.*\t/\t/g') <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | sort -k3 - | sed '/^.*\:.*$/d' | uniq) | sort -k1 - > $__out
+
 }
 
 
@@ -104,34 +105,28 @@ function guidelines () {
 	echo -e "\nDone"
 	echo
     elif [ "$CHOICE" == e ]; then
-        echo -e "\nGetting descriptions from InterPro scans\n"
-        echo -e "\nGetting descriptions from PANTHER database\n"
-        echo -e "\nMerging the two descritpions and completing missing ones\n"
-        echo -e "\nThe number of annotated proteins found"
-
 
 # Extract annotated genes from IPS tsv output
-# then combine with Panther annotation.
-# The joined annotation is then pushed to R from duplication removal.
+        echo -e "\nStep 1: Getting descriptions from InterPro scans ..."
+## create a correct e-value number by repeating zeros
+    ZEROS=$(seq -s. "$(echo "${EVAL}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
+    local VARe="0.${ZEROS}1"
+    cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq > $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
+
+# then combine with Panther annotation: $3 is contig ID and $2 is Panther description
+        echo -e "\nStep 2: Getting descriptions from PANTHER database ..."
+paste <(awk '{print $3}' $tmp ) <(awk '{print $2}' $tmp ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
+
+        echo -e "\nStep 3: Merging descritpions and removing duplicates ..."
 # Files contain contig IDs and protein description
-# node: $panther_annot is created through automated.scripts.sh
-index=contigs.deseq2.p4.c2
-ips_annot=$index.prot.fa.tsv
-panther_annot=$ips_annot.PANprots.LEN200.EVAL10.tab
-graph_annot=$index.tsv_id2description.txt
+## the source of the awk part: http://stackoverflow.com/questions/17832631/combine-rows-in-linux
+cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp | sort - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt
+#rm $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
 
-## http://stackoverflow.com/questions/17832631/combine-rows-in-linux
-cat contigs.deseq2.p4.c2.prot.fa.tsv | sed 's/ /./g' | cut -f1,9,13 | awk '{if($2<=0.000001)print$1,$3}' | sed 's/_. / /g' | sort - | uniq > contigs.deseq2.p4.c2.tsv_id2description.tmp
-paste <(awk '{print $4}' contigs.deseq2.p4.c2.prot.fa.tsv.PANprots.LEN50.EVAL6.tab ) <(awk '{print $3}' contigs.deseq2.p4.c2.prot.fa.tsv.PANprots.LEN50.EVAL6.tab ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> contigs.deseq2.p4.c2.tsv_id2description.tmp
-cat contigs.deseq2.p4.c2.tsv_id2description.tmp | sort - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > contigs.deseq2.p4.c2.tsv_id2description.txt
-cat contigs.deseq2.p4.c2.tsv_id2description.txt | cut -f2 | sed '/^\s*$/d' | wc -l
-rm contigs.deseq2.p4.c2.tsv_id2description.tmp
-
-
-
-
-
-
+_FULL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | cut -f2 | sed '/^\s*$/d' | wc -l)
+_ALL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
+        echo -e "\nThere is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
+        echo
 
     elif [ "$CHOICE" == f ]; then
 	extractFasta
