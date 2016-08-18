@@ -62,10 +62,10 @@ function extra () {
 	cat $VAR1 | wc -l
     elif [ "$VAR2" == 2 ]; then
 ## select species column
-	cat $VAR1 | sort -k2 - | cut -f6 | egrep -o "0_.*:" | sed -e 's/0_//g' -e 's/://g' | sort - | uniq -c | sort -nrk1 > $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
+	cat $VAR1 | sort -k2 - | cut -f1 | egrep -o "0_.*:" | sed -e 's/0_//g' -e 's/://g' | sort - | uniq -c | sort -nrk1 > $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
     elif [ "$VAR2" == 3 ]; then
 ## select protein function column
-	cat $VAR1 | cut -f9 | sort - | uniq -c | sort -nr | sed 's/\./ /g' > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab
+	cat $VAR1 | cut -f4 | sort - | uniq -c | sort -nr | sed 's/\./ /g' > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab
     elif [ "$VAR2" == 4 ]; then
 ## get all entries
 	cp $VAR1 $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.tab
