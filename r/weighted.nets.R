@@ -110,14 +110,12 @@ dim(gene_info)
 # this simply removes annotated genes without a description content being found in any gene database.
 # however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
 ### To make the annotation file, merge IPS output and Panther output
-raw.annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = TRUE, na.strings = c("", "NA")) %>% na.omit()
-tbl_df(raw.annotations)
-dim(raw.annotations)
-annotations <- raw.annotations[!duplicated(raw.annotations[,1]), ]
+annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = TRUE, na.strings = c("", "NA"))
+tbl_df(annotations)
 dim(annotations)
 
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
-df <- df[!duplicated(df$id),]
+#df <- df[!duplicated(df$id),]
 colnames(df) <- c('gene_id','modules','colors_rgb','description')
 df$description <- as.character(df$description)
 

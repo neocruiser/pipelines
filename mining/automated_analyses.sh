@@ -13,8 +13,9 @@ function quest () {
     echo "a. Number of proteins found in PANTHER"
     echo "b. Species names"
     echo "c. Most abundant proteins"
-    echo "d. Output file"
-    echo "e. debugging: Extract fasta file"
+    echo "d. Output all alignment info"
+    echo "e. Get contig IDs and functions only"
+    echo "f. debugging: Extract fasta file"
     echo
     echo "===DANGER==="
     echo "x. Delete the temporary file"
@@ -27,8 +28,11 @@ function quest () {
 }
 
 function summary () {
+## alignment length
     local VAR1=$1
+## evalue
     local VAR2=$2
+## Filename
     local VAR3=$3
     local __out=$VAR3.$VAR1.10-$VAR2.tmp
 ## create a correct e-value number by repeating zeros
@@ -42,11 +46,12 @@ function summary () {
     else
         VAR4="$4"
     fi
-## select panther only proteins by evalue and alignment length
+ ## select panther only proteins by evalue and alignment length
 ## the awk part will merge PANTHER identified genes and IPS output results using second column of output 1 and third column of output 2
 # Panther columns $2=ID $3=family_name $4=subfamily_name $5=GOs
-    awk 'NR==FNR {h[$2] = sprintf ("%s\t%s\t%s\t",$2,$3,$4); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" - | cut -f3) $VAR4 | sed 's/ /./g' | sort -k2 -) <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | grep ":" - | sort -k3 -) | sort -k1 - > $__out
+    awk 'NR==FNR {h[$2] = sprintf ("%s\t%s\t%s\t",$2,$3,$4); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | cut -f3) $VAR4 | sed 's/ /./g' | sort -k2 -) <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | sort -k3 -) | sort -k1 - > $__out
 }
+
 
 function extra () {
     local VAR1=$1
@@ -56,13 +61,13 @@ function extra () {
 	cat $VAR1 | wc -l
     elif [ "$VAR2" == 2 ]; then
 ## select species column
-	cat $VAR1 | sort -k2 - | cut -f6 | egrep -o "0_.*:" | sed -e 's/0_//g' -e 's/://g' | sort - | uniq -c | sort -nrk1 > $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
+	cat $VAR1 | sort -k2 - | cut -f6 | egrep -o "0_.*:" | sed -e 's/0_//g' -e 's/://g' | sort - | uniq -c | sort -nrk1 > $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
     elif [ "$VAR2" == 3 ]; then
 ## select protein function column
-	cat $VAR1 | cut -f9 | sort - | uniq -c | sort -nr | sed 's/\./ /g' > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
+	cat $VAR1 | cut -f9 | sort - | uniq -c | sort -nr | sed 's/\./ /g' > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab
     elif [ "$VAR2" == 4 ]; then
 ## get all entries
-	cp $VAR1 $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.txt
+	cp $VAR1 $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.tab
 	fi
 }
 
@@ -76,29 +81,59 @@ function guidelines () {
 	echo
     elif [ "$CHOICE" == b ]; then
 	      extra $tmp 2
-        _LN=$(grep -c "^" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt)
-        _PN=$(head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt | grep -c "^")
+        _LN=$(grep -c "^" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab)
+        _PN=$(head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab | grep -c "^")
 	echo -e "\nHere is $_PN of the $_LN most abundant species found by aligning your proteins to 13GB of PANTHER sequences:\nwait ..."
-	cat $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt | column -t | less
-	head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
-	echo -e "\nI also put the distribution of all other species in:" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.txt
+	cat $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab | column -t | less
+	head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
+	echo -e "\nI also put the distribution of all other species in:" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
 	echo
     elif [ "$CHOICE" == c ]; then
 	      extra $tmp 3
-        _LN=$(grep -c "^" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt)
-        _PN=$(head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | grep -c "^")
+        _LN=$(grep -c "^" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab)
+        _PN=$(head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab | grep -c "^")
 	echo -e "\nHere is $_PN of the $_LN most abundant protein functions found among the queried sequences in PANTHER:\nwait ..."
-	cat $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | sed 's/\./ /g' | less
-	head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt | sed 's/\./ /g'
-	echo -e "\nI also put the full list in:" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.txt
+	cat $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab | sed 's/\./ /g' | less
+	head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab | sed 's/\./ /g'
+	echo -e "\nI also put the full list in:" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab
 	echo
     elif [ "$CHOICE" == d ]; then
 	echo -e "\nWriting the protein alignment output from PANTHER to a file. It will contains E-values, protein acc. numbers, contig IDs, and GOs"
 	extra $tmp 4
-	echo -e "\nI also put the description of all entries found in:" $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.txt
+	echo -e "\nI also put the description of all entries found in:" $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.tab
 	echo -e "\nDone"
 	echo
     elif [ "$CHOICE" == e ]; then
+        echo -e "\nGetting descriptions from InterPro scans\n"
+        echo -e "\nGetting descriptions from PANTHER database\n"
+        echo -e "\nMerging the two descritpions and completing missing ones\n"
+        echo -e "\nThe number of annotated proteins found"
+
+
+# Extract annotated genes from IPS tsv output
+# then combine with Panther annotation.
+# The joined annotation is then pushed to R from duplication removal.
+# Files contain contig IDs and protein description
+# node: $panther_annot is created through automated.scripts.sh
+index=contigs.deseq2.p4.c2
+ips_annot=$index.prot.fa.tsv
+panther_annot=$ips_annot.PANprots.LEN200.EVAL10.tab
+graph_annot=$index.tsv_id2description.txt
+
+## http://stackoverflow.com/questions/17832631/combine-rows-in-linux
+cat contigs.deseq2.p4.c2.prot.fa.tsv | sed 's/ /./g' | cut -f1,9,13 | awk '{if($2<=0.000001)print$1,$3}' | sed 's/_. / /g' | sort - | uniq > contigs.deseq2.p4.c2.tsv_id2description.tmp
+paste <(awk '{print $4}' contigs.deseq2.p4.c2.prot.fa.tsv.PANprots.LEN50.EVAL6.tab ) <(awk '{print $3}' contigs.deseq2.p4.c2.prot.fa.tsv.PANprots.LEN50.EVAL6.tab ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> contigs.deseq2.p4.c2.tsv_id2description.tmp
+cat contigs.deseq2.p4.c2.tsv_id2description.tmp | sort - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > contigs.deseq2.p4.c2.tsv_id2description.txt
+cat contigs.deseq2.p4.c2.tsv_id2description.txt | cut -f2 | sed '/^\s*$/d' | wc -l
+rm contigs.deseq2.p4.c2.tsv_id2description.tmp
+
+
+
+
+
+
+
+    elif [ "$CHOICE" == f ]; then
 	extractFasta
 
     elif [ "$CHOICE" == x ]; then
@@ -122,10 +157,10 @@ function guidelines () {
 ## TESTING (ongoing preogress)
 function extractFasta () {
 ##panther output
-    if [ -f $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.txt ]; then
+    if [ -f $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.tab ]; then
 	printf "String to search for -> "
 	read STRING
-	egrep -i "$STRING" $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.txt >> $FILENAME.PANselected.tsv
+	egrep -i "$STRING" $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.tab >> $FILENAME.PANselected.tsv
 	cat $FILENAME.PANselected.tsv | cut -f1 | sed 's/..$//g' | sort - | uniq >> $FILENAME.PANcontigs
 
 	else
