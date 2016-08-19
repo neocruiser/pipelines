@@ -49,7 +49,7 @@ function summary () {
  ## select panther only proteins by evalue and alignment length
 ## the awk part will merge PANTHER identified genes and IPS output results using second column of output 1 and third column of output 2
 # Panther columns $2=ID $3=family_name $4=subfamily_name $5=GOs
-    awk 'NR==FNR {h[$1] = sprintf ("%s\t%s\t",$1,$2); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | cut -f3  | sed '/^.*\:.*$/d') $VAR4 | sed 's/ /./g' | sort - | cut -f3,4,5 | uniq | sed 's/\:SF.*\t/\t/g') <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | sort -k3 - | sed '/^.*\:.*$/d' | uniq) | sort -k1 - > $__out
+    awk 'NR==FNR {h[$2] = sprintf ("%s\t%s\t%s\t",$1,$2,$3); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | cut -f3  | sed '/^.*\:.*$/d') $VAR4 | sed 's/ /./g' | sort - | cut -f1,3,4,5 | uniq | sed 's/\:SF.*\t/\t/g') <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | sort -k3 - | sed '/^.*\:.*$/d' | uniq) | sort -k1 - > $__out
 
 }
 
@@ -65,7 +65,7 @@ function extra () {
 	cat $VAR1 | sort -k2 - | cut -f1 | egrep -o "0_.*:" | sed -e 's/0_//g' -e 's/://g' | sort - | uniq -c | sort -nrk1 > $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
     elif [ "$VAR2" == 3 ]; then
 ## select protein function column
-	cat $VAR1 | cut -f4 | sort - | uniq -c | sort -nr | sed 's/\./ /g' > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab
+	cat $VAR1 | cut -f3 | sort - | uniq -c | sort -nr | sed 's/\./ /g' > $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab
     elif [ "$VAR2" == 4 ]; then
 ## get all entries
 	cp $VAR1 $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.tab
@@ -113,19 +113,19 @@ function guidelines () {
     local VARe="0.${ZEROS}1"
     cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq > $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
 
-# then combine with Panther annotation: $3 is contig ID and $2 is Panther description
-        echo -e "\nStep 2: Getting descriptions from PANTHER database ..."
-paste <(awk '{print $3}' $tmp ) <(awk '{print $2}' $tmp ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
+# then combine with Panther annotation: $4 is contig ID and $3 is Panther description
+        echo "Step 2: Getting descriptions from PANTHER database ..."
+paste <(awk '{print $4}' $tmp ) <(awk '{print $3}' $tmp ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
 
-        echo -e "\nStep 3: Merging descritpions and removing duplicates ..."
+        echo "Step 3: Merging descritpions and removing duplicates ..."
 # Files contain contig IDs and protein description
 ## the source of the awk part: http://stackoverflow.com/questions/17832631/combine-rows-in-linux
-cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp | sort - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt
+cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp | sort - | grep "^TRINITY" - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt
 #rm $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
 
 _FULL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | cut -f2 | sed '/^\s*$/d' | wc -l)
 _ALL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
-        echo -e "\nThere is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
+        echo "There is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
         echo
 
     elif [ "$CHOICE" == f ]; then
