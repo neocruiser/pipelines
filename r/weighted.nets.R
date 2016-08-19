@@ -13,6 +13,12 @@ source("./convertMatrix2graph.R")
 #load data
 #counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
 counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
+counts <- data.frame(contigs = rownames(counts), counts) %>%
+    arrange(desc(contigs))
+rownames(counts) <- counts$contigs
+counts <- counts[, -1]
+tbl_df(counts)
+
 allowWGCNAThreads()
 #create similarity matrix
 cordist <- function(dat) {
@@ -83,7 +89,7 @@ for ( i in seq(15,imax,10) ) {
 ## The mean of the number of clusters will be used to cut the dendrogram
 min.mods <- apply(d, 2, function(x) mean(x))
 # change the number of genes per cluster
-    for ( fm in c(50, 100) ) {
+    for ( fm in c(25, 50, 100) ) {
 #    for ( f in c(1, 2) ) {        
 #fm <- floor(min.mods[[f]])
 #fm <- floor(((imax-fm)/2.5) + fm)
@@ -102,23 +108,24 @@ gene_info <- data.frame(id = gene_ids, modules=module_colors)
 gene_info$color_rgb<- col2hex(gene_info$modules)
 
 
-
-
-
 ### Merge annotated contigs with coexpressed modules
-dim(gene_info)
+tbl_df(gene_info)
+dim(adj_matrix)
 # this simply removes annotated genes without a description content being found in any gene database.
 # however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
 ### To make the annotation file, merge IPS output and Panther output
-annotations <- read.table("./contigs.deseq2.p4.c2.tsv_id2description.txt", fill = TRUE, na.strings = c("", "NA"))
+annotations <- read.table("./contigs.deseq2.p4.c2.prot.fa.tsv.id2description.LEN50.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
 tbl_df(annotations)
-dim(annotations)
-
+        
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
-#df <- df[!duplicated(df$id),]
+df <- df[!duplicated(df$id),]
 colnames(df) <- c('gene_id','modules','colors_rgb','description')
 df$description <- as.character(df$description)
 
+df <- arrange(df, desc(gene_id))
+
+        tbl_df(df)
+        
 #extract network
     for (t in th){
         g <- export_network_to_graphml(adj_matrix,

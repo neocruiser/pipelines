@@ -34,15 +34,10 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
 cp $log $output
-cp $_DIR/contigs*p$p.c$c*id2description.txt $output
+cp $_DIR/*id2description* $output
 cp $home/script*/convertMatrix2graph.R $output
 
 
 R CMD BATCH $home/script*/weighted.nets.R
-
-#if [ -f network.graphml ]; then
-#    mv network.graphml network.PVAL$p.FOLD$c.POW$_P.COR$_COR.Th$_T.$SLURM_JOBID.graphm#l
-#    rm weighted.nets.Rout
-#fi
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
