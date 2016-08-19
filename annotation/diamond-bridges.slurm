@@ -18,11 +18,12 @@ db=nr
 blast=blastx
 maxseq=10
 transcriptome=00000
-index=graph.pow8.thd05.gen115
+index=p8_t04_g50_NAs
 
 # DONT CHANGE #
 ###############
 scratch=/pylon2/oc4ifip/bassim
+backup=/pylon1/oc4ifip/bassim
 home=/home/bassim
 pbs=$SLURM_JOBID
 project=$scratch/ganglia/trinity/trinity_out_dir_$transcriptome
@@ -33,19 +34,19 @@ tmp=/dev/shm/tmp_$pbs
 mkdir -p $tmp $project/diamond
 
 ## extract Fasta sequences from selected networks
-cat $project/Trinity.fasta | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$index.txt | cut -f13 | awk 'NR>1') - > $query
+cat $project/Trinity.fasta | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$index.csv | sed -e '1 d' -e 's/","/\t/g' -e 's/"//g' | cut -f6 | sort - | uniq) - > $query
 
 # blast libraries
 #diamond=$home/diamond.0.7/diamond
 #export PATH="$PATH:/gpfs/home/ballam/ncbi-blast-2.2.31+/bin"
-export BLASTDB="/pylon2/oc4ifip/bassim/db/$db"
+export BLASTDB="$backup/db/$db"
 
 ## Full blastx
 time=$home/time
 jobid=diamond.$db.$blast
 start=$(date); echo "Job started at: $start" > $time/$jobid.$pbs.time
 
-cd $scratch/db/$db
+cd $backup/db/$db
 
 diamond $blast -d $db -q $query -a $output -t $tmp -k $maxseq
 diamond view -a $output.daa -o $output.txt
