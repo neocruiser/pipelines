@@ -14,8 +14,9 @@ function quest () {
     echo "b. Species names"
     echo "c. Most abundant proteins"
     echo "d. Output all alignment info"
-    echo "e. Get contig IDs and functions only"
-    echo "f. debugging: Extract fasta file"
+    echo "e. Get contig IDs and IPS/PTHR functions"
+    echo "f. Get contig IDs and IPS/PTHR/NR functions"
+    echo "w. debugging: Extract fasta file"
     echo
     echo "===DANGER==="
     echo "x. Delete the temporary file"
@@ -26,6 +27,24 @@ function quest () {
     printf "Input only one of the above letters -> "
     read CHOICE
 }
+
+## get the location of tsv files (user defined)
+function files () {
+    local OUTPUT=$1
+    local EXE=$2
+    if [ "$EXE" == txt ]; then
+        echo
+	      find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl | tee blast.tmp
+    elif [ "$EXE" == fa ]; then
+        echo
+        find $(dirname $(dirname $FILENAME))  -maxdepth 2 -iname "*trinity*fa*" | nl | tee fasta.tmp
+    else
+        echo
+	      find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl | tee ips.tmp
+    fi
+    echo
+}
+
 
 function summary () {
 ## alignment length
@@ -50,6 +69,7 @@ function summary () {
 ## the awk part will merge PANTHER identified genes and IPS output results using second column of output 1 and third column of output 2
 # Panther columns $2=ID $3=family_name $4=subfamily_name $5=GOs
     awk 'NR==FNR {h[$2] = sprintf ("%s\t%s\t%s\t",$1,$2,$3); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | cut -f3  | sed '/^.*\:.*$/d') $VAR4 | sed 's/ /./g' | sort - | cut -f1,3,4,5 | uniq | sed 's/\:SF.*\t/\t/g') <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | sort -k3 - | sed '/^.*\:.*$/d' | uniq) | sort -k1 - > $__out
+
 
 }
 
@@ -80,6 +100,7 @@ function guidelines () {
 	echo -e "\nHere is the number of hits found in 13GB of a PANTHER database:"
 	extra $tmp 1
 	echo
+
     elif [ "$CHOICE" == b ]; then
 	      extra $tmp 2
         _LN=$(grep -c "^" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab)
@@ -89,6 +110,7 @@ function guidelines () {
 	head -n 10 $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
 	echo -e "\nI also put the distribution of all other species in:" $FILENAME.PANspecies.LEN$ALIGNMENT.EVAL$EVAL.tab
 	echo
+
     elif [ "$CHOICE" == c ]; then
 	      extra $tmp 3
         _LN=$(grep -c "^" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab)
@@ -98,14 +120,15 @@ function guidelines () {
 	head -n 10 $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab | sed 's/\./ /g'
 	echo -e "\nI also put the full list in:" $FILENAME.PANfunctions.LEN$ALIGNMENT.EVAL$EVAL.tab
 	echo
+
     elif [ "$CHOICE" == d ]; then
 	echo -e "\nWriting the protein alignment output from PANTHER to a file. It will contains E-values, protein acc. numbers, contig IDs, and GOs"
 	extra $tmp 4
 	echo -e "\nI also put the description of all entries found in:" $FILENAME.PANprots.LEN$ALIGNMENT.EVAL$EVAL.tab
 	echo -e "\nDone"
 	echo
-    elif [ "$CHOICE" == e ]; then
 
+    elif [ "$CHOICE" == e ]; then
 # Extract annotated genes from IPS tsv output
         echo -e "\nStep 1: Getting descriptions from InterPro scans ..."
 ## create a correct e-value number by repeating zeros
@@ -129,7 +152,91 @@ _ALL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
         echo
 
     elif [ "$CHOICE" == f ]; then
-	extractFasta
+
+# Check for NCBI database files; download them if they dont exist
+        $_ftp=ftp://ftp.ncbi.nlm.nih.gov/gene/DATA
+
+        if [ "$DB" == "bridges" ]; then
+            gene_info=/pylon1/oc4ifip/bassim/db/ncbi/gene_info
+            gene2accession=/pylon1/oc4ifip/bassim/db/ncbi/gene2accession
+            else
+            gene_info=/gpfs/scratch/ballam/db/ncbi/gene_info
+            gene2accession=/gpfs/scratch/ballam/db/ncbi/gene2accession
+        fi
+
+        if [ -f "$gene_info" ]; then
+            echo "\nStep 1: Checking for gene information from NCBI ... OK"
+        else echo "!!!ERROR!!! File not found. Downloading gene_info file. Wait ..."
+            if [ "$DB" == "bridges" ]; then
+                $_path=/pylon1/oc4ifip/bassim/db/ncbi
+                mkdir -p $_path
+                wget -O $_path/gene_info.gz $_ftp/gene_info.gz
+                gunzip -d $_path/gene_info.gz
+                elif [ "$DB" == "lired" ]; then
+                $_path=/gpfs/scratch/ballam/db/ncbi
+                mkdir -p $_path
+                wget -O $_path/gene_info.gz $_ftp/gene_info.gz
+                gunzip -d $_path/gene_info.gz
+            fi
+            echo "NCBI gene information has been downloaded"
+        fi
+
+        if [ -f "$gene2accession" ]; then echo "Step 2: Checking for protein accessions from NCBI ... OK"
+            else echo "!!!ERROR!!! File not found. Downloading gene2accession file. Wait ..."
+            if [ "$DB" == "bridges" ]; then
+                $_path=/pylon1/oc4ifip/bassim/db/ncbi
+                mkdir -p $_path
+                wget -O $_path/gene2accession.gz $_ftp/gene2accession.gz
+                gunzip -d $_path/gene2accession.gz
+                elif [ "$DB" == "lired" ]; then
+                $_path=/gpfs/scratch/ballam/db/ncbi
+                mkdir -p $_path
+                wget -O $_path/gene2accession.gz $_ftp/gene2accession.gz
+                gunzip -d $_path/gene2accession.gz
+            fi
+            echo "NCBI protein accession numbers have been downloaded"
+        if
+
+## Append NCBIs gene information, gene ID, protein accession nb, and taxid to each contig
+            echo -e "\nStep 3: Getting descriptions from BLAST (diamond/nr output) ..."
+            files $FILE__PATH txt
+            printf "a. Choose one DIAMOND txt file from the list above (number) -> "
+            read _FD
+            _diamond=$(awk -vf="$_FD" '{if ($1 == f) print $2}' diamond.tmp)
+            rm diamond.tmp
+            printf "b. Choose an E-value for an alignment score [e-0..35] -> "
+            read ED
+            ZD=$(seq -s. "$(echo "${ED}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
+            local _ev="0.${ZD}1"
+
+            awk 'NR==FNR {b[$7] = sprintf ("%s\t%s\t%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5,$6,$7); next} {print b[$2],$1,$2}' <(awk 'NR==FNR {a[$2] = sprintf ("%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5); next} {print a[$1],$1,$2}' <(cat $gene_info | grep -Fwf <(cat $gene2accession | cut -f2,6 | grep -Fwf <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f5) - | cut -f1) - | cut -f1,2,3,9,10 | sed 's/ /./g') <(cat $gene2accession | cut -f2,6 | grep -Fwf <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f5) -)) <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f1,5) | awk '{if ($2 == $6 && $7 == $9) print $1,$2,$3,$4,$5,$7,$8}' | sort - | uniq > $_diamond_summary
+
+# restructure the summary
+            paste <(cut -f3 -d' ' $_diamond_summary) <(cut -f1,2 -d' ' $_diamond_summary | sed 's/ /:/g') > $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp
+
+# merge summary with IPS and Panther summaries
+# Extract annotated genes from IPS tsv output
+        echo -e "\nStep 4: Getting descriptions from InterPro scans ..."
+## create a correct e-value number by repeating zeros
+    ZEROS=$(seq -s. "$(echo "${EVAL}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
+    local VARe="0.${ZEROS}1"
+    cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq >> $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp
+
+# then combine with Panther annotation: $4 is contig ID and $3 is Panther description
+        echo "Step 5: Getting descriptions from PANTHER database ..."
+paste <(awk '{print $4}' $tmp ) <(awk '{print $3}' $tmp ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp
+
+        echo "Step 6: Merging descritpions and removing duplicates ..."
+# Files contain contig IDs and protein description
+## the source of the awk part: http://stackoverflow.com/questions/17832631/combine-rows-in-linux
+cat $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp | sort - | grep "^TRINITY" - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.txt
+#rm $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
+
+_FULL=$(cat $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.txt | cut -f2 | sed '/^\s*$/d' | wc -l)
+_ALL=$(cat $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
+        echo "There is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
+        echo
+
 
     elif [ "$CHOICE" == x ]; then
 	rm $tmp
@@ -182,24 +289,6 @@ cat $FILENAME.ALLselected.tsv | cut -f1 | sed 's/..$//g' | sort - | uniq >> $FIL
 
 
 }
-
-## get the location of tsv files (user defined)
-function files () {
-    local OUTPUT=$1
-    local EXE=$2
-    if [ "$EXE" == txt ]; then
-        echo
-	      find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl | tee blast.tmp
-    elif [ "$EXE" == fa ]; then
-        echo
-        find $(dirname $(dirname $FILENAME))  -maxdepth 2 -iname "*trinity*fa*" | nl | tee fasta.tmp
-    else
-        echo
-	      find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl | tee ips.tmp
-    fi
-    echo
-}
-
 
 
 #####################################################################################################################
