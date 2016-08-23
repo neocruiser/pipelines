@@ -2,7 +2,7 @@
 #SBATCH --partition=LM
 #SBATCH --nodes=1
 #SBATCH --mem=3000GB
-#SBATCH -t 05:00:00
+#SBATCH -t 24:00:00
 #SBATCH --job-name="diamond"
 #SBATCH --output="diamond.%j.%N.out"
 #SBATCH --mail-type=ALL
@@ -18,7 +18,9 @@ db=nr
 blast=blastx
 maxseq=10
 transcriptome=00000
-index=p8_t04_g50_NAs
+## file is either txt or csv
+file=fa
+index=Trinity
 
 # DONT CHANGE #
 ###############
@@ -34,7 +36,18 @@ tmp=/dev/shm/tmp_$pbs
 mkdir -p $tmp $project/diamond
 
 ## extract Fasta sequences from selected networks
-cat $project/Trinity.fasta | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$index.csv | sed -e '1 d' -e 's/","/\t/g' -e 's/"//g' | cut -f6 | sort - | uniq) - > $query
+
+if [ $file == "txt" ]; then
+    # if IDs are in txt file (1 column)
+    cat $project/Trinity.fasta | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $project/$index.txt) - > $query
+elif [ $file == "csv" ]; then
+    # If the IDs are stored in CSV file (1 column) imported from excel or cytoscape
+    cat $project/Trinity.fasta | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$index.csv | sed -e '1 d' -e 's/","/\t/g' -e 's/"//g' | cut -f6 | sort - | uniq) - > $query
+    else
+    # If only fasta file is used
+    query=$project/$index.fasta
+fi
+
 
 # blast libraries
 #diamond=$home/diamond.0.7/diamond
