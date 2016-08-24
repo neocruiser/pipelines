@@ -34,13 +34,13 @@ function files () {
     local EXE=$2
     if [ "$EXE" == txt ]; then
         echo
-	      find $OUTPUT -maxdepth 2 -iname "*blast*$EXE" | nl | tee $EXE.tmp
+	      find $OUTPUT -maxdepth 3 -iname "*blast*$EXE" | nl | tee $EXE.tmp
     elif [ "$EXE" == fa ]; then
         echo
-        find $(dirname $(dirname $FILENAME))  -maxdepth 2 -iname "*trinity*fa*" | nl | tee $EXE.tmp
+        find $(dirname $(dirname $FILENAME))  -maxdepth 3 -iname "*trinity*fa*" | nl | tee $EXE.tmp
     else
         echo
-	      find $OUTPUT -maxdepth 2 -iname "*$EXE" | nl | tee $EXE.tmp
+	      find $OUTPUT -maxdepth 3 -iname "*$EXE" | nl | tee $EXE.tmp
     fi
     echo
 }
@@ -93,6 +93,30 @@ function extra () {
 }
 
 
+function merge () {
+## temperary file containing ALL panther annotations
+    local VAR1=$1
+##  file containing selected columns (w/ duplicates)
+    local VAR2=$2
+## file containing UNIQUE selected columns
+    local VAR3=$3
+# then combine with Panther annotation: $4 is contig ID and $3 is Panther description
+        echo "- Getting descriptions from PANTHER database ... OK"
+paste <(awk '{print $4}' $VAR1 ) <(awk '{print $3}' $VAR1 ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> $VAR2
+
+        echo "- Merging descritpions and removing duplicates ... OK"
+# Files contain contig IDs and protein description
+## the source of the awk part: http://stackoverflow.com/questions/17832631/combine-rows-in-linux
+cat $VAR2 | sort - | grep "^TRINITY" - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $VAR3
+#rm $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
+
+_ALL=$(cat $VAR3 | wc -l)
+_FULL=$(cat $VAR3 | cut -f2 | sed '/^\s*$/d' | wc -l)
+        echo "- There is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
+
+}
+
+
 function guidelines () {
     tmp=$FILENAME.$ALIGNMENT.10-$EVAL.tmp
 
@@ -130,26 +154,17 @@ function guidelines () {
 
     elif [ "$CHOICE" == e ]; then
 # Extract annotated genes from IPS tsv output
-        echo -e "\nStep 1: Getting descriptions from InterPro scans ..."
+        echo -e "\n- Getting descriptions from InterPro scans ..."
+
+        _output_panther=$FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL
+
 ## create a correct e-value number by repeating zeros
     ZEROS=$(seq -s. "$(echo "${EVAL}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
     local VARe="0.${ZEROS}1"
-    cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq > $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
+    cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq > $_output_panther.tmp
 
-# then combine with Panther annotation: $4 is contig ID and $3 is Panther description
-        echo "Step 2: Getting descriptions from PANTHER database ..."
-paste <(awk '{print $4}' $tmp ) <(awk '{print $3}' $tmp ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
-
-        echo "Step 3: Merging descritpions and removing duplicates ..."
-# Files contain contig IDs and protein description
-## the source of the awk part: http://stackoverflow.com/questions/17832631/combine-rows-in-linux
-cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp | sort - | grep "^TRINITY" - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt
-#rm $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
-
-_FULL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | cut -f2 | sed '/^\s*$/d' | wc -l)
-_ALL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
-        echo "There is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
-        echo
+    merge $tmp $_output_panther.tmp $_output_panther.txt
+    echo
 
     elif [ "$CHOICE" == f ]; then
 # Check for NCBI database files; download them if they dont exist
@@ -164,7 +179,7 @@ _ALL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
         fi
 
         if [ -f "$gene_info" ]; then
-            echo -e "\nStep 1: Checking for gene information from NCBI ... OK"
+            echo -e "\n- Checking for gene information from NCBI ... OK"
         else
             echo "!!!ERROR!!! File not found. Downloading gene_info file. Wait ..."
             if [ "$DB" == "bridges" ]; then
@@ -182,7 +197,7 @@ _ALL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
         fi
 
         if [ -f "$gene2accession" ]; then
-            echo "Step 2: Checking for protein accessions from NCBI ... OK"
+            echo "- Checking for protein accessions from NCBI ... OK"
         else
             echo "!!!ERROR!!! File not found. Downloading gene2accession file. Wait ..."
             if [ "$DB" == "bridges" ]; then
@@ -210,36 +225,44 @@ _ALL=$(cat $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
             ZD=$(seq -s. "$(echo "${ED}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
             local _ev="0.${ZD}1"
 
-            _diamond_summary=NR-PTHR-IPS.LEN.tmp
+            _addon=$(echo $(basename $_diamond))
+            _diamond_summary=NR-PTHR-IPS.$_addon.tmp
+            _output_summary=$FILENAME.id2description.NR-PTHR-IPS.diamond$ED.LEN$ALIGNMENT.EVAL$EVAL
 
-            echo -e "\nStep 3: Getting descriptions from BLAST (diamond/nr output). Wait ..."
-            awk 'NR==FNR {b[$7] = sprintf ("%s\t%s\t%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5,$6,$7); next} {print b[$2],$1,$2}' <(awk 'NR==FNR {a[$2] = sprintf ("%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5); next} {print a[$1],$1,$2}' <(cat $gene_info | grep -Fwf <(cat $gene2accession | cut -f2,6 | grep -Fwf <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f5) - | cut -f1) - | cut -f1,2,3,9,10 | sed 's/ /./g') <(cat $gene2accession | cut -f2,6 | grep -Fwf <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f5) -)) <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f1,5) | awk '{if ($2 == $6 && $7 == $9) print $1,$2,$3,$4,$5,$7,$8}' | sort - | uniq | cut -f1,4,7 -d ' ' | sort -k2 | uniq  > $_diamond_summary
+            if [ ! -f "$_diamond_summary" ]; then
 
-# restructure the summary
-            paste <(cut -f3 -d' ' $_diamond_summary) <(cut -f1,2 -d' ' $_diamond_summary | sed 's/ /:/g') > $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp
-#            rm $_diamond_summary
+                echo -e "\n- Getting descriptions from BLAST (diamond/nr output) ... OK"
+                awk 'NR==FNR {b[$7] = sprintf ("%s\t%s\t%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5,$6,$7); next} {print b[$2],$1,$2}' <(awk 'NR==FNR {a[$2] = sprintf ("%s\t%s\t%s\t%s\t%s\t",$1,$2,$3,$4,$5); next} {print a[$1],$1,$2}' <(cat $gene_info | grep -Fwf <(cat $gene2accession | cut -f2,6 | grep -Fwf <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f5) - | cut -f1) - | cut -f1,2,3,9,10 | sed 's/ /./g') <(cat $gene2accession | cut -f2,6 | grep -Fwf <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f5) -)) <(cat $_diamond  | cut -f1,2,11 | awk -ve="$_ev" '{if($3<=e)print$0}' | cut -f1,2 | sed 's/|/\t/g' | cut -f1,5) | awk '{if ($2 == $6 && $7 == $9) print $1,$2,$3,$4,$5,$7,$8}' | sort - | uniq | cut -f1,4,7 -d ' ' | sort -k2 | uniq  > $_diamond_summary
 
-# merge summary with IPS and Panther summaries
-# Extract annotated genes from IPS tsv output
-        echo "Step 4: Getting descriptions from InterPro scans ..."
-## create a correct e-value number by repeating zeros
-    ZEROS=$(seq -s. "$(echo "${EVAL}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
-    local VARe="0.${ZEROS}1"
-    cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq >> $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp
+                # restructure the summary
+                paste <(cut -f3 -d' ' $_diamond_summary) <(cut -f1,2 -d' ' $_diamond_summary | sed 's/ /:/g') > $_output_summary.tmp
+                # merge summary with IPS and Panther summaries
+                # Extract annotated genes from IPS tsv output
+                echo "- Getting descriptions from InterPro scans ... OK"
+                ## create a correct e-value number by repeating zeros
+                ZEROS=$(seq -s. "$(echo "${EVAL}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
+                local VARe="0.${ZEROS}1"
+                cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq >> $_output_summary.tmp
 
-# then combine with Panther annotation: $4 is contig ID and $3 is Panther description
-        echo "Step 5: Getting descriptions from PANTHER database ..."
-paste <(awk '{print $4}' $tmp ) <(awk '{print $3}' $tmp ) | sed 's/_.\t/\t/g' | sort -k1 - | uniq >> $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp
+                merge $tmp $_output_summary.tmp $_output_summary.txt
+                echo
 
-        echo "Step 6: Merging descritpions and removing duplicates ..."
-# Files contain contig IDs and protein description
-cat $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.tmp | sort - | grep "^TRINITY" - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.txt
-#rm $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
+            else
+                echo -e "\n- Blast descriptions already retrieved (diamond/nr output). Skipped"
+                # restructure the summary
+                paste <(cut -f3 -d' ' $_diamond_summary) <(cut -f1,2 -d' ' $_diamond_summary | sed 's/ /:/g') > $_output_summary.tmp
+                # merge summary with IPS and Panther summaries
+                # Extract annotated genes from IPS tsv output
+                echo "- Getting descriptions from InterPro scans ... OK"
+                ## create a correct e-value number by repeating zeros
+                ZEROS=$(seq -s. "$(echo "${EVAL}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
+                local VARe="0.${ZEROS}1"
+                cat $FILENAME | sed 's/ /./g' | cut -f1,9,13 | awk -ve="$VARe" '{if($2<=e)print$1,$3}' | sed 's/_. / /g' | sort - | uniq >> $_output_summary.tmp
 
-_FULL=$(cat $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.txt | cut -f2 | sed '/^\s*$/d' | wc -l)
-_ALL=$(cat $FILENAME.id2description.NR-PTHR-IPS.LEN$ALIGNMENT.EVAL$EVAL.txt | wc -l)
-        echo "There is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
-        echo
+                merge $tmp $_output_summary.tmp $_output_summary.txt
+                echo
+
+    fi
 
     elif [ "$CHOICE" == x ]; then
 	rm $tmp
@@ -298,7 +321,7 @@ cat $FILENAME.ALLselected.tsv | cut -f1 | sed 's/..$//g' | sort - | uniq >> $FIL
 ########################################################################## RUN ANALYSES FOR BLAST AND PANTHER OUTPUTS
 #####################################################################################################################
 echo
-echo -e "\n(p) analyses on PANTHER output, diamond included\n(b) analyses on BLAST output, STRING included\n(s) analyses on Interpro scans"
+echo -e "\n(p) analyses on PANTHER output (DIAMOND included)\n(b) analyses on BLAST output (STRING included)\n(s) analyses on Interpro scans"
 printf "Choose between a panther, blast or summary analysis (p|b|s) -> "
 read ANALYSIS
 echo
