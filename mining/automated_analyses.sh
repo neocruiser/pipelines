@@ -107,11 +107,13 @@ paste <(awk '{print $4}' $VAR1 ) <(awk '{print $3}' $VAR1 ) | sed 's/_.\t/\t/g' 
         echo "- Merging descritpions and removing duplicates ... OK"
 # Files contain contig IDs and protein description
 ## the source of the awk part: http://stackoverflow.com/questions/17832631/combine-rows-in-linux
+## merges column 2 when column 1 is a duplicate
 cat $VAR2 | sort - | grep "^TRINITY" - | awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' > $VAR3
 #rm $FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL.tmp
 
 _ALL=$(cat $VAR3 | wc -l)
 _FULL=$(cat $VAR3 | cut -f2 | sed '/^\s*$/d' | wc -l)
+## deletes empty lines
         echo "- There is $_FULL annotated proteins found in all databases among $_ALL aligned contigs"
 
 }
@@ -154,7 +156,7 @@ function guidelines () {
 
     elif [ "$CHOICE" == e ]; then
 # Extract annotated genes from IPS tsv output
-        echo -e "\n- Getting descriptions from InterPro scans ..."
+        echo -e "\n- Getting descriptions from InterPro scans ... OK"
 
         _output_panther=$FILENAME.id2description.LEN$ALIGNMENT.EVAL$EVAL
 

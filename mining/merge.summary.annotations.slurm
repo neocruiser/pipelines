@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=RM
 #SBATCH --nodes=1
-#SBATCH -t 10:00:00
+#SBATCH -t 48:00:00
 #SBATCH --job-name="annot.SUM"
 #SBATCH --output="annot.summary.%j.%N.out"
 #SBATCH --mail-type=ALL
@@ -15,7 +15,7 @@ gene_info=/pylon1/oc4ifip/bassim/db/ncbi/gene_info
 gene2accession=/pylon1/oc4ifip/bassim/db/ncbi/gene2accession
 
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
-_diamond=$_DIR/diamond/diamond.contigIDs.p4.c2.tissue.nr.blastx.00000.280583.txt
+_diamond=$_DIR/diamond/diamond.Trinity.nr.blastx.00000.280608.txt
 
 ## e-value for blast search
 ED=5
