@@ -1,6 +1,6 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(5, 12, 1)
-th <- seq(.1, .6, .1)
+pow <- seq(7, 8, 1)
+th <- seq(.4, .5, .1)
 
 #################
 ### RUN CODE ####
@@ -89,7 +89,7 @@ for ( i in seq(15,imax,10) ) {
 ## The mean of the number of clusters will be used to cut the dendrogram
 min.mods <- apply(d, 2, function(x) mean(x))
 # change the number of genes per cluster
-    for ( fm in c(25, 50, 100) ) {
+    for ( fm in c(50, 100) ) {
 #    for ( f in c(1, 2) ) {        
 #fm <- floor(min.mods[[f]])
 #fm <- floor(((imax-fm)/2.5) + fm)
@@ -114,7 +114,7 @@ dim(adj_matrix)
 # this simply removes annotated genes without a description content being found in any gene database.
 # however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
 ### To make the annotation file, merge IPS output and Panther output
-annotations <- read.table("./contigs.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN50.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
+annotations <- read.table("./contigs.lectins.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN50.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
 tbl_df(annotations)
         
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)

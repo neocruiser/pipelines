@@ -1,19 +1,21 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -p LM
-#SBATCH -t 2:00:00
+#SBATCH -t 5:00:00
+#SBATCH --mem=3000GB
 #SBATCH --job-name="IPS4"
-#SBATCH --output="ips.parasite.%j.%N.out"
+#SBATCH --output="ips.lectins.%j.%N.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
 
 module load java
+module load boost
 
 # DONT CHANGE #
 scratch=/pylon2/oc4ifip/bassim
+backup=/pylon1/oc4ifip/bassim
 home=/home/bassim
-#ips=$scratch/db/ips/64/interproscan-5.18-57.0
-ips=$scratch/db/ips/64/interproscan-5.17-56.0
+ips=$backup/db/ips/64/interproscan-5.19-58.0
 tmp=/dev/shm/temp_$SLURM_JOBID
 
 # ChaNGE
@@ -24,14 +26,14 @@ mkdir -p $tmp
 # Files _CHANGE_
 p=3
 c=2
-transcriptome=4
-_DIR=$scratch/ganglia/trinity/trinity_out_dir_parasite.$transcriptome
+transcriptome=00000
+_DIR=$scratch/ganglia/trinity/trinity_out_dir_$transcriptome
 
 file=deg*248/DESeq2.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
-assembled=$_DIR/Trinity-GG.fasta
+assembled=$_DIR/Trinity.fasta
 contigs=$tmp/contigs.fa
-peptides=$tmp/peptides-GG.fa
+peptides=$tmp/peptides.fa
 output=$_DIR
 
 time=$home/time

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -p RM
-#SBATCH -t 05:00:00
+#SBATCH -t 10:00:00
 #SBATCH --job-name="R.heatmaps"
 #SBATCH --output="R.heatmaps.out"
 #SBATCH --mail-type=ALL
@@ -16,7 +16,6 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 #mkdir -p $tmp
 
 # Files _CHANGE_
-SUB_NET=big.cluster.283458.csv
 p=4
 c=2
 _COR=pearson.average
@@ -33,21 +32,27 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
 cp $log $output
-# get the node ID (contigs) from network or sub-networks
-if [ -f "$home/heatmaps.data/$SUB_NET" ]; then
-    cp $home/heatmaps.data/$SUB_NET $output
+
+for i in {1..32}; do
+    SUB_NET=module.704100.$i.csv
+
+    # get the node ID (contigs) from network or sub-networks
+    if [ -f "$home/heatmaps.data/$SUB_NET" ]; then
+        cp $home/heatmaps.data/$SUB_NET $output
     else
-    echo "!!!ERROR!!! No contig IDs were found. Export table from Cytoscape and place it in Bridges at ~/heatmap.data/. Cheers"
+        echo "!!!ERROR!!! No contig IDs were found. Export $SUB_NET from Cytoscape and place it in Bridges at ~/heatmap.data/. Cheers"
 fi
 
 
 # get the gene expression logged FPKMs
-grep -Fwf <(cat $output/$SUB_NET | sed 's/","/ /g' | cut -f6 -d' ' | sed 's/"//g' | awk 'NR>1') $log > $output/fpkms.logs
+    grep -Fwf <(cat $output/$SUB_NET | sed 's/","/ /g' | cut -f6 -d' ' | sed 's/"//g' | awk 'NR>1') $log > $output/fpkms.logs
 # get the sample distribution (different for each analysis)
-head -n1 $log > $output/samples.logs
+    head -n1 $log > $output/samples.logs
 
+    R CMD BATCH $home/script*/heatmap.R
+    rm Rplots.pdf
+    mv heatmap.pdf heatmap.$i.pdf
+    mv bootstrap.pdf bootstrap.$i.pdf
+done
 
-R CMD BATCH $home/script*/heatmap.R
-
-
-end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
+    end=$(date); echo "Job ended at: $end" >> $time/$jobid.time

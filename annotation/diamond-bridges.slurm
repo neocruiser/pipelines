@@ -2,7 +2,7 @@
 #SBATCH --partition=LM
 #SBATCH --nodes=1
 #SBATCH --mem=3000GB
-#SBATCH -t 24:00:00
+#SBATCH -t 10:00:00
 #SBATCH --job-name="diamond"
 #SBATCH --output="diamond.%j.%N.out"
 #SBATCH --mail-type=ALL
@@ -14,13 +14,13 @@ module load boost
 
 # Files _CHANGE_
 ## OPTIONS: Pfam-A nr
-db=nr
+db=00000
 blast=blastx
 maxseq=10
 transcriptome=00000
 ## file is either txt or csv
 file=fa
-index=Trinity
+index=lectins.marta
 
 # DONT CHANGE #
 ###############
