@@ -22,7 +22,7 @@
 
 This git repository contains RNA-seq pipelines for transcriptome assembly, gene expression, gene annotation, and other. All scripts are running on [[https://www.xsede.org/][XSEDE]] supercomputers and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]] cluster in the US, including Greenfield, Bridges, and LIred servers.
 
-| Pipeline                          | Package     | Author      | Year | Related Publication |
+| Workflow                          | Pipeline    | Author      | Year | Related Publication |
 |-----------------------------------+-------------+-------------+------+---------------------|
 | Data mining                       | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash]]        | S. Bassim   | 2016 |                     |
 | Transcriptome assembly            | [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][trinity]]     | S. Bassim   | 2016 |                     |
