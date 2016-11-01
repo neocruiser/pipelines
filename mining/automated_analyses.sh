@@ -185,12 +185,12 @@ function guidelines () {
         else
             echo "!!!ERROR!!! File not found. Downloading gene_info file. Wait ..."
             if [ "$DB" == "bridges" ]; then
-                $_path=/pylon1/oc4ifip/bassim/db/ncbi
+                _path=/pylon1/oc4ifip/bassim/db/ncbi
                 mkdir -p $_path
                 wget -O $_path/gene_info.gz $_ftp/gene_info.gz
                 gunzip -d $_path/gene_info.gz
             elif [ "$DB" == "lired" ]; then
-                $_path=/gpfs/scratch/ballam/db/ncbi
+                _path=/gpfs/scratch/ballam/db/ncbi
                 mkdir -p $_path
                 wget -O $_path/gene_info.gz $_ftp/gene_info.gz
                 gunzip -d $_path/gene_info.gz
@@ -203,12 +203,12 @@ function guidelines () {
         else
             echo "!!!ERROR!!! File not found. Downloading gene2accession file. Wait ..."
             if [ "$DB" == "bridges" ]; then
-                $_path=/pylon1/oc4ifip/bassim/db/ncbi
+                _path=/pylon1/oc4ifip/bassim/db/ncbi
                 mkdir -p $_path
                 wget -O $_path/gene2accession.gz $_ftp/gene2accession.gz
                 gunzip -d $_path/gene2accession.gz
             elif [ "$DB" == "lired" ]; then
-                $_path=/gpfs/scratch/ballam/db/ncbi
+                _path=/gpfs/scratch/ballam/db/ncbi
                 mkdir -p $_path
                 wget -O $_path/gene2accession.gz $_ftp/gene2accession.gz
                 gunzip -d $_path/gene2accession.gz

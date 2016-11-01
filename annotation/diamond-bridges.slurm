@@ -44,7 +44,7 @@ elif [ $file == "csv" ]; then
     # If the IDs are stored in CSV file (1 column) imported from excel or cytoscape
     cat $project/Trinity.fasta | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$index.csv | sed -e '1 d' -e 's/","/\t/g' -e 's/"//g' | cut -f6 | sort - | uniq) - > $query
     else
-    # If only fasta file is used
+    # If only fasta file is used -- nucleotide sequence
     query=$project/$index.fasta
 fi
 

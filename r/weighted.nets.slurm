@@ -21,10 +21,11 @@ p=4
 c=2
 #_P=6
 #_T=01
+matrix=tissue
 _COR=pearson.average
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
-#file=deg.eXpress*/DESeq2.eXpress.tissue.p$p.c$c*
-#log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
+file=deg.eXpress*/DESeq2.eXpress.$matrix.p$p.c$c*
+log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 output=$_DIR/networks/$SLURM_JOBID
 mkdir -p $output
 

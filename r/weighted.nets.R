@@ -1,5 +1,5 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(7, 8, 1)
+pow <- seq(6, 8, 1)
 th <- seq(.4, .5, .1)
 
 #################
@@ -114,7 +114,7 @@ dim(adj_matrix)
 # this simply removes annotated genes without a description content being found in any gene database.
 # however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
 ### To make the annotation file, merge IPS output and Panther output
-annotations <- read.table("./contigs.lectins.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN50.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
+annotations <- read.table("./contigs.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN20.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
 tbl_df(annotations)
         
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
