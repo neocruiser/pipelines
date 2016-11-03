@@ -33,6 +33,8 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 cd $output
 cp $log $output
 
+
+## the for loop will go through all clusters selected from 1 to 32
 for i in {1..32}; do
     SUB_NET=module.704100.$i.csv
 
@@ -44,7 +46,7 @@ for i in {1..32}; do
 fi
 
 
-# get the gene expression logged FPKMs
+# get the gene expression logged TPMs
     grep -Fwf <(cat $output/$SUB_NET | sed 's/","/ /g' | cut -f6 -d' ' | sed 's/"//g' | awk 'NR>1') $log > $output/fpkms.logs
 # get the sample distribution (different for each analysis)
     head -n1 $log > $output/samples.logs
