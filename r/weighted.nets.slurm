@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH -N 1
 #SBATCH -p RM
-#SBATCH -t 01:00:00
+#SBATCH -t 05:00:00
 #SBATCH --job-name="R.nets"
 #SBATCH --output="R.nets.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
 
 module load java
-module load R
+#module load R
 
 # DONT CHANGE #
 scratch=/pylon2/oc4ifip/bassim
@@ -19,10 +19,7 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 # Files _CHANGE_
 p=4
 c=2
-#_P=6
-#_T=01
 matrix=tissue
-_COR=pearson.average
 _DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
 file=deg.eXpress*/DESeq2.eXpress.$matrix.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat

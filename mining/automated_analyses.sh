@@ -94,6 +94,10 @@ function extra () {
 
 
 function merge () {
+    ## This function will combine 2 or more lines with identical ID keys
+    ## thus creating for each key a one and single entry.
+    ## A single entry is suited to combine gene description with transcript abundance
+    ## before network inference in R.
 ## temperary file containing ALL panther annotations
     local VAR1=$1
 ##  file containing selected columns (w/ duplicates)

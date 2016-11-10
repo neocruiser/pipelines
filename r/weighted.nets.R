@@ -89,7 +89,7 @@ for ( i in seq(15,imax,10) ) {
 ## The mean of the number of clusters will be used to cut the dendrogram
 min.mods <- apply(d, 2, function(x) mean(x))
 # change the number of genes per cluster
-    for ( fm in c(50, 100) ) {
+    for ( fm in c(25, 50, 100) ) {
 #    for ( f in c(1, 2) ) {        
 #fm <- floor(min.mods[[f]])
 #fm <- floor(((imax-fm)/2.5) + fm)
