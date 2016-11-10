@@ -5,14 +5,31 @@
 _CSV=$1
 ## annotation output from IPS
 _TSV=$2
-## choose between go, reactome, kegg, or gene expression
-_KEY=$3
-## name of the network in cytoscape
-NET_NAME=final_networks
 
+
+## choose between go, reactome, kegg, or gene expression
+printf "Choose term to be extracted from annotation (go|reactome|kegg|deg) -> "
+read _KEY
+## name of the network in cytoscape
+printf "Input name of the network ->"
+read NET_NAME
+
+
+## get the total number of nodes retrieved from cytoscape
+## and get the total number of entries annotated through interpro scan/HMM
 _NODES=$(cat $_CSV | sed '1d' | wc -l)
 _ANNOTATED=$(cat $_TSV | wc -l)
 
+
+## each if statement will clean the CSV output of cytoscape
+## then will select the columns $14 for GO-terms
+## or column $15 for kegg and reactome
+## Next duplicate lines are merged
+## Entries are combined also if the same transcript produced 2 or more annotations
+## the end of each if statement will create a separate output file for each term search
+## Gene expression retrival requires the output of abundant transcript analysis
+## this analysis is done either with eXpress, Salmon or kallisto
+## using different p-values, fold change and pairwise comparisons
 if [ $_KEY == "go" ]
 then
     _out=go.$NET_NAME.ids
