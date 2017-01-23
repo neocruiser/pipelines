@@ -9,6 +9,9 @@
 
 module load R
 
+## choose between txt and csv
+_exe=txt
+
 # DONT CHANGE #
 scratch=/pylon2/oc4ifip/bassim
 home=/home/bassim
@@ -35,21 +38,29 @@ cp $log $output
 
 
 ## the for loop will go through all clusters selected from 1 to 32
-for i in {1..32}; do
-    SUB_NET=module.704100.$i.csv
+for i in {1..35}; do
+    SUB_NET=module.704100.$i.$_exe
 
     # get the node ID (contigs) from network or sub-networks
     if [ -f "$home/heatmaps.data/$SUB_NET" ]; then
         cp $home/heatmaps.data/$SUB_NET $output
+
+        if [ "$_exe" == csv ]; then
+            # get the gene expression logged TPMs
+            grep -Fwf <(cat $output/$SUB_NET | sed 's/","/ /g' | cut -f6 -d' ' | sed 's/"//g' | awk 'NR>1') $log > $output/fpkms.logs
+            # get the sample distribution (different for each analysis)
+            head -n1 $log > $output/samples.logs
+
+        elif [ "$_exe" == txt ]; then
+            grep -Fwf <(cat $output/$SUB_NET) $log > $output/fpkms.logs
+            head -n1 $log > $output/samples.logs
+        fi
+
     else
         echo "!!!ERROR!!! No contig IDs were found. Export $SUB_NET from Cytoscape and place it in Bridges at ~/heatmap.data/. Cheers"
 fi
 
 
-# get the gene expression logged TPMs
-    grep -Fwf <(cat $output/$SUB_NET | sed 's/","/ /g' | cut -f6 -d' ' | sed 's/"//g' | awk 'NR>1') $log > $output/fpkms.logs
-# get the sample distribution (different for each analysis)
-    head -n1 $log > $output/samples.logs
 
     R CMD BATCH $home/script*/heatmap.R
     rm Rplots.pdf

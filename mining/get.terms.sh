@@ -11,7 +11,7 @@ _TSV=$2
 printf "Choose term to be extracted from annotation (go|reactome|kegg|deg) -> "
 read _KEY
 ## name of the network in cytoscape
-printf "Input name of the network ->"
+printf "Input name of the network -> "
 read NET_NAME
 
 
@@ -35,9 +35,9 @@ then
     _out=go.$NET_NAME.ids
     grep -Ff <(cat $_CSV | sed -e 's/","/\t/g' -e 's/"//g' -e '1d'| cut -f7) $_TSV | \
         cut -f1,14 | sed -e 's/ /./g' -e 's/..\t/\t/g' | sort - | uniq | grep "^TRINITY" - |
-        awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s;",$2)}}END{printf("\n")}' | \
+        awk 'BEGIN{str = ""}{if ( str != $1 ) {if ( NR != 1 ){printf("\n")} {str = $1;printf("%s\t%s",$1,$2)}} else if ( str == $1 ) {printf("%s|",$2)}}END{printf("\n")}' | \
             grep -i "go" | \
-            sed -e 's/;//g' -e 's/\./ /g' > $_out
+            sed -e 's/GO/|GO/g' -e 's/||/|/g' -e 's/\t|/\t/g' -e 's/|$//g' > $_out
 
     _COUNT=$(cat $_out | wc -l)
     echo -e "Output saved in $_out"
