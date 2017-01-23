@@ -27,6 +27,7 @@ This git repository contains RNA-seq pipelines for transcriptome assembly, gene 
 | Data mining of gene annotation    | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash]]        | S. Bassim   | 2016 |                     |
 | Transcriptome assembly            | [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][trinity]]     | S. Bassim   | 2016 |                     |
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][bwa]]         | S. Bassim   | 2016 |                     |
+| Transcriptome size reduction      | [[https://github.com/neocruiser/pipelines/blob/master/expression/filter-bridges.slurm][Slurm]]       | S. Bassim   | 2017 |                     |
 | Gene expression                   | [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][R]]           | S. Bassim   | 2016 |                     |
 | Shotgun annotation                | [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][kraken]]      | S. Bassim   | 2016 |                     |
 | Gene annotation                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][diamond]]     | S. Bassim   | 2016 |                     |

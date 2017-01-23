@@ -1,7 +1,8 @@
 #!/bin/bash
-#SBATCH --partition=RM
+#SBATCH --partition=LM
 #SBATCH --nodes=1
-#SBATCH -t 1:00:00
+#SBATCH --mem=3000GB
+#SBATCH -t 5:00:00
 #SBATCH --job-name="degEX4"
 #SBATCH --output="degs.%j.%N.out"
 #SBATCH --mail-type=ALL
@@ -13,8 +14,8 @@ module load bowtie
 module load samtools
 
 ## CHANGE__PROJECT__ID__eXpress__kallisto__salmon__and fasta file
-transcriptome=parasite.4
-_FASTA=$transcriptome.selected.500.fa
+transcriptome=00000
+_FASTA=Trinity.ex20.hiso.fasta
 method=eXpress
 lib=RF
 
@@ -28,7 +29,7 @@ target=trinity_out_dir_$transcriptome
 _DIR=$scratch/ganglia/trinity/$target
 _FOLD=$_DIR/abundance_${method}
 project=$(find $_DIR -name "abundance_*")
-reads=$scratch/ganglia/blat/$transcriptome/fastq_genome_bwa
+reads=$scratch/ganglia/raw.reads
 ## Analyses
 abundance=$home/$version/util/align_and_estimate_abundance.pl
 analyze=$home/$version/Analysis/DifferentialExpression/run_DE_analysis.pl
@@ -48,7 +49,7 @@ if [ ! -d "$project" ]; then
         for f in br gg; do
 	          for i in {1..24}; do
 	              mkdir -p $_FOLD/$f$i
-	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f.${i}.R1.fastq --right $reads/$f.${i}.R2.fastq --est_method $method --aln_method bowtie --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f/$f.${i}.R1.fastq --right $reads/$f/$f.${i}.R2.fastq --est_method $method --aln_method bowtie --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
             done
         done
 
@@ -114,13 +115,13 @@ dir=$_DIR/deg.$method.$pbs
 mkdir -p $dir
 for align in $method
 do
-    for Rpack in DESeq2 edgeR voom
+    for Rpack in DESeq2
     do
-	      for i in {1..6}
+	      for i in {1..2}
 	      do
-	          for pval in {1..6}
+	          for pval in {3..4}
 	          do
-		            for cfold in {1..2}
+		            for cfold in {2}
 		            do
 	    jobid=${jobid[${i}]}
 	    matrix=$scratch/ganglia/trinity/matrix/$jobid.txt
@@ -151,13 +152,13 @@ cd $dir
 
 for m in $method
 do
-    for i in DESeq2 edgeR voom
+    for i in DESeq2
     do
-        for t in {1..6}
+        for t in {1..2}
         do
-            for p in {1..6}
+            for p in {3..4}
             do
-                for c in {1..2}
+                for c in {2}
                 do
                     for f in $i*$m*${jobid[${t}]}.p$p.c$c*
                     do
