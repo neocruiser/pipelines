@@ -1,8 +1,9 @@
 #!/bin/bash
 #SBATCH --partition=LM
 #SBATCH --nodes=1
+#SBATCH --mem=3000GB
 #SBATCH -t 48:00:00
-#SBATCH --job-name="ABU.P1"
+#SBATCH --job-name="gills"
 #SBATCH --output="abundance.%j.%N.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
@@ -14,8 +15,8 @@ module load bowtie
 module load samtools
 
 # CHANGE___FILE ID___METHOD eXpress kallisto salmon
-transcriptome=parasite.1
-method=eXpress
+transcriptome=gills
+method=kallisto
 lib=RF
 
 ## DONT___CHANGE
@@ -28,11 +29,11 @@ target=trinity_out_dir_$transcriptome
 project=$scratch/ganglia/trinity/$target/abundance_${method}
 
 # __CHANGE__
-assembly=$scratch/ganglia/trinity/$target/$transcriptome.selected.500.fa
+assembly=$scratch/ganglia/trinity/$target/Trinity.fasta
 #target=parasite.$transcriptome
 #project=$scratch/ganglia/blat/$target/abundance_${method}
 #assembly=$scratch/ganglia/blat/$target/parasite.$n.selected.500.fa
-reads=$scratch/ganglia/blat/$transcriptome/fastq_genome_bwa
+reads=$scratch/ganglia/raw.reads
 abundance=$home/$version/util/align_and_estimate_abundance.pl
 
 time=$home/time
@@ -42,7 +43,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## Express uses bowtie, so its slow
 ## Kallisto is fast delivering short summary
 if [ "$method" == eXpress ]; then
-    for f in br gg
+    for f in br
     do
 	for i in {1..24}
 	do
@@ -61,7 +62,7 @@ if [ "$method" == eXpress ]; then
     done
 done
     else
-    for f in br gg
+    for f in br
     do
 	for i in {1..24}
 	do

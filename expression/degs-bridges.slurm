@@ -2,8 +2,8 @@
 #SBATCH --partition=LM
 #SBATCH --nodes=1
 #SBATCH --mem=3000GB
-#SBATCH -t 5:00:00
-#SBATCH --job-name="degEX4"
+#SBATCH -t 48:00:00
+#SBATCH --job-name="degs"
 #SBATCH --output="degs.%j.%N.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
@@ -15,7 +15,7 @@ module load samtools
 
 ## CHANGE__PROJECT__ID__eXpress__kallisto__salmon__and fasta file
 transcriptome=00000
-_FASTA=Trinity.ex20.hiso.fasta
+_FASTA=Trinity.fasta
 method=eXpress
 lib=RF
 
@@ -101,6 +101,7 @@ $home/$version/util/misc/contig_ExN50_statistic.pl $project/$prefix.TMM.EXPR.mat
 # Get discriptive stats of the assembled trxome
 $home/$version/util/TrinityStats.pl $_DIR/$_FASTA > $_FOLD/descriptive.TRX-$transcriptome.$pbs.stats
 
+
 ## Choose__matrices [i]
 jobid[1]=tissue
 jobid[2]=tissue-diet
@@ -115,13 +116,13 @@ dir=$_DIR/deg.$method.$pbs
 mkdir -p $dir
 for align in $method
 do
-    for Rpack in DESeq2
+    for Rpack in DESeq2 edgeR voom
     do
-	      for i in {1..2}
+	      for i in {1..7}
 	      do
-	          for pval in {3..4}
+	          for pval in {1..5}
 	          do
-		            for cfold in {2}
+		            for cfold in {1..2}
 		            do
 	    jobid=${jobid[${i}]}
 	    matrix=$scratch/ganglia/trinity/matrix/$jobid.txt
@@ -141,7 +142,7 @@ done
 ## backup abundance folder and cleanup
 cd $_DIR
 ls *ebwt | xargs rm
-mv $project $_DIR/eXpress.${pbs}_abundance
+#mv $project $_DIR/eXpress.${pbs}_abundance
 ls *gene_trans_map | xargs rm
 ls *bowtie.ok | xargs rm
 
@@ -152,13 +153,13 @@ cd $dir
 
 for m in $method
 do
-    for i in DESeq2
+    for i in DESeq2 edgeR voom
     do
-        for t in {1..2}
+        for t in {1..7}
         do
-            for p in {3..4}
+            for p in {1..5}
             do
-                for c in {2}
+                for c in {1..2}
                 do
                     for f in $i*$m*${jobid[${t}]}.p$p.c$c*
                     do

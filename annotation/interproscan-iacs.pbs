@@ -42,7 +42,7 @@ $ips/interproscan.sh -t p \
     -i $peptides \
     -appl ProDom,PANTHER,TIGRFAM,SUPERFAMILY,PIRSF,Gene3D,Pfam,SMART,PROSITEPROFILES,PROSITEPATTERNS,COILS \
     -iprlookup -goterms --pathways \
-    -f TSV \
+    -f TSV, HTML, SVG \
     --tempdir $tmp -d $output
 
 rm -r $tmp

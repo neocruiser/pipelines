@@ -18,8 +18,8 @@ module load bowtie
 module load samtools
 
 # CHANGE___FILE ID___METHOD eXpress kallisto salmon
-transcriptome=00000
-method=eXpress
+transcriptome=gills
+method=kallisto
 lib=RF
 
 ## DONT___CHANGE

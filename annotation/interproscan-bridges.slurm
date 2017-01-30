@@ -48,7 +48,7 @@ transeq $contigs $peptides -frame=F --clean=yes
 # Run interpro Scans
 # Dont run HAMAP PRINTS
 $ips/interproscan.sh -t p -i $peptides -appl ProDom,TIGRFAM,SUPERFAMILY,PIRSF,Gene3D,Pfam,SMART,PROSITEPROFILES,PROSITEPATTERNS,COILS,PANTHER,HAMAP,PRINTS \
-    -iprlookup -goterms --pathways -f TSV --tempdir $tmp -d $output
+    -iprlookup -goterms --pathways -f TSV,SVG,HTML --tempdir $tmp -d $output
 
 rm -r $tmp
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
