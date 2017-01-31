@@ -82,7 +82,10 @@ project=$(find $_DIR -name "abundance_*")
     fi
 
 
-# Join gene counts between samples
+    # Join gene counts between samples
+    # if TMM is not generated or empty recheck the transcriptome
+    # if reads are not those use to assemble the transcriptome
+    # edgeR throws an error for TMM
 cd $project
 if [ ! -f $prefix.TPM.not_cross_norm.counts_by_min_TPM_$method ]; then
     perl $join --est_method $method --cross_sample_norm TMM --out_prefix $prefix --name_sample_by_basedir $files
