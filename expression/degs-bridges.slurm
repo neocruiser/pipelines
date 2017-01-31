@@ -85,7 +85,7 @@ project=$(find $_DIR -name "abundance_*")
 # Join gene counts between samples
 cd $project
 if [ ! -f $prefix.TPM.not_cross_norm.counts_by_min_TPM_$method ]; then
-    perl $join --est_method $method --out_prefix $prefix --name_sample_by_basedir $files
+    perl $join --est_method $method --cross_sample_norm TMM --out_prefix $prefix --name_sample_by_basedir $files
     # merge matrices accross samples to get shared TPM scores
     perl $TPM $prefix.TPM.not_cross_norm > $prefix.TPM.not_cross_norm.counts_by_min_TPM_$method
     # merge matrices accross samples to get shared FPKM scores
@@ -165,7 +165,7 @@ do
                     do
 temp=summary.txt
 final=summary.$method.$pbs.txt
-summary=$scratch/ganglia/trinity/$target/$final
+summary=$dir/$final
 rm $final
 
 # Get the number of genes per abundance test
