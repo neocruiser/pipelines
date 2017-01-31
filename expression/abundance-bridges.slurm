@@ -50,8 +50,8 @@ if [ "$method" == eXpress ]; then
 	    mkdir -p $project/$f$i
 	    perl $abundance --transcripts $assembly \
 		--SS_lib_type $lib --seqType fq \
-		--left $reads/$f.${i}.R1.fastq \
-		--right $reads/$f.${i}.R2.fastq \
+		--left $reads/$f.${i}.R1.fastq.gz \
+		--right $reads/$f.${i}.R2.fastq.gz \
 		--est_method $method \
 		--aln_method bowtie \
 		--trinity_mode \
