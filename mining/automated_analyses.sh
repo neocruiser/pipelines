@@ -34,13 +34,13 @@ function files () {
     local EXE=$2
     if [ "$EXE" == txt ]; then
         echo
-	      find $OUTPUT -maxdepth 3 -iname "*blast*$EXE" | nl | tee $EXE.tmp
+	      find $OUTPUT -maxdepth 3 -iname "*blast*$EXE" | nl | tee blast.tmp
     elif [ "$EXE" == fa ]; then
         echo
-        find $(dirname $(dirname $FILENAME))  -maxdepth 3 -iname "*trinity*fa*" | nl | tee $EXE.tmp
+        find $(dirname $(dirname $FILENAME))  -maxdepth 3 -iname "*trinity*fa*" | nl | tee fasta.tmp
     else
         echo
-	      find $OUTPUT -maxdepth 3 -iname "*$EXE" | nl | tee $EXE.tmp
+	      find $OUTPUT -maxdepth 3 -iname "*$EXE" | nl | tee ips.tmp
     fi
     echo
 }
@@ -69,7 +69,6 @@ function summary () {
 ## the awk part will merge PANTHER identified genes and IPS output results using second column of output 1 and third column of output 2
 # Panther columns $2=ID $3=family_name $4=subfamily_name $5=GOs
     awk 'NR==FNR {h[$2] = sprintf ("%s\t%s\t%s\t",$1,$2,$3); next} {print h[$3],$1,$3,$4,$5,$6}' <(grep -RFwf <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | cut -f3  | sed '/^.*\:.*$/d') $VAR4 | sed 's/ /./g' | sort - | cut -f1,3,4,5 | uniq | sed 's/\:SF.*\t/\t/g') <(cat $VAR3 | cut -f1,4,5,7,8,9 | awk -va="$VAR1" -vp="$VARe" '{n=$4-$5?$5-$4:$4-$5; if(n>=a && $6<=p && $2 == "PANTHER") print $0}' | sort -k3 - | sed '/^.*\:.*$/d' | uniq) | sort -k1 - > $__out
-
 
 }
 
@@ -224,8 +223,8 @@ function guidelines () {
             files $FILE__PATH txt
             printf "a. Choose one DIAMOND txt file from the list above (number) -> "
             read _FD
-            _diamond=$(awk -vf="$_FD" '{if ($1 == f) print $2}' txt.tmp)
-            rm txt.tmp
+            _diamond=$(awk -vf="$_FD" '{if ($1 == f) print $2}' blast.tmp)
+            rm blast.tmp
             printf "b. Choose an E-value for an alignment score [e-0..35] -> "
             read ED
             ZD=$(seq -s. "$(echo "${ED}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
@@ -359,8 +358,8 @@ elif [ "$ANALYSIS" == p ]; then
     files $FILE__PATH tsv
     printf "1. Choose one PANTHER file from the list above (number) -> "
     read _FN
-    FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' tsv.tmp)
-    rm tsv.tmp
+    FILENAME=$(awk -vf="$_FN" '{if ($1 == f) print $2}' ips.tmp)
+    rm ips.tmp
     printf "2. Choose an acceptable alignment length [20..1000] -> "
     read ALIGNMENT
     printf "3. Choose an E-value for an alignment score [e-0..35] -> "
