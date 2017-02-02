@@ -1,7 +1,8 @@
 #!/bin/bash
 #SBATCH -N 1
-#SBATCH -p RM
-#SBATCH -t 05:00:00
+#SBATCH -p LM
+#SBATCH --mem=3000GB
+#SBATCH -t 24:00:00
 #SBATCH --job-name="R.nets"
 #SBATCH --output="R.nets.out"
 #SBATCH --mail-type=ALL
@@ -17,10 +18,10 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 #mkdir -p $tmp
 
 # Files _CHANGE_
-p=4
+p=3
 c=2
 matrix=tissue
-_DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
+_DIR=$scratch/nodule/qpx-analysis/trinity/trinity_out_dir_A
 file=deg.eXpress*/DESeq2.eXpress.$matrix.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 output=$_DIR/networks/$SLURM_JOBID
@@ -32,7 +33,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
 cp $log $output
-cp $_DIR/*id2description* $output
+cp $_DIR/qpx-degs/*id2description* $output
 cp $home/script*/convertMatrix2graph.R $output
 
 

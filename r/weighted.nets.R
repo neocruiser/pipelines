@@ -1,6 +1,6 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(6, 8, 1)
-th <- seq(.4, .5, .1)
+pow <- seq(1, 8, 1)
+th <- seq(.2, .5, .1)
 
 #################
 ### RUN CODE ####
@@ -12,7 +12,7 @@ source("./convertMatrix2graph.R")
 
 #load data
 #counts <- read.table("../../R/ganglia/data/diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
-counts <- read.table("./diffExpr.P1e-4_C2.matrix.log2.dat", header = T)
+counts <- read.table("./diffExpr.P1e-3_C2.matrix.log2.dat", header = T)
 counts <- data.frame(contigs = rownames(counts), counts) %>%
     arrange(desc(contigs))
 rownames(counts) <- counts$contigs
@@ -33,7 +33,7 @@ cordist <- function(dat) {
 sim_matrix <- cordist(counts)
 
 pdf("similarity.matrix.sample.heatmap.pdf")
-heatmap_indices <- sample(nrow(sim_matrix), 500)
+heatmap_indices <- sample(nrow(sim_matrix), 50)
 heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
             col=redgreen(75),
             labRow=NA, labCol=NA, 
@@ -80,8 +80,8 @@ dend <- as.dendrogram(hclust(as.dist(1-cor(t(adj_matrix),
 
 ## Get the number of clusters (modules) and the number of genes per cluster
 d <- NULL
-imax=200
-for ( i in seq(15,imax,10) ) {
+imax=20
+for ( i in seq(5,imax,5) ) {
     module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=i,
                                        deepSplit=TRUE)
     d <- rbind(d, data.frame(genes = i, modules = summary(module_labels)[[6]]))
@@ -89,7 +89,7 @@ for ( i in seq(15,imax,10) ) {
 ## The mean of the number of clusters will be used to cut the dendrogram
 min.mods <- apply(d, 2, function(x) mean(x))
 # change the number of genes per cluster
-    for ( fm in c(25, 50, 100) ) {
+    for ( fm in c(5, 10, 20) ) {
 #    for ( f in c(1, 2) ) {        
 #fm <- floor(min.mods[[f]])
 #fm <- floor(((imax-fm)/2.5) + fm)
@@ -114,7 +114,8 @@ dim(adj_matrix)
 # this simply removes annotated genes without a description content being found in any gene database.
 # however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
 ### To make the annotation file, merge IPS output and Panther output
-annotations <- read.table("./contigs.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN20.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
+        annotations <- read.table("./A.peptides.fa.tsv.id2description.LEN20.EVAL10.txt", fill = TRUE, na.strings = c("", "NA"))
+#        annotations <- read.table("./contigs.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN20.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
 tbl_df(annotations)
         
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
@@ -129,7 +130,7 @@ df <- arrange(df, desc(gene_id))
 #extract network
     for (t in th){
         g <- export_network_to_graphml(adj_matrix,
-                                       filename = paste("network.PVAL4.FOLD2.POW",p,".Th",t,".GEN",fm,".graphml",sep = "" ),
+                                       filename = paste("network.PVAL3.FOLD2.POW",p,".Th",t,".GEN",fm,".graphml",sep = "" ),
                                        threshold=t, nodeAttrDataFrame=df)
     }
     }
