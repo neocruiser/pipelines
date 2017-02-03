@@ -30,8 +30,10 @@ scaledata=scale(genre)
 
 
 ## Clustering using dissimilarity analysis
-hra <- hclust(as.dist(1-cor(t(scaledata), method="pearson")), method="ward")
-hca <- hclust(as.dist(1-cor(scaledata, method="spearman")), method="ward")
+# use "pairwise.complete.obs" when generating NAs
+#hra <- hclust(as.dist(1-cor(t(scaledata), method="pearson",use = "pairwise.complete.obs")), method="average")
+hra <- hclust(as.dist(1-cor(t(scaledata), method="pearson")), method="ward.D2")
+hca <- hclust(as.dist(1-cor(scaledata, method="spearman")), method="ward.D2")
 
 
 ## CUT THE TREE

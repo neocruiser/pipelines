@@ -1,7 +1,8 @@
 #!/bin/bash
 #SBATCH -N 1
-#SBATCH -p RM
-#SBATCH -t 10:00:00
+#SBATCH -p LM
+#SBATCH --mem=3000GB
+#SBATCH -t 01:00:00
 #SBATCH --job-name="R.heatmaps"
 #SBATCH --output="R.heatmaps.out"
 #SBATCH --mail-type=ALL
@@ -10,7 +11,7 @@
 module load R
 
 ## choose between txt and csv
-_exe=txt
+_exe=csv
 
 # DONT CHANGE #
 scratch=/pylon2/oc4ifip/bassim
@@ -19,10 +20,10 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 #mkdir -p $tmp
 
 # Files _CHANGE_
-p=4
+p=3
 c=2
 _COR=pearson.average
-_DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
+_DIR=$scratch/nodule/qpx-analysis/trinity/trinity_out_dir_A
 file=deg.eXpress*/DESeq2.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 
@@ -38,8 +39,8 @@ cp $log $output
 
 
 ## the for loop will go through all clusters selected from 1 to 32
-for i in {1..35}; do
-    SUB_NET=module.704100.$i.$_exe
+for i in 1; do
+    SUB_NET=module.20410.$i.$_exe
 
     # get the node ID (contigs) from network or sub-networks
     if [ -f "$home/heatmaps.data/$SUB_NET" ]; then
