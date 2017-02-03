@@ -1,57 +1,46 @@
 #!/bin/bash
-#PBS -l nodes=8:ppn=16,walltime=24:00:00
-#PBS -N NR.gg
-#PBS -q long
+#PBS -l nodes=1:ppn=16,walltime=00:01:00
+#PBS -N string
+#PBS -q debug
 #PBS -V
 
-# Files _CHANGE_
-file=gg100
-exe=rscf.contigs.fa
-extra=assembled
-db=nr
-ev=1e-10
-maxT=1
+# Files _CHANGE_ string nr
+blast=blastx
+db=string
+maxSeq=10
+file=Trinity.fasta
+transcriptome=A
 
 scratch=/gpfs/scratch/ballam
 home=/gpfs/home/ballam
-project=$home/ganglia/blast
-tophit=$home/trinityrnaseq-2.1.1/util/analyze_blastPlus_topHit_coverage.pl
-mkdir -p $project
-###############
+project=$scratch/nodule/qpx-analysis/trinity/trinity_out_dir_$transcriptome
+
+#tophit=$home/trinityrnaseq-2.1.1/util/analyze_blastPlus_topHit_coverage.pl
+
 # DONT CHANGE #
-###############
 # blast libraries
-export PATH="$PATH:/gpfs/home/ballam/ncbi-blast-2.2.31+/bin"
+export PATH="$PATH:/gpfs/home/ballam/ncbi-blast-2.6.0+/bin"
 export BLASTDB="/gpfs/scratch/ballam/db/swissprot"
 # supercomputing power
-nthreads=128
-# blast output format index
-n=6
+pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
+nthreads=$(expr 2 \* 16)
 
-################
-## Full blast ##
-################
-#blastx -query ${oasis}/silo/nodule/assembled/A.assembl.QPXgv5.fasta \
-#-db swissprot \
-#-outfmt " 7 qseqid qlen sseqid slen qstart qend sstart send evalue bitscore length pident nident mismatch gaps " \
-#-max_target_seqs 10 \
-#-num_threads 16 \
-#-out ${oasis}/silo/nodule/blast/A.blastx.string.txt
+query=$project/$file
+output=$project/$transcriptome.$blast.$db.$pbs.txt
 
-########################################
-## Partial blast for transcriptome QC ##
-########################################
-blastx \
--db $db \
--query $scratch/$extra/$file.$exe \
--out $project/$file.$db.$ev.outfmt$n \
--evalue $ev \
--num_threads $nthreads \
--max_target_seqs $maxT \
--outfmt $n
+## Full blast
+time=$home/time
+jobid=$blast.$db
+start=$(date); echo "Job started at: $start" > $time/$jobid.$pbs.time
 
-perl $tophit \
-$project/$file.$db.$ev.outfmt$n \
-$scratch/$extra/$file.$exe \
-$scratch/db/$db/$db \
->& $project/$file.$db.$ev.tophit
+cd $scratch/db/$db
+
+$blast -query $query -db $db -outfmt " 7 qseqid qlen sseqid slen qstart qend sstart send evalue bitscore length pident nident mismatch gaps " -max_target_seqs $maxSeq -num_threads $nthreads -out $output
+
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.$pbs.time
+
+#perl $tophit \
+#$project/$file.$db.$ev.outfmt$n \
+#$scratch/$extra/$file.$exe \
+#$scratch/db/$db/$db \
+#>& $project/$file.$db.$ev.tophit
