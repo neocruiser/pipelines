@@ -16,8 +16,8 @@ genre <- as.matrix(genre)
 
 standardize_df <- c("standardize", "range", "log", "hellinger")
 normalize_df <- c("complete", "ward.D2", "median", "average")
-correlate_rows <- c("Pearson", "Spearman")
-correlate_columns <- c("Pearson", "Spearman")
+correlate_rows <- c("pearson", "spearman")
+correlate_columns <- c("pearson", "spearman")
 
 
 for ( s in standardize_df ) {
@@ -49,16 +49,16 @@ hca <- hclust(as.dist(1-cor(scaledata, method= cc)), method= n)
 mycl <- cutree(hra, h=max(hra$height)/2)
 mycolhc <- sample(rainbow(256))
 mycolhc <- mycolhc[as.vector(mycl)]
-pdf(paste("heatmap1.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".pdf"))
+pdf(paste("heatmap1.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".pdf", sep = ""))
 heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=palette.green, scale="row", RowSideColors=mycolhc)
 dev.off()
-p
+
 ## BOOTSTRAPING to create pvalues
 bst=10000
 a=0.95
 pvData <- pvclust(scale(t(rawdata)), method.dist="correlation", method.hclust= n, nboot= bst)
 
-pdf(paste("bootstrap.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf"))
+pdf(paste("bootstrap.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
 plot(pvData, hang=-1)
 pvrect(pvData, alpha=a)
 dev.off()
@@ -85,7 +85,7 @@ dend_colored <- dendrapply(as.dendrogram(pvData$hclust), dendroCol, keys=clsig, 
 
 
 ## PLOT HEATMAP
-pdf(paste("heatmap2.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf"))
+pdf(paste("heatmap2.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
 heatmap.2(rawdata, Rowv=dend_colored, Colv=as.dendrogram(hca), col=palette.green, scale="row", trace="none", RowSideColors = mycolhc, margins=c(8,20))
 dev.off()
 
