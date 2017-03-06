@@ -5,8 +5,13 @@ th <- seq(.2, .5, .1)
 #################
 ### RUN CODE ####
 #################
-pkgs <- c('limma','reshape2','gplots','WGCNA','dplyr','igraph')
+pkgs <- c('limma','reshape2','gplots','WGCNA','dplyr','igraph',"RColorBrewer")
 lapply(pkgs, require, character.only = TRUE)
+
+palette.gr <- brewer.pal(11, name = "PRGn")
+palette.rd <- brewer.pal(11, name = "RdYlBu")
+palette.green <- colorRampPalette(palette.gr)(n = 200)
+palette.red <- colorRampPalette(palette.rd)(n = 200)
 
 source("./convertMatrix2graph.R")
 
@@ -35,8 +40,8 @@ sim_matrix <- cordist(counts)
 pdf("similarity.matrix.sample.heatmap.pdf")
 heatmap_indices <- sample(nrow(sim_matrix), 50)
 heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
-            col=redgreen(75),
-            labRow=NA, labCol=NA, 
+            col=palette.red,
+            labRow=NA, labCol=NA,
             trace='none', dendrogram='row',
             xlab='Gene', ylab='Gene',
             main='Similarity matrix',
@@ -56,8 +61,8 @@ colnames(adj_matrix) <- gene_ids
 
     pdf("adjacency.matrix.heatmap.pdf")
     heatmap.2(t(adj_matrix[heatmap_indices, heatmap_indices]),
-              col=redgreen(75),
-              labRow = NA, labCol=NA, 
+              col=palette.green,
+              labRow = NA, labCol=NA,
               trace='none', dendrogram='row',
               xlab='Gene', ylab='Gene',
               main='Adjacency matrix',
@@ -90,7 +95,7 @@ for ( i in seq(5,imax,5) ) {
 min.mods <- apply(d, 2, function(x) mean(x))
 # change the number of genes per cluster
     for ( fm in c(5, 10, 20) ) {
-#    for ( f in c(1, 2) ) {        
+#    for ( f in c(1, 2) ) {
 #fm <- floor(min.mods[[f]])
 #fm <- floor(((imax-fm)/2.5) + fm)
 fm
@@ -117,7 +122,7 @@ dim(adj_matrix)
         annotations <- read.table("./A.peptides.fa.tsv.id2description.LEN20.EVAL10.txt", fill = TRUE, na.strings = c("", "NA"))
 #        annotations <- read.table("./contigs.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN20.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
 tbl_df(annotations)
-        
+
 df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
 df <- df[!duplicated(df$id),]
 colnames(df) <- c('gene_id','modules','colors_rgb','description')
@@ -126,7 +131,7 @@ df$description <- as.character(df$description)
 df <- arrange(df, desc(gene_id))
 
         tbl_df(df)
-        
+
 #extract network
     for (t in th){
         g <- export_network_to_graphml(adj_matrix,

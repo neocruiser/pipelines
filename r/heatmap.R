@@ -1,8 +1,11 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots')
 lapply(pkgs, require, character.only = TRUE)
 
-display.brewer.pal(9, "YlGnBu")
-palett <- brewer.pal(9,"Greens")
+palette.gr <- brewer.pal(11, name = "PRGn")
+palette.rd <- brewer.pal(11, name = "RdYlBu")
+palette.green <- colorRampPalette(palette.gr)(n = 200)
+palette.red <- colorRampPalette(palette.rd)(n = 200)
+
 
 # Load data
 genre <- read.table("./fpkms.logs", header = FALSE, row.names = 1)
@@ -12,14 +15,6 @@ genre <- as.matrix(genre)
 
 
 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
-# Color function to generate green-red heat maps
-my.colorFct <- function(n = 50, low.col = 0.45, high.col=1, saturation = 1) { 
-	if (n < 2) stop("n must be greater than 2")
-	n1 <- n%/%2
-	n2 <- n - n1
-	c(hsv(low.col, saturation, seq(1,0,length=n1)), hsv(high.col, saturation, seq(0,1,length=n2))) 
-}
-
 ## by sample
 rawdata <- t(genre)
 scaledata=t(scale(genre))
@@ -27,7 +22,6 @@ scaledata=t(scale(genre))
 ## by genes
 rawdata <- genre
 scaledata=scale(genre)
-
 
 ## Clustering using dissimilarity analysis
 # use "pairwise.complete.obs" when generating NAs
@@ -40,7 +34,9 @@ hca <- hclust(as.dist(1-cor(scaledata, method="spearman")), method="ward.D2")
 mycl <- cutree(hra, h=max(hra$height)/2)
 mycolhc <- sample(rainbow(256))
 mycolhc <- mycolhc[as.vector(mycl)]
-heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=my.colorFct(), scale="row", RowSideColors=mycolhc)
+pdf("heatmap.1.pdf")
+heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=palette.green, scale="row", RowSideColors=mycolhc)
+dev.off()
 
 ## BOOTSTRAPING to create pvalues
 n=5000
@@ -74,7 +70,10 @@ dend_colored <- dendrapply(as.dendrogram(pvData$hclust), dendroCol, keys=clsig, 
 
 
 ## PLOT HEATMAP
-#x11(height=5,width =8)
-pdf("heatmap.pdf")
-heatmap.2(rawdata, Rowv=dend_colored, Colv=as.dendrogram(hca), col=my.colorFct(), scale="row", trace="none", RowSideColors=mycolhc,margins=c(8,20))
+pdf("heatmap2.pdf")
+heatmap.2(rawdata, Rowv=dend_colored, Colv=as.dendrogram(hca), col=palette.green, scale="row", trace="none", RowSideColors = mycolhc, margins=c(8,20))
+dev.off()
+
+pdf("heatmap3.pdf")
+heatmap.2(rawdata, Rowv=dend_colored, col=palette.red, symm=F,symkey=F,symbreaks=T, scale="row", trace="none", RowSideColors=mycolhc,margins=c(8,20))
 dev.off()
