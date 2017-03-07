@@ -8,14 +8,14 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 
 
 # Load data
-genre <- read.table("./logs", header = TRUE, row.names = 1)
+genre <- read.table("logs", header = TRUE, row.names = 1)
 #slogs <- read.table("./samples.logs")
 #colnames(genre) <- as.matrix(slogs)
-genre <- as.matrix(genre)
+genre <- as.matrix(genre[, -c(1,2)])
 
 
 standardize_df <- c("standardize", "range", "log", "hellinger")
-normalize_df <- c("complete", "ward.D2", "median", "average")
+normalize_df <- c("complete", "ward.D2", "average")
 correlate_rows <- c("pearson", "spearman")
 correlate_columns <- c("pearson", "spearman")
 
