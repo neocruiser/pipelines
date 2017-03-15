@@ -9,7 +9,7 @@
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
 
 module load java
-#module load R
+module load R
 
 # DONT CHANGE #
 scratch=/pylon2/oc4ifip/bassim

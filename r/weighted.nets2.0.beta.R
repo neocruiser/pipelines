@@ -5,7 +5,7 @@ th <- seq(.2, .5, .1)
 #################
 ### RUN CODE ####
 #################
-pkgs <- c('limma','reshape2','gplots','WGCNA','dplyr','igraph',"RColorBrewer")
+pkgs <- c('limma','reshape2','gplots','WGCNA','dplyr','igraph',"RColorBrewer","vegan")
 lapply(pkgs, require, character.only = TRUE)
 
 palette.gr <- brewer.pal(11, name = "PRGn")
@@ -41,7 +41,7 @@ cordist <- function(dat) {
 }
 sim_matrix <- cordist(counts)
 
-pdf(paste("similarity.matrix.SSIZE",nco,".STD",s,".heatmap.pdf"))
+pdf(paste("similarity.matrix.SSIZE",nco,".STD",s,".heatmap.pdf",sep = ""))
 heatmap_indices <- sample(nrow(sim_matrix), 50)
 heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
             col=palette.green,
@@ -63,7 +63,7 @@ adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
 rownames(adj_matrix) <- gene_ids
 colnames(adj_matrix) <- gene_ids
 
-    pdf("adjacency.matrix.SSIZE",nco,".STD",s,".heatmap.pdf")
+    pdf(paste("adjacency.matrix.SSIZE",nco,".STD",s,".heatmap.pdf", sep = ""))
     heatmap.2(t(adj_matrix[heatmap_indices, heatmap_indices]),
               col=palette.green,
               labRow = NA, labCol=NA,
@@ -111,7 +111,7 @@ fm
 module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                    minModuleSize=fm,
                                    deepSplit=TRUE)
-pdf(paste("minimum.module.SSIZE",nco,".STD",s,".var-CORR",cr,".CLU",n,".pdf"))
+pdf(paste("minimum.module.SSIZE",nco,".STD",s,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
 plot(d, main = paste("Module (cluster) size selected = ", fm, sep=""))
 abline(lm(d$modules ~ d$genes), col="red")
 lines(lowess(d$genes,d$modules), col="blue")
