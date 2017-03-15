@@ -20,18 +20,20 @@ pbs=$SLURM_JOBID
 
 
 
-for i in A B C; do
+for i in A; do
     for k in {1..3}; do
         target=$i$k.nodup
-        _DIR=$scratch/nodule/qpx-analysis/reads2/$target
+        _DIR=$scratch/nodule/clam_reads/$target
         _IR=$scratch/nodule/rmdup_QPX/$target
+
+mkdir -p $_DIR
 
         # extract only the mapped reads in bam (-b)
         # remove (-F) the reads that do not map (4)
-        samtools view -b -f16 $_IR.bam > $_IR.mapped.bam
-#        samtools view -b -F 4 $_IR.bam > $_IR.mapped.bam
+        samtools view -b -F2 $_IR.bam > $_DIR.clam.bam
+#        samtools view -b -F 4 $_IR.bam > $_DIR.mapped.bam
 
-java -Xmx1500g -jar $version SamToFastq I=$_IR.mapped.bam FASTQ=$_DIR.R1.fastq SECOND_END_FASTQ=$_DIR.R2.fastq
+java -Xmx1500g -jar $version SamToFastq I=$_DIR.clam.bam FASTQ=$_DIR.R1.fastq SECOND_END_FASTQ=$_DIR.R2.fastq
 
 for j in {1..2}; do
     gzip $_DIR.R$j.fastq
