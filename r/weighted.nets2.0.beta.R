@@ -133,7 +133,7 @@ df=gene_info
                                                         ".Th",t,
                                                         ".GEN",fm,
                                                         ".STD",s,
-                                                        "SSIZE",nco,
+                                                        ".SSIZE",nco,
                                                         ".CLU",n,
                                                         ".var-CORR",cr,
                                                         ".graphml",
