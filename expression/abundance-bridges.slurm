@@ -16,7 +16,7 @@ module load samtools
 
 # CHANGE___FILE ID___METHOD eXpress kallisto salmon
 transcriptome=gills
-method=kallisto
+method=eXpress
 lib=RF
 
 ## DONT___CHANGE

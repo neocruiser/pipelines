@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --mem=3000GB
 #SBATCH -t 48:00:00
-#SBATCH --job-name="degs"
+#SBATCH --job-name="DEGex"
 #SBATCH --output="degs.%j.%N.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
@@ -14,8 +14,8 @@ module load bowtie
 module load samtools
 
 ## CHANGE__PROJECT__ID__eXpress__kallisto__salmon__and fasta file
-transcriptome=00000
-_FASTA=Trinity.fasta
+transcriptome=clam
+_FASTA=clam_40p_trinity.fa
 method=eXpress
 lib=RF
 
@@ -26,10 +26,10 @@ scratch=/pylon2/oc4ifip/bassim
 home=/home/bassim
 pbs=$SLURM_JOBID
 target=trinity_out_dir_$transcriptome
-_DIR=$scratch/ganglia/trinity/$target
+_DIR=$scratch/nodule/trinity/$target
 _FOLD=$_DIR/abundance_${method}
 project=$(find $_DIR -name "abundance_*")
-reads=$scratch/ganglia/raw.reads
+reads=$scratch/nodule/raw.reads
 ## Analyses
 abundance=$home/$version/util/align_and_estimate_abundance.pl
 analyze=$home/$version/Analysis/DifferentialExpression/run_DE_analysis.pl
@@ -43,21 +43,24 @@ prefix=trans_counts
 # Run abundance test if eXpress run the first configuration, else (salmon or kallisto)
 # Express uses bowtie, so its slow
 # Kallisto is fast delivering short summary
+# salmon supposedly reduces FDRs
+mkdir -p $_DIR
+cp $scratch/nodule/clam_trxome/$_FASTA $_DIR
 cd $_DIR
 if [ ! -d "$project" ]; then
     if [ "$method" == eXpress ]; then
-        for f in br gg; do
-	          for i in {1..24}; do
+        for f in A B C; do
+	          for i in {1..3}; do
 	              mkdir -p $_FOLD/$f$i
-	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f/$f.${i}.R1.fastq --right $reads/$f/$f.${i}.R2.fastq --est_method $method --aln_method bowtie --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f${i}R1.fastq.gz --right $reads/$f${i}R2.fastq.gz --est_method $method --aln_method bowtie --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
             done
         done
 
     elif [ "$method" == kallisto || "$method" == salmon ]; then
-        for f in br gg; do
-	          for i in {1..24}; do
+        for f in A B C; do
+	          for i in {1..3}; do
 	              mkdir -p $_FOLD/$f$i
-	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f/$f.${i}.R1.fastq.gz --right $reads/$f/$f.${i}.R2.fastq.gz --est_method $method --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f${i}R1.fastq.gz --right $reads/$f${i}R2.fastq.gz --est_method $method --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
             done
         done
     fi
@@ -84,7 +87,7 @@ project=$(find $_DIR -name "abundance_*")
 
     # Join gene counts between samples
     # if TMM is not generated or empty recheck the transcriptome
-    # if reads are not those use to assemble the transcriptome
+    # if reads are not those used to assemble the transcriptome
     # edgeR throws an error for TMM
 cd $project
 if [ ! -f $prefix.TPM.not_cross_norm.counts_by_min_TPM_$method ]; then
@@ -117,22 +120,25 @@ jobid[7]=tissue-br-bucephalus
 ## Get differentially expressed genes
 dir=$_DIR/deg.$method.$pbs
 mkdir -p $dir
+
 for align in $method
 do
     for Rpack in DESeq2 edgeR voom
     do
-	      for i in {1..7}
+	      for i in 1
 	      do
 	          for pval in {1..5}
 	          do
 		            for cfold in {1..2}
 		            do
 	    jobid=${jobid[${i}]}
-	    matrix=$scratch/ganglia/trinity/matrix/$jobid.txt
-	    contrast=$scratch/ganglia/trinity/matrix/contrast.$jobid
+	    matrix=$scratch/nodule/matrix/$jobid.txt
+#	    contrast=$scratch/ganglia/trinity/matrix/contrast.$jobid
 
 	    cd $project
-	    $analyze --matrix $project/trans_counts.counts.matrix --method $Rpack --samples_file $matrix --output $dir/$Rpack.$align.$jobid.p$pval.c$cfold.$pbs --contrasts $contrast
+	    $analyze --matrix $project/trans_counts.counts.matrix --method $Rpack --samples_file $matrix --output $dir/$Rpack.$align.$jobid.p$pval.c$cfold.$pbs
+
+      #	    $analyze --matrix $project/trans_counts.counts.matrix --method $Rpack --samples_file $matrix --output $dir/$Rpack.$align.$jobid.p$pval.c$cfold.$pbs --contrasts $contrast
 
 	    cd $dir/$Rpack.$align.$jobid.p$pval.c$cfold.$pbs
 	    $differential --matrix $project/trans_counts.TMM.EXPR.matrix -P 1e-$pval -C $cfold --samples $matrix
@@ -158,7 +164,7 @@ for m in $method
 do
     for i in DESeq2 edgeR voom
     do
-        for t in {1..7}
+        for t in 1
         do
             for p in {1..5}
             do
