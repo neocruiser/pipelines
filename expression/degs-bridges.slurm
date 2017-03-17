@@ -190,19 +190,19 @@ do
                     for f in $i*$m*${jobid[${t}]}.p$p.c$c*
                     do
 temp=summary.txt
-final=summary.$method.$pbs.txt
-summary=$dir/$final
-rm $final
+summary=$dir/summary.$method.$pbs.txt
 
 # Get the number of genes per abundance test
-cat ${f}/diffExpr*matrix.log2.dat | cut -f 1 >> raw.$m.${jobid[${t}]}.$p.$c
+all=$(cat ${f}/diffExpr*matrix.log2.dat | sed '1d' | wc -l)
+
 # count number of all and unique differentially expressed genes
-all=$(grep "^TRINITY" raw.$m.${jobid[${t}]}.$p.$c | wc -l)
-uniq=$(grep "^TRINITY" raw.$m.${jobid[${t}]}.$p.$c | sort - | uniq | wc -l)
+uniq=$(cat ${f}/diffExpr*matrix.log2.dat | sed '1d' | sort - | uniq | wc -l)
 paste <(printf "%s\n" "$f") <(printf "%s\n" "$all") <(printf "%s\n" "$uniq") >> $temp
-# column names; trandform to tabulated format
-cat $temp | sed -e 's/\./\t/g' -e '/\*/d' >> $summary
-rm raw.$m.${jobid[${t}]}.$p.$c $temp
+
+# column names; transform to tabulated format
+cat $temp | sed 's/\./\t/g' >> $final
+rm $temp
+
                     done
                 done
             done
