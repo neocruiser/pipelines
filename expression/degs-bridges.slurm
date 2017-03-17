@@ -2,8 +2,8 @@
 #SBATCH --partition=LM
 #SBATCH --nodes=1
 #SBATCH --mem=3000GB
-#SBATCH -t 48:00:00
-#SBATCH --job-name="DEGkal"
+#SBATCH -t 150:00:00
+#SBATCH --job-name="DEG100p"
 #SBATCH --output="degs.%j.%N.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
@@ -14,9 +14,8 @@ module load bowtie
 module load samtools
 
 ## CHANGE__PROJECT__ID__eXpress__kallisto__salmon__and fasta file
-transcriptome=clam
-_FASTA=clam_40p_trinity.fa
-method=salmon
+transcriptome=clam100
+_FASTA=clam_raw_trinity.fa
 lib=RF
 
 ## DONT__CHANGE
@@ -26,10 +25,10 @@ scratch=/pylon2/oc4ifip/bassim
 home=/home/bassim
 pbs=$SLURM_JOBID
 target=trinity_out_dir_$transcriptome
+### CHANGE ###
+reads=$scratch/nodule/raw.reads
 _DIR=$scratch/nodule/clam-analysis/trinity/$target
 _FOLD=$_DIR/abundance_${method}
-project=$(find $_DIR -name "abundance_*")
-reads=$scratch/nodule/raw.reads
 ## Analyses
 abundance=$home/$version/util/align_and_estimate_abundance.pl
 analyze=$home/$version/Analysis/DifferentialExpression/run_DE_analysis.pl
@@ -38,6 +37,15 @@ join=$home/$version/util/abundance_estimates_to_matrix.pl
 TPM=$home/$version/util/misc/count_matrix_features_given_MIN_TPM_threshold.pl
 FPKM=$home/$version/util/misc/count_features_given_MIN_FPKM_threshold.pl
 prefix=trans_counts
+
+for i in 1 2 3; do
+
+    method[1]=eXpress
+    method[2]=kallisto
+    method[3]=salmon
+
+	  method=${method[${i}]}
+    project=$(find $_DIR -name "abundance_*")
 
 
 # Run abundance test if eXpress run the first configuration, else (salmon or kallisto)
@@ -215,3 +223,4 @@ else
     scancel $pbs
 fi
 
+done
