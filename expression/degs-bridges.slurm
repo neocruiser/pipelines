@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --mem=3000GB
 #SBATCH -t 48:00:00
-#SBATCH --job-name="DEGex"
+#SBATCH --job-name="DEGkal"
 #SBATCH --output="degs.%j.%N.out"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
@@ -16,7 +16,7 @@ module load samtools
 ## CHANGE__PROJECT__ID__eXpress__kallisto__salmon__and fasta file
 transcriptome=clam
 _FASTA=clam_40p_trinity.fa
-method=eXpress
+method=salmon
 lib=RF
 
 ## DONT__CHANGE
@@ -26,7 +26,7 @@ scratch=/pylon2/oc4ifip/bassim
 home=/home/bassim
 pbs=$SLURM_JOBID
 target=trinity_out_dir_$transcriptome
-_DIR=$scratch/nodule/trinity/$target
+_DIR=$scratch/nodule/clam-analysis/trinity/$target
 _FOLD=$_DIR/abundance_${method}
 project=$(find $_DIR -name "abundance_*")
 reads=$scratch/nodule/raw.reads
@@ -48,23 +48,40 @@ mkdir -p $_DIR
 cp $scratch/nodule/clam_trxome/$_FASTA $_DIR
 cd $_DIR
 if [ ! -d "$project" ]; then
-    if [ "$method" == eXpress ]; then
-        for f in A B C; do
-	          for i in {1..3}; do
-	              mkdir -p $_FOLD/$f$i
-	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f${i}R1.fastq.gz --right $reads/$f${i}R2.fastq.gz --est_method $method --aln_method bowtie --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+    case "$method" in
+        eXpress)
+            for f in A B C; do
+	              for i in {1..3}; do
+	                  mkdir -p $_FOLD/$f$i
+	                  perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f${i}R1.fastq.gz --right $reads/$f${i}R2.fastq.gz --est_method $method --aln_method bowtie --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+                done
             done
-        done
+            ;;
 
-    elif [ "$method" == kallisto || "$method" == salmon ]; then
-        for f in A B C; do
-	          for i in {1..3}; do
-	              mkdir -p $_FOLD/$f$i
-	              perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f${i}R1.fastq.gz --right $reads/$f${i}R2.fastq.gz --est_method $method --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+        kallisto)
+            for f in A B C; do
+	              for i in {1..3}; do
+	                  mkdir -p $_FOLD/$f$i
+	                  perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f${i}R1.fastq.gz --right $reads/$f${i}R2.fastq.gz --est_method $method --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+                done
             done
-        done
-    fi
+            ;;
+
+        salmon)
+            for f in A B C; do
+	              for i in {1..3}; do
+	                  mkdir -p $_FOLD/$f$i
+	                  perl $abundance --transcripts $_DIR/$_FASTA --SS_lib_type $lib --seqType fq --left $reads/$f${i}R1.fastq.gz --right $reads/$f${i}R2.fastq.gz --est_method $method --trinity_mode --thread_count $nthreads --output_dir $_FOLD/$f$i --output_prefix $f$i.$method --prep_reference
+                done
+            done
+            ;;
+        *)
+            echo "Must input eXpress, kallisto or salmon."
+    esac
 fi
+
+
+
 
 # Get the alignment type that was used to compute contig abundance
 project=$(find $_DIR -name "abundance_*")
@@ -151,7 +168,7 @@ done
 ## backup abundance folder and cleanup
 cd $_DIR
 ls *ebwt | xargs rm
-#mv $project $_DIR/eXpress.${pbs}_abundance
+mv $project $_DIR/eXpress.${pbs}_abundance
 ls *gene_trans_map | xargs rm
 ls *bowtie.ok | xargs rm
 
