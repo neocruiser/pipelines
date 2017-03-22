@@ -21,8 +21,8 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 p=3
 c=2
 matrix=tissue
-_DIR=$scratch/nodule/qpx-analysis/trinity/trinity_out_dir_A
-file=deg.eXpress*/DESeq2.eXpress.$matrix.p$p.c$c*
+_DIR=$scratch/nodule/clam-analysis/trinity/trinity_out_dir_40p
+file=deg.eXpress*/edgeR.eXpress.$matrix.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 output=$_DIR/networks/$SLURM_JOBID
 mkdir -p $output
@@ -32,11 +32,12 @@ jobid=$SLURM_JOBID.networks.R
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 cd $output
-cp $log $output
-cp $_DIR/qpx-degs/*id2description* $output
+cp $log $output/logs
+cp $_DIR/*id2description* $output/id2description
 cp $home/script*/convertMatrix2graph.R $output
 
 
 R CMD BATCH $home/script*/weighted.nets.R
 
+rm .Rdata
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time

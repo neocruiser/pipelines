@@ -2,7 +2,7 @@
 #SBATCH -N 1
 #SBATCH -p LM
 #SBATCH --mem=3000GB
-#SBATCH -t 01:00:00
+#SBATCH -t 10:00:00
 #SBATCH --job-name="R.heatmaps"
 #SBATCH --output="R.heatmaps.out"
 #SBATCH --mail-type=ALL
@@ -22,9 +22,8 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 # Files _CHANGE_
 p=3
 c=2
-_COR=pearson.average
-_DIR=$scratch/nodule/qpx-analysis/trinity/trinity_out_dir_A
-file=deg.eXpress*/DESeq2.eXpress.tissue.p$p.c$c*
+_DIR=$scratch/nodule/clam-analysis/trinity/trinity_out_dir_40p
+file=deg.eXpress*/edgeR.eXpress.tissue.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 
 output=$_DIR/heatmaps/$SLURM_JOBID
@@ -40,7 +39,7 @@ cp $log $output
 
 ## the for loop will go through all clusters selected from 1 to 32
 for i in 1; do
-    SUB_NET=module.20410.$i.$_exe
+    SUB_NET=module.30520.$i.$_exe
 
     # get the node ID (contigs) from network or sub-networks
     if [ -f "$home/heatmaps.data/$SUB_NET" ]; then

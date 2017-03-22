@@ -39,7 +39,7 @@ heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=palette.g
 dev.off()
 
 ## BOOTSTRAPING to create pvalues
-n=5000
+n=1000
 a=0.95
 pvData <- pvclust(scale(t(rawdata)), method.dist="correlation", method.hclust="ward.D2", nboot=n)
 

@@ -14,28 +14,29 @@ home=/gpfs/home/ballam
 ips=$scratch/db/ips/interproscan-5.16-55.0
 pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
 
-peptides=$(find $scratch -maxdepth 4 -iname "nonmatching*prot.fa" | egrep "para.*1")
-output=$(dirname $peptides)
+#peptides=$(find $scratch -maxdepth 4 -iname "nonmatching*prot.fa" | egrep "para.*1")
+#output=$(dirname $peptides)
+output=$scratch/nodule/clam-analysis/interpro
 tmp=$output/tmp_$pbs
 mkdir -p $tmp
 
 # Files _CHANGE_
-#p=4
-#c=2
+p=3
+c=2
 #file=edgeR.raw.all.eXpress.tissue.p$p.c$c
-#log=$scratch/ganglia/deg.raw.all/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
-#assembled=$scratch/ganglia/assembled/raw.all.rscf.contigs.fa
-#contigs=$tmp/$file.contigs.fa
-#peptides=$tmp/$file.peptides.fa
+log=$scratch/nodule/clam-analysis/interpro/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
+assembled=$scratch/nodule/clam-analysis/interpro/clam_40p_trinity.fa
+contigs=$tmp/contigs.fa
+peptides=$tmp/peptides.fa
 
 time=$home/time
 jobid=$pbs.ips
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 # Get gene ids (only differentially expressed)
 # Get gene sequences
-#cat $assembled | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $log | cut -f1 | grep "^TRINITY" | sort - | uniq) - > $contigs
+cat $assembled | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $log | cut -f1 | sed '1d' | sort - | uniq) - > $contigs
 # Translate
-#transeq $contigs $peptides -frame=6 --clean=yes
+transeq $contigs $peptides -frame=F --clean=yes
 # Run interpro Scans
 # Dont run HAMAP PRINTS
 $ips/interproscan.sh -t p \

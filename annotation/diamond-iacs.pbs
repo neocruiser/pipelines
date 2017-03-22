@@ -1,8 +1,8 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=00:10:00
+#PBS -l nodes=1:ppn=16,walltime=10:00:00
 #PBS -N diamond
 #PBS -j oe
-#PBS -q debug
+#PBS -q long
 #PBS -M sleiman.bassim@stonybrook.edu
 #PBS -m abe
 #PBS -V
@@ -17,16 +17,37 @@ home=/gpfs/home/ballam
 pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
 
 # Files _CHANGE_
-db=martia
+db=nr
 blast=blastx
 maxseq=10
+file=dat
+transcriptome=40p
 
 #project=$scratch/ganglia
-query=$(find $scratch -maxdepth 4 -name "Trinit*GG.fasta" | egrep "para.*1")
+project=$scratch/nodule/clam-analysis/trinity_out_dir_$transcriptome
+index=$(find $scratch/nodule/clam-analysis -maxdepth 4 -name "clam_40p*fa")
+query=diffExpr.P1e-3_C2.matrix.log2.dat
 output=$query.$db.$blast.diamond.$pbs
-tmp=$(dirname $query)/tmp_$pbs
+contigs=$project/$query.contigs.fa
+tmp=$project/tmp_$pbs
 
 mkdir -p $tmp
+
+## extract Fasta sequences from selected networks
+if [ $file == "txt" ]; then
+    # if IDs are in txt file (1 column)
+    cat $index | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $project/$query) - > $contigs
+elif [ $file == "csv" ]; then
+    # If the IDs are stored in CSV file (1 column) imported from excel or cytoscape
+    cat $index | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$query | sed -e '1 d' -e 's/","/\t/g' -e 's/"//g' | cut -f6 | sort - | uniq) - > $contigs
+elif [ $file == "dat" ]; then
+    cat $index | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $project/$query | cut -f1 | sed '1d') - > $contigs
+    else
+    # If only fasta file is used -- nucleotide sequence
+    contigs=$project/$query
+fi
+
+
 
 # blast libraries
 diamond=/gpfs/home/ballam/diamond.0.7/diamond
@@ -40,7 +61,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.$pbs.time
 
 cd $scratch/db/$db
 
-$diamond $blast -d $db -q $query -a $output -t $tmp -k $maxseq
+$diamond $blast -d $db -q $contigs -a $output -t $tmp -k $maxseq
 $diamond view -a $output -f tab -o $output.txt
 rm $output.daa
 rm -r $tmp
