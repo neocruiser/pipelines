@@ -26,7 +26,7 @@ transcriptome=40p
 #project=$scratch/ganglia
 project=$scratch/nodule/clam-analysis/trinity_out_dir_$transcriptome
 index=$(find $scratch/nodule/clam-analysis -maxdepth 4 -name "clam_40p*fa")
-query=diffExpr.P1e-3_C2.matrix.log2.dat
+query=ALL.diffExpr.P1e-3_C2.matrix.log2.dat
 output=$query.$db.$blast.diamond.$pbs
 contigs=$project/$query.contigs.fa
 tmp=$project/tmp_$pbs
@@ -37,12 +37,15 @@ mkdir -p $tmp
 if [ $file == "txt" ]; then
     # if IDs are in txt file (1 column)
     cat $index | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $project/$query) - > $contigs
+
 elif [ $file == "csv" ]; then
     # If the IDs are stored in CSV file (1 column) imported from excel or cytoscape
     cat $index | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $home/$query | sed -e '1 d' -e 's/","/\t/g' -e 's/"//g' | cut -f6 | sort - | uniq) - > $contigs
+
 elif [ $file == "dat" ]; then
     cat $index | sed 's/.len.*$//g' | perl -ne 'if(/^>(\S+)/){$c=$i{$1}}$c?print:chomp;$i{$_}=1 if @ARGV' <(cat $project/$query | cut -f1 | sed '1d') - > $contigs
-    else
+
+else
     # If only fasta file is used -- nucleotide sequence
     contigs=$project/$query
 fi

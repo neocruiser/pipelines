@@ -8,8 +8,10 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
 
-module load java
-#module load R
+set -eux
+
+#module load java
+module load R
 
 # DONT CHANGE #
 scratch=/pylon2/oc4ifip/bassim
@@ -20,7 +22,7 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 # Files _CHANGE_
 _DIR=$scratch/nodule/cross-analysis
 output=$_DIR/networks/$SLURM_JOBID
-mkdir -p $output
+mkdir -p $output/pdf
 
 # Files _CHANGE_
 pa=3
@@ -32,9 +34,9 @@ log_a=$_DIR_a/$file_a/diffExpr.P1e-${pa}_C${ca}.matrix.log2.dat
 
 pb=3
 cb=2
-matrix_b=tissue
+matrix_b=ac
 _DIR_b=$scratch/nodule/clam-analysis/trinity/trinity_out_dir_40p
-file_b=deg.eXpress*/edgeR.eXpress.$matrix_b.p$pb.c$cb*
+file_b=deg.eXpress*91*/edgeR.eXpress.$matrix_b.p$pb.c$cb*
 log_b=$_DIR_b/$file_b/diffExpr.P1e-${pb}_C${cb}.matrix.log2.dat
 
 
@@ -50,10 +52,11 @@ cp $log_b $output/logs.b
 
 # create one id2description file
 cp $_DIR_a/qpx-degs/*id2description* $output/qpx.ids
-cp $_DIR_b/*id2description* $output/clam.ids
+cp $_DIR_b/*"$matrix_b"*id2description* $output/clam.ids
 cp qpx.ids qpx.clam.ids
 cat clam.ids >> qpx.clam.ids
 
 R CMD BATCH $home/script*/weighted.nets.cross.species.R
+rm .RData
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time

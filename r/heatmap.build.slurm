@@ -8,10 +8,12 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=sleiman.bassim@stonybrook.edu
 
+set -eux
+
 module load R
 
 ## choose between txt and csv
-_exe=csv
+_exe=dat
 
 # DONT CHANGE #
 scratch=/pylon2/oc4ifip/bassim
@@ -22,8 +24,9 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 # Files _CHANGE_
 p=3
 c=2
+matrix=tissue
 _DIR=$scratch/nodule/clam-analysis/trinity/trinity_out_dir_40p
-file=deg.eXpress*/edgeR.eXpress.tissue.p$p.c$c*
+file=deg.eXpress*90*/edgeR.eXpress.$matrix.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 
 output=$_DIR/heatmaps/$SLURM_JOBID
@@ -54,7 +57,13 @@ for i in 1; do
         elif [ "$_exe" == txt ]; then
             grep -Fwf <(cat $output/$SUB_NET) $log > $output/fpkms.logs
             head -n1 $log > $output/samples.logs
+
         fi
+
+    elif [ "$_exe" == dat ]; then
+            rm $output/$SUB_NET
+            cat $log | sed '1d' > $output/fpkms.logs
+            head -n1 $log > $output/samples.logs
 
     else
         echo "!!!ERROR!!! No contig IDs were found. Export $SUB_NET from Cytoscape and place it in Bridges at ~/heatmap.data/. Cheers"

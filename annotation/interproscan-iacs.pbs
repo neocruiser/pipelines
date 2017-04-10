@@ -1,8 +1,8 @@
 #!/bin/bash
-#PBS -l nodes=2:ppn=16,walltime=168:00:00
-#PBS -N ips1
+#PBS -l nodes=1:ppn=16,walltime=24:00:00
+#PBS -N ab
 #PBS -j oe
-#PBS -q extended
+#PBS -q long
 #PBS -M sleiman.bassim@stonybrook.edu
 #PBS -m abe
 #PBS -V
@@ -16,18 +16,19 @@ pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
 
 #peptides=$(find $scratch -maxdepth 4 -iname "nonmatching*prot.fa" | egrep "para.*1")
 #output=$(dirname $peptides)
-output=$scratch/nodule/clam-analysis/interpro
+output=$scratch/nodule/clam-analysis/interpro/$pbs
 tmp=$output/tmp_$pbs
 mkdir -p $tmp
 
 # Files _CHANGE_
 p=3
 c=2
+matrix=ab
 #file=edgeR.raw.all.eXpress.tissue.p$p.c$c
-log=$scratch/nodule/clam-analysis/interpro/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
+log=$scratch/nodule/clam-analysis/trinity_out_dir_40p/deg.eXpress.91*/edgeR*$matrix*/diffExpr.P1e-${p}_C${c}.$matrix.log2.dat
 assembled=$scratch/nodule/clam-analysis/interpro/clam_40p_trinity.fa
-contigs=$tmp/contigs.fa
-peptides=$tmp/peptides.fa
+contigs=$tmp/contigs.$matrix.$pbs.fa
+peptides=$tmp/peptides.$matrix.$pbs.fa
 
 time=$home/time
 jobid=$pbs.ips

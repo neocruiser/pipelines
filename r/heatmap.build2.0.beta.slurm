@@ -2,7 +2,7 @@
 #SBATCH -N 1
 #SBATCH -p LM
 #SBATCH --mem=3000GB
-#SBATCH -t 48:00:00
+#SBATCH -t 72:00:00
 #SBATCH --job-name="meta"
 #SBATCH --output="R.heatmaps.out"
 #SBATCH --mail-type=ALL

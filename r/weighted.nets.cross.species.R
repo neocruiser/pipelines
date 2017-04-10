@@ -1,5 +1,5 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(1, 8, 1)
+pow <- seq(1, 4, 1)
 th <- seq(.2, .5, .1)
 
 #################
@@ -21,17 +21,20 @@ source("./convertMatrix2graph.R")
 counts.a <- read.table("./logs.a", header = T)
 counts.b <- read.table("./logs.b", header = T)
 counts.a <- counts.a[, c(1:3,6,5,4,8,9,7)]
-counts.b <- counts.b[, c(2,1,3,5,6,4,9,8,7)]
+counts.b <- counts.b[, c(3,2,1,4,5,6,8,7,9)]
 counts <- rbind(counts.a, counts.b)
 
-
-counts <- decostand(x = counts, method = "standardize")
+standardize_df <- c("standardize", "range", "log", "hellinger")
+for(std in standardize_df){
+counts <- decostand(x = counts, method = std)
 
 counts <- data.frame(contigs = rownames(counts), counts) %>%
     arrange(desc(contigs))
 rownames(counts) <- counts$contigs
 counts <- counts[, -1]
 tbl_df(counts)
+
+number.genes <- dim(counts)[1]
 
 allowWGCNAThreads()
 #create similarity matrix
@@ -46,8 +49,8 @@ cordist <- function(dat) {
 }
 sim_matrix <- cordist(counts)
 
-pdf("similarity.matrix.sample.heatmap.pdf")
-heatmap_indices <- sample(nrow(sim_matrix), 50)
+pdf(paste("./pdf/similarity.matrix.SSIZE",number.genes,".STD",std,".heatmap.pdf",sep = ""))
+heatmap_indices <- sample(nrow(sim_matrix), number.genes/2)
 heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
             col=palette.red,
             labRow=NA, labCol=NA,
@@ -68,7 +71,7 @@ adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
 rownames(adj_matrix) <- gene_ids
 colnames(adj_matrix) <- gene_ids
 
-    pdf("adjacency.matrix.heatmap.pdf")
+    pdf(paste("./pdf/adjacency.matrix.SSIZE",number.genes,".STD",std,".heatmap.pdf", sep = ""))
     heatmap.2(t(adj_matrix[heatmap_indices, heatmap_indices]),
               col=palette.green,
               labRow = NA, labCol=NA,
@@ -78,18 +81,23 @@ colnames(adj_matrix) <- gene_ids
               density.info='none', revC=TRUE)
     dev.off()
 
+
 ## Detect co-expression modules
 ## Hierarchical clustering first
-gene_tree <- hclust(as.dist(1-cor(t(adj_matrix),
-                                  method="pearson")),
-                    method="average")
-#gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
+    correlate_rows <- c("pearson","spearman")
+    normalize_df <- c("complete","ward.D2","average")
+    for(n in normalize_df){
+        for(cr in correlate_rows){
+
+    gene_tree <- hclust(as.dist(1-cor(t(adj_matrix),
+                                  method=cr)),
+                    method=n)
 
 
 ## create only a dendrogram from cluster visualization
 dend <- as.dendrogram(hclust(as.dist(1-cor(t(adj_matrix),
-                                           method="pearson")),
-                             method="average"))
+                                           method=cr)),
+                             method=n))
 #x11(); plot(dend);gc()
 
 ## Get the number of clusters (modules) and the number of genes per cluster
@@ -111,7 +119,7 @@ fm
 module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                    minModuleSize=fm,
                                    deepSplit=TRUE)
-pdf("minimum.module.sizes.pdf")
+pdf(paste("./pdf/minimum.module.SSIZE",number.genes,".STD",std,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
 plot(d, main = paste("Module (cluster) size selected = ", fm, sep=""))
 abline(lm(d$modules ~ d$genes), col="red")
 lines(lowess(d$genes,d$modules), col="blue")
@@ -144,12 +152,25 @@ df <- arrange(df, desc(gene_id))
 #extract network
     for (t in th){
         g <- export_network_to_graphml(adj_matrix,
-                                       filename = paste("network.PVAL3.FOLD2.POW",p,".Th",t,".GEN",fm,".graphml",sep = "" ),
-                                       threshold=t, nodeAttrDataFrame=df)
+                                       filename = paste("network.POW",p,
+                                                        ".Th",t,
+                                                        ".GEN",fm,
+                                                        ".STD",std,
+                                                        ".SSIZE",number.genes,
+                                                        ".CLU",n,
+                                                        ".varCORR",cr,
+                                                        ".graphml",
+                                                        sep = "" ),
+                                       threshold=t,
+                                       nodeAttrDataFrame=df)
     }
+    }
+        }
     }
 }
+}
 
-save(file = "log.Rdata")
+
+#save(file = "log.Rdata")
 disableWGCNAThreads()
 gc()

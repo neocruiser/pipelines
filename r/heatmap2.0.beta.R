@@ -7,11 +7,11 @@ palette.green <- colorRampPalette(palette.gr)(n = 200)
 palette.red <- colorRampPalette(palette.rd)(n = 200)
 
 
-# Load data
+# Load data in matrix form
 genre <- read.table("logs", header = TRUE, row.names = 1)
 #slogs <- read.table("./samples.logs")
 #colnames(genre) <- as.matrix(slogs)
-genre <- as.matrix(genre[, -c(1,2)])
+genre <- as.matrix(genre[, -c(1)])
 
 
 standardize_df <- c("standardize", "range", "log", "hellinger")
@@ -35,8 +35,8 @@ rawdata <- t(genre)
 scaledata=t(scale(genre))
 
 ## by genes/species
-#rawdata <- genre
-#scaledata=scale(genre)
+rawdata <- genre
+scaledata=scale(genre)
 
 ## Clustering using dissimilarity analysis
 # use "pairwise.complete.obs" when generating NAs
@@ -54,7 +54,7 @@ heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=palette.g
 dev.off()
 
 ## BOOTSTRAPING to create pvalues
-bst=10000
+bst=1000
 a=0.95
 pvData <- pvclust(scale(t(rawdata)), method.dist="correlation", method.hclust= n, nboot= bst)
 

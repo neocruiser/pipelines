@@ -20,9 +20,9 @@ tmp=/dev/shm/temp_$SLURM_JOBID
 # Files _CHANGE_
 p=3
 c=2
-matrix=tissue
+matrix=ab
 _DIR=$scratch/nodule/clam-analysis/trinity/trinity_out_dir_40p
-file=deg.eXpress*/edgeR.eXpress.$matrix.p$p.c$c*
+file=deg.eXpress*91*/edgeR.eXpress.$matrix.p$p.c$c*
 log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
 output=$_DIR/networks/$SLURM_JOBID
 mkdir -p $output
