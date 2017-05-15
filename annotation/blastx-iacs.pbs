@@ -1,12 +1,14 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=00:01:00
-#PBS -N string
-#PBS -q debug
+#PBS -l nodes=1:ppn=16,walltime=04:00:00
+#PBS -N mmetsp
+#PBS -q short
 #PBS -V
 
+set -eux
+
 # Files _CHANGE_ string nr
-blast=blastx
-db=string
+blast=blastn
+db=mmetsp0098
 maxSeq=10
 file=Trinity.fasta
 transcriptome=A
@@ -26,7 +28,9 @@ pbs=$(echo $PBS_JOBID | cut -f 1 -d '.')
 nthreads=$(expr 2 \* 16)
 
 query=$project/$file
-output=$project/$transcriptome.$blast.$db.$pbs.txt
+output=$project/blast/$transcriptome.$blast.$db.$pbs.txt
+
+mkdir -p $project/blast
 
 ## Full blast
 time=$home/time
