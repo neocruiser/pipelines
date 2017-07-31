@@ -44,7 +44,7 @@ prefix=trans_counts
 mkdir -p $_DIR
 project=$(find $_DIR -name "abundance_*")
 
-
+# choose one method or more
     for w in 1 ; do
 	  method=${method[${w}]}
 _FOLD=$_DIR/abundance_${method}
