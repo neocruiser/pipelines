@@ -59,7 +59,7 @@ function summary () {
     local VARe="0.${ZEROS}1"
 ## path to panther database
     if [ "$4" == "bridges" ]; then
-        VAR4=/pylon1/oc4ifip/bassim/db/panther
+        VAR4=/pylon2/oc4ifip/bassim/db/panther
     elif [ "$4" == "lired" ]; then
         VAR4=/gpfs/scratch/ballam/db/panther2
     else
@@ -176,8 +176,8 @@ function guidelines () {
         _ftp="ftp://ftp.ncbi.nlm.nih.gov/gene/DATA"
 
         if [ "$DB" == "bridges" ]; then
-            gene_info=/pylon1/oc4ifip/bassim/db/ncbi/gene_info
-            gene2accession=/pylon1/oc4ifip/bassim/db/ncbi/gene2accession
+            gene_info=/pylon5/oc4ifip/allam/db/ncbi/gene_info
+            gene2accession=/pylon5/oc4ifip/allam/db/ncbi/gene2accession
             else
             gene_info=/gpfs/scratch/ballam/db/ncbi/gene_info
             gene2accession=/gpfs/scratch/ballam/db/ncbi/gene2accession
@@ -188,7 +188,7 @@ function guidelines () {
         else
             echo "!!!ERROR!!! File not found. Downloading gene_info file. Wait ..."
             if [ "$DB" == "bridges" ]; then
-                _path=/pylon1/oc4ifip/bassim/db/ncbi
+                _path=/pylon5/oc4ifip/allam/db/ncbi
                 mkdir -p $_path
                 wget -O $_path/gene_info.gz $_ftp/gene_info.gz
                 gunzip -d $_path/gene_info.gz
@@ -206,7 +206,7 @@ function guidelines () {
         else
             echo "!!!ERROR!!! File not found. Downloading gene2accession file. Wait ..."
             if [ "$DB" == "bridges" ]; then
-                _path=/pylon1/oc4ifip/bassim/db/ncbi
+                _path=/pylon5/oc4ifip/allam/db/ncbi
                 mkdir -p $_path
                 wget -O $_path/gene2accession.gz $_ftp/gene2accession.gz
                 gunzip -d $_path/gene2accession.gz
@@ -500,7 +500,7 @@ elif [ "$ANALYSIS" == b ]; then
 
 ## set the string DB path
     if [ "$DB" == "bridges" ]; then
-        STRING_DB=/pylon1/oc4ifip/bassim/db/string/protein.links.full.v10.txt
+        STRING_DB=/pylon2/oc4ifip/bassim/db/string/protein.links.full.v10.txt
     elif [ "$DB" == "lired" ]; then
         STRING_DB=/gpfs/scratch/ballam/db/string/protein.links.full.v10.txt
     else
