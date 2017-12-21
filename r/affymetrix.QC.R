@@ -1,7 +1,3 @@
-# Load packages
-pkgs <- c('RColorBrewer', 'affy', 'affyPLM')
-lapply(pkgs, require, character.only = TRUE)
-
 # Generate expression matrix from Affymetrix HTA 2.0 arrays.
 # n=240 arrays
 # This script should be run from the ~/dlbcl_cns_relapse folder.

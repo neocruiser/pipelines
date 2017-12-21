@@ -26,10 +26,16 @@ jobid=$pbs.R.affymetrix
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 # analysis
-mkdir -p $output
+mkdir -p $output/figures
 cd $output
 
+ls -trlgG $output/raw/*CEL | cut -f7 -d ' ' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/samples.txt
+
+
 R CMD BATCH $home/script*/affymetrix.R
+
+mv *pdf $output/figures
+rm -r $output/ffObjs
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 
