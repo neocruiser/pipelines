@@ -15,9 +15,7 @@ cel.files <- list.celfiles("Affy/cel", full.names = TRUE)
 eset <- read.celfiles(cel.files)
 
 # Read in phenodata
-phenodata <- read.table(file = "meta_data/phenodata.txt", sep = "\t", header = T)
-
-phenodata <- read_tsv(file = "meta_data/phenodata.txt") %>%
+phenodata <- read.table("phenodata.txt", sep = "\t", header = T) %>%
   dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, IPI_GROUP) %>%
   mutate(GROUP_NEW = ifelse(GROUP %in% c("CNS_RELAPSE_RCHOP",
                                          "CNS_RELAPSE_CHOPorEQUIVALENT",

@@ -2,7 +2,6 @@
 pkgs <- c('RColorBrewer', 'genefilter', 'limma',
           'pvclust', 'foreach', 'oligo', 'pd.hta.2.0',
           'dplyr', 'plyr', 'reshape', 'tidyr', 'doMC')
-#pkgs2 <- c('gcrma', 'simpleaffy', 'affyQCReport', 'plier', "affycoretools", 'affy', 'affyPLM')
 lapply(pkgs, require, character.only = TRUE)
 
 # Multicore processing
@@ -17,6 +16,15 @@ lapply(pkgs, require, character.only = TRUE)
 #dir.create('ffObjs')
 #ldPath('ffObjs')
 
+# Microarray files loaded into array
+# Robust Multi-Chip average for background correction, normalization
+# expressions are log2 transformed
+cel.raw <- list.celfiles(full=TRUE, listGzipped=FALSE) %>%
+    read.celfiles()
+sampleNames(cel.raw)
+#ids <- read.table("summary/sampleIDs.txt")
+ids <- read.table("sampleIDs.txt")
+
 # Choose charts colors
 mypar <- function(row=1, col=1)
     par(mar=c(2.5, 2.5, 1.6, 1.1),
@@ -26,41 +34,6 @@ palette.gr <- brewer.pal(11, name = "PRGn")
 palette.rd <- brewer.pal(11, name = "RdYlBu")
 palette.green <- colorRampPalette(palette.gr)(n = 200)
 palette.red <- colorRampPalette(palette.rd)(n = 200)
-
-# Microarray files loaded into array
-# Robust Multi-Chip average for background correction, normalization
-# expressions are log2 transformed
-cel.raw <- list.celfiles(full=TRUE, listGzipped=FALSE) %>%
-    read.celfiles()
-
-## Samples classification and experimental designs
-sampleNames(cel.raw)
-ids <- read.table("sampleIDs.txt")
-metadata <- read.table("phenodata.txt", sep = "\t", header = T) %>%
-  dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, IPI_GROUP) %>%
-  mutate(GROUP_NEW = ifelse(GROUP %in% c("CNS_RELAPSE_RCHOP",
-                                         "CNS_RELAPSE_CHOPorEQUIVALENT",
-                                         "CNS_DIAGNOSIS"), "CNS",
-                     ifelse(GROUP == "TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE", GROUP))) %>%
-  filter(!SAMPLE_ID %in% c("CNR6038T1", "CNR7010T1")) %>%
-  as.data.frame() %>%
-  filter(!GROUP %in% c("NORMAL_GCB_CONTROL", "NORMAL_ABC_CONTROL")) %>%
-  filter(Timepoint != "T2") %>%
-  mutate(SITE_NEW = ifelse(SITE == "LN", "LN", "EN"))
-pd <- new('AnnotatedDataFrame', data=metadata)
-sampleNames(pd) <- metadata$SAMPLE_ID
-phenoData(cel.raw) <- pd
-
-# RMA normalization
-trx.normalized <- oligo::rma(cel.raw, target='core')
-probe.normalized <- oligo::rma(cel.raw, target='probeset')
-write.exprs(trx.normalized, file="normalized.trx.expression.txt")
-write.exprs(probe.normalized, file="normalized.probe.expression.txt")
-
-# get probeset info
-pInfo <- getProbeInfo(cel.raw, target="probeset",field=c("fid","type"),sortBy="none")
-dim(cel.raw); dim(pInfo)
-table(pInfo$type[pInfo$fid %in% rownames(cel.raw)])
 
 # Log intensities
 pdf("boxplot.raw.pdf")
@@ -73,24 +46,64 @@ pdf("ma.raw.pdf")
 MAplot(cel.raw[, 1:4], pairs=TRUE)
 dev.off()
 
-smallData <- rawData[, 1:12]
-grps <- as.character(smallData$tissue)
-grps <- as.factor(grps)
-MAplot(smallData, pairs=TRUE, groups=grps)
+# get probeset info
+pInfo <- getProbeInfo(cel.raw, target="probeset",field=c("fid","type"),sortBy="none")
+dim(cel.raw); dim(pInfo)
+sink("probe.info.affymetrix.chip.txt")
+table(pInfo$type[pInfo$fid %in% rownames(cel.raw)])
+sink()
 
 
+# Probe level model fitted to the raw data
+# normalized unscaled standard errors and relative log expression
 plmFit <- fitProbeLevelModel(cel.raw, target='core')
-#cols <- rep(darkColors(nlevels(rawData$tissue)), each=3)
+cols <- rep(darkColors(nlevels(cel.raw$Prediction)), each=2)
 mypar(2, 1)
 pdf("nuse.plm.raw.pdf")
-NUSE(plmFit, col=palette.green)
-RLE(plmFit, col=palette.red)
+NUSE(plmFit, col=cols)
+RLE(plmFit, col=cols)
 dev.off()
 
+## Samples classification and experimental designs
+#metadata <- read.table("summary/phenodata.txt", sep = "\t", header = T) %>%
+metadata <- read.table("phenodata.txt", sep = "\t", header = T) %>%
+  dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, ABClikelihood) %>%
+  filter(Timepoint != "T2") %>%
+  mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
+                                         "CNS_RELAPSE_CHOPorEQUIVALENT",
+                                         "CNS_DIAGNOSIS") ~ 1,
+                             GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ 0,
+                             GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ 0,
+                             TRUE ~ 2)) %>%
+  mutate(ABClassify = case_when(ABClikelihood >= .9 ~ 1,
+                                ABClikelihood <= .1 ~ 0,
+                                TRUE ~ 2)) %>%
+  mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0))
 
 
+# make sure all samples have same ID
+metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
+row.names(metadata) = metadata$SAMPLE_ID
+colnames(cel.raw) = metadata$SAMPLE_ID
+pd <- AnnotatedDataFrame(data=metadata)
+sampleNames(pd) <- metadata$SAMPLE_ID
+phenoData(cel.raw) <- pd
+sink("metadata.samples.info.txt")
+summary(metadata)
+sink()
+
+# RMA normalization
+trx.normalized <- oligo::rma(cel.raw, target='core')
+probe.normalized <- oligo::rma(cel.raw, target='probeset')
+write.exprs(trx.normalized, file="normalized.trx.expression.txt")
+write.exprs(probe.normalized, file="normalized.probe.expression.txt")
 
 
+# Pull affymetrix annotations for genes and exons
+featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
+sink("annotation.gene.exon.affy.txt")
+with(fData(trx.normalized), table(seqname, category))
+sink()
 
 # moderated t-statistics and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
@@ -102,25 +115,25 @@ contrast.matrix <- makeContrasts(group2-group1, group3-group2, group3-group1, le
 design <- model.matrix(~ -1+factor(c(1,1,2,2)))
 colnames(design) <- c("group1", "group2")
 contrast.matrix <- makeContrasts(group2-group1, levels=design)
-fit2 <- lmFit(trx.normalized, design) %>%
+cel.fit <- lmFit(trx.normalized, design) %>%
     contrasts.fit(contrast.matrix) %>%
     eBayes()
-top.genes <- topTable(fit2, coef=1, adjust="fdr", sort.by="B", number=dim(trx.normalized)[[1]]) 
+top.genes <- topTable(cel.fit, coef=1, adjust="fdr", sort.by="B", number=dim(trx.normalized)[[1]]) 
 write.table(top.genes, file="moderated.tstat.bayes.limma.txt", row.names=TRUE, sep="\t", quote=FALSE) 
 
 # export significant genes and charts
 # F-test p-values rather than t-test p-values (NESTEDF)
 # Benjamini and Hochberg’s method to control the false discovery rate (GLOBAL)
 index <- c("up", "down")
-pval <- c(0.001, 0.0001, "global", "nestedF")
+pval <- c(0.01, 0.001, 0.0001, "global", "nestedF")
 for (i in index) {
     for (p in pval) {
         pdf(paste(i, ".", p, ".venn.tstat.bayes.limma.pdf", sep=""))
         if (p>0) {
-            decideTests(fit2, p.value=p) %>%
+            decideTests(cel.fit, p.value=p) %>%
                 vennDiagram(include=i)
         } else {
-            decideTests(fit2, method=p) %>%
+            decideTests(cel.fit, method=p) %>%
                 vennDiagram(include=i)
         }
         dev.off()
@@ -129,18 +142,22 @@ for (i in index) {
 
 
 print("Number of genes significant (adjP < 0.05) in this list:")
-topTable(fit2, coef=1, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
+topTable(cel.fit, coef=1, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
     filter(adj.P.Val < 0.05) %>%
     dim
 
 print("Number of genes significant (adjP < 0.05, folds over 2, avg expression over 10) in this list:")
-topTable(fit2, coef=1, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
+topTable(cel.fit, coef=1, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
     filter(adj.P.Val < 0.01) %>%
     filter(logFC > 1 | logFC < -1) %>%
     filter(AveExpr > 10) %>%
     dim
 
 pdf("heatmap.tstat.bayes.limma.pdf")
-decideTests(fit2, p.value=0.000005) %>%
-    heatDiagram(fit2$coef, primary=1)
+decideTests(cel.fit, p.value=0.000005) %>%
+    heatDiagram(cel.fit$coef, primary=1)
+dev.off()
+
+pdf("volvano.tstat.bayes.limma.pdf")
+volcanoplot(cel.fit,coef=1,highlight=10)
 dev.off()
