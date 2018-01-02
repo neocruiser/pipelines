@@ -29,12 +29,13 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 mkdir -p $output/figures $output/summary
 cd $output
 
-ls -trlgG $output/raw/*CEL | cut -f7 -d ' ' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs.txt
+ls -trlgG $output/raw/*CEL | cut -f7 -d ' ' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
 
 
 R CMD BATCH $home/script*/affymetrix.R
 
 mv $output/*pdf $output/figures
+mv $output/*txt $output/summary
 rm -r $output/ffObjs
 
 

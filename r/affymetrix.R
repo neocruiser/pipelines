@@ -23,7 +23,7 @@ cel.raw <- list.celfiles(full=TRUE, listGzipped=FALSE) %>%
     read.celfiles()
 sampleNames(cel.raw)
 #ids <- read.table("summary/sampleIDs.txt")
-ids <- read.table("sampleIDs.txt")
+ids <- read.table("sampleIDs")
 
 # Choose charts colors
 mypar <- function(row=1, col=1)
@@ -62,7 +62,7 @@ mypar(2, 1)
 pdf("nuse.plm.raw.pdf")
 NUSE(plmFit, col=cols)
 RLE(plmFit, col=cols)
-dev.off()
+dev.off();dev.off()
 
 ## Samples classification and experimental designs
 #metadata <- read.table("summary/phenodata.txt", sep = "\t", header = T) %>%
@@ -81,7 +81,10 @@ metadata <- read.table("phenodata.txt", sep = "\t", header = T) %>%
   mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0))
 
 
-# make sure all samples have same ID
+# make sure all samples preserve their ID
+metadata$Relapse <- as.factor(metadata$Relapse)
+metadata$ABClassify <- as.factor(metadata$ABClassify)
+metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
 row.names(metadata) = metadata$SAMPLE_ID
 colnames(cel.raw) = metadata$SAMPLE_ID
@@ -105,59 +108,95 @@ sink("annotation.gene.exon.affy.txt")
 with(fData(trx.normalized), table(seqname, category))
 sink()
 
+
 # moderated t-statistics and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-design <- model.matrix(~ -1+factor(c(1,1,2,2,3,3)))
-colnames(design) <- c("group1", "group2", "group3")
-contrast.matrix <- makeContrasts(group2-group1, group3-group2, group3-group1, levels=design)
+groups = c("relapse", "cells", "nodes")
+for (g in groups) {
+    if (g == "relapse") {
+        design <- model.matrix(~ -1 + metadata$Relapse)
+        colnames(design) <- c("noRelapse", "relapse", "control")
+        contrast.matrix <- makeContrasts(noRelapse-relapse,
+                                         noRelapse-control,
+                                         relapse-control,
+                                         levels=design)
+        coef <- rep(1:ncol(design)) # refrence to each contrast
+    } else if (g == "cells") {
+        design <- model.matrix(~ -1 + metadata$ABClassify)
+        colnames(design) <- c("GCB", "ABC", "control")
+        contrast.matrix <- makeContrasts(GCB-ABC,
+                                         GCB-control,
+                                         ABC-control,
+                                         levels=design)
+        coef <- rep(1:ncol(design)) # refrence to each contrast
+    } else if (g == "nodes") {
+        design <- model.matrix(~ -1 + metadata$Lymphnodes)
+        colnames(design) <- c("Extranodal", "Lymphnodes")
+        contrast.matrix <- makeContrasts(Extranodal-Lymphnodes,
+                                         levels=design)
+        coef <- c(1) # refrence to each contrast
+    }
+
+    # get the description of the two sample groups being compared
+    contrast.group <- gsub(" ","",colnames(contrast.matrix)) # diana 3atetne el wa7e
+
+    # Fit Bayesian model and extract Differential Genes (sorted by significance)
+    for (f in coef) {
+        cel.fit <- lmFit(trx.normalized, design) %>%
+            contrasts.fit(contrast.matrix) %>%
+            eBayes()
+        topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
+                     number=dim(trx.normalized)[[1]]) %>%
+            write.table(file=paste0(contrast.group[f],".moderated.tstat.bayes.limma.txt"),
+                row.names=TRUE, sep="\t", quote=FALSE) 
+
+# summarizing differential expressions
+        print("Number of genes significant (adjP < 0.05) in this list:")
+        topTable(cel.fit, coef=f, adjust="fdr",
+                 sort.by="P",
+                 number=dim(trx.normalized)[[1]]) %>%
+            filter(adj.P.Val < 0.05) %>%
+            dim
+
+        print("Number of genes significant (adjP < 0.05, folds over 2, avg expression over 10) in this list:")
+        topTable(cel.fit, coef=f, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
+            filter(adj.P.Val < 0.01) %>%
+            filter(logFC > 1 | logFC < -1) %>%
+            filter(AveExpr > 10) %>%
+            dim
+
+# heatmap and volcanoplots based on p-vals without clustering and bootrstapping
+        pdf(paste0(contrast.group[f],".heatmap.tstat.bayes.limma.pdf"))
+        decideTests(cel.fit, p.value=0.000005) %>%
+            heatDiagram(cel.fit$coef, primary=f) # is primary the coef??????????
+        dev.off()
+
+        pdf(paste0(contrast.group[f],".volvano.tstat.bayes.limma.pdf"))
+        volcanoplot(cel.fit,coef=f,highlight=10)
+        dev.off()
 
 
-design <- model.matrix(~ -1+factor(c(1,1,2,2)))
-colnames(design) <- c("group1", "group2")
-contrast.matrix <- makeContrasts(group2-group1, levels=design)
-cel.fit <- lmFit(trx.normalized, design) %>%
-    contrasts.fit(contrast.matrix) %>%
-    eBayes()
-top.genes <- topTable(cel.fit, coef=1, adjust="fdr", sort.by="B", number=dim(trx.normalized)[[1]]) 
-write.table(top.genes, file="moderated.tstat.bayes.limma.txt", row.names=TRUE, sep="\t", quote=FALSE) 
+
 
 # export significant genes and charts
 # F-test p-values rather than t-test p-values (NESTEDF)
 # Benjamini and Hochberg’s method to control the false discovery rate (GLOBAL)
-index <- c("up", "down")
-pval <- c(0.01, 0.001, 0.0001, "global", "nestedF")
-for (i in index) {
-    for (p in pval) {
-        pdf(paste(i, ".", p, ".venn.tstat.bayes.limma.pdf", sep=""))
-        if (p>0) {
-            decideTests(cel.fit, p.value=p) %>%
-                vennDiagram(include=i)
-        } else {
-            decideTests(cel.fit, method=p) %>%
-                vennDiagram(include=i)
+        index <- c("up", "down")
+        pval <- c(0.01, 0.001, 0.0001, "global", "nestedF")
+        for (i in index) {
+            for (p in pval) {
+                pdf(paste0(contrast.group[f],".",i,".P",p,".venn.tstat.bayes.limma.pdf"))
+                if (p>0) {
+                    decideTests(cel.fit, p.value=p) %>%
+                        vennDiagram(include=i)
+                } else {
+                    decideTests(cel.fit, method=p) %>%
+                        vennDiagram(include=i)
+                }
+                dev.off()
+            }
         }
-        dev.off()
+
     }
+
 }
-
-
-print("Number of genes significant (adjP < 0.05) in this list:")
-topTable(cel.fit, coef=1, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
-    filter(adj.P.Val < 0.05) %>%
-    dim
-
-print("Number of genes significant (adjP < 0.05, folds over 2, avg expression over 10) in this list:")
-topTable(cel.fit, coef=1, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
-    filter(adj.P.Val < 0.01) %>%
-    filter(logFC > 1 | logFC < -1) %>%
-    filter(AveExpr > 10) %>%
-    dim
-
-pdf("heatmap.tstat.bayes.limma.pdf")
-decideTests(cel.fit, p.value=0.000005) %>%
-    heatDiagram(cel.fit$coef, primary=1)
-dev.off()
-
-pdf("volvano.tstat.bayes.limma.pdf")
-volcanoplot(cel.fit,coef=1,highlight=10)
-dev.off()
