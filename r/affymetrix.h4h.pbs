@@ -39,5 +39,62 @@ mv $output/*txt $output/summary
 rm -r $output/ffObjs
 
 
+
+## Create a summary of number of genes
+## per condition
+## and per statistical parameter
+
+# index all files to be summarized
+summary=$output/summary/summary.full.$pbs.txt
+listFiles=$(find $output -maxdepth 2 -iname "*moderated*")
+
+# Create column names of the summary file
+echo -e "\tDesign\tModel\tRpack\tCategory\tParameter\tCount" > $summary
+
+for i in total up down; do
+    for f in $listFiles; do
+	design=$(echo $f | sed -e 's/.txt//g' -e 's/\./\t/g')
+
+    ## count the total number of diff expressed significant genes
+    if [ $i == "total" ]; then
+    bval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4) print $0}' | wc -l)
+    adjpval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
+    avgex=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
+
+    for col in bval adjpval avgex; do
+    paste <(printf "%s\n" "$design")  <(printf "%s\n" "total")  <(printf "%s\n" "$col") <(printf "%s\n" "${!col}") >> $summary
+    done
+
+    echo "Done counting the total number of differentially expressed genes for $f"
+    fi
+    
+    ## count the up regulated genes
+    if [ $i == "up" ]; then
+    bval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4 && $20>=1) print $0}' | wc -l)
+    adjpval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20>=1) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
+    avgex=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20>=1) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
+
+    for col in bval adjpval avgex; do
+    paste <(printf "%s\n" "$design")  <(printf "%s\n" "up")  <(printf "%s\n" "$col") <(printf "%s\n" "${!col}") >> $summary
+    done
+
+    echo "Done counting the significantly upregulated genes for $f"
+    fi
+
+    ## count the down regulated genes
+    if [ $i == "down" ]; then
+    bval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4 && $20<=-1) print $0}' | wc -l)
+    adjpval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20<=-1) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
+    avgex=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20<=-1) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
+
+    for col in bval adjpval avgex; do
+    paste <(printf "%s\n" "$design")  <(printf "%s\n" "down")  <(printf "%s\n" "$col") <(printf "%s\n" "${!col}") >> $summary
+    done
+
+    echo "Done counting the significantly downregulated genes for $f"
+    fi
+
+    done
+done
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 

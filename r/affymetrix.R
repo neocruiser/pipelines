@@ -140,30 +140,18 @@ for (g in groups) {
     # get the description of the two sample groups being compared
     contrast.group <- gsub(" ","",colnames(contrast.matrix)) # diana 3atetne el wa7e
 
+    # get 15% of differentially expressed genes
+    selected <- round(dim(trx.normalized)[[1]] * .15)
+    
     # Fit Bayesian model and extract Differential Genes (sorted by significance)
     for (f in coef) {
         cel.fit <- lmFit(trx.normalized, design) %>%
             contrasts.fit(contrast.matrix) %>%
             eBayes()
         topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
-                     number=dim(trx.normalized)[[1]]) %>%
-            write.table(file=paste0(contrast.group[f],".moderated.tstat.bayes.limma.txt"),
-                row.names=TRUE, sep="\t", quote=FALSE) 
-
-# summarizing differential expressions
-        print("Number of genes significant (adjP < 0.05) in this list:")
-        topTable(cel.fit, coef=f, adjust="fdr",
-                 sort.by="P",
-                 number=dim(trx.normalized)[[1]]) %>%
-            filter(adj.P.Val < 0.05) %>%
-            dim
-
-        print("Number of genes significant (adjP < 0.05, folds over 2, avg expression over 10) in this list:")
-        topTable(cel.fit, coef=f, adjust="fdr", sort.by="P", number=dim(trx.normalized)[[1]]) %>%
-            filter(adj.P.Val < 0.01) %>%
-            filter(logFC > 1 | logFC < -1) %>%
-            filter(AveExpr > 10) %>%
-            dim
+                     number=selected) %>%
+            write.table(file=paste0(contrast.group[f],".moderated-tstat-bayes.limma.txt"),
+                row.names=FALSE, sep="\t", quote=FALSE) 
 
 # heatmap and volcanoplots based on p-vals without clustering and bootrstapping
         pdf(paste0(contrast.group[f],".heatmap.tstat.bayes.limma.pdf"))
@@ -175,9 +163,6 @@ for (g in groups) {
         volcanoplot(cel.fit,coef=f,highlight=10)
         dev.off()
 
-
-
-
 # export significant genes and charts
 # F-test p-values rather than t-test p-values (NESTEDF)
 # Benjamini and Hochberg’s method to control the false discovery rate (GLOBAL)
@@ -185,7 +170,7 @@ for (g in groups) {
         pval <- c(0.01, 0.001, 0.0001, "global", "nestedF")
         for (i in index) {
             for (p in pval) {
-                pdf(paste0(contrast.group[f],".",i,".P",p,".venn.tstat.bayes.limma.pdf"))
+                pdf(paste0(contrast.group[f],".",i,".P",p,".venn.tstat-bayes.limma.pdf"))
                 if (p>0) {
                     decideTests(cel.fit, p.value=p) %>%
                         vennDiagram(include=i)
@@ -200,3 +185,36 @@ for (g in groups) {
     }
 
 }
+
+f=1
+selected
+topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",number=selected)
+ 
+# summarizing differential expressions
+        print("Number of genes significant (adjP < 0.05) in this list:")
+        topTable(cel.fit, coef=f, adjust="fdr",
+                 sort.by="P",
+                 number=dim(trx.normalized)[[1]]) %>%
+            filter(adj.P.Val < 0.05) %>%
+            dim
+
+        print("Number of genes significant (adjP < 0.05, folds over 2, avg expression over 10) in this list:")
+        topTable(cel.fit, coef=f, adjust="fdr", sort.by="P", number=selected) %>%
+            filter(adj.P.Val < 0.01) %>%
+            filter(logFC > 1 | logFC < -1) %>%
+            filter(AveExpr > 10) %>%
+            dim
+
+# Colomn names of the Annotated Limma TOptable
+#   [1] "transcriptclusterid" "probesetid"          "seqname"            
+#   [4] "strand"              "start"               "stop"               
+#   [7] "totalprobes"         "geneassignment"      "mrnaassignment"     
+#   [10] "swissprot"           "unigene"             "gobiologicalprocess"
+#   [13] "gocellularcomponent" "gomolecularfunction" "pathway"            
+#   [16] "proteindomains"      "category"            "locustype"          
+#   [19] "notes"               "logFC"               "AveExpr"            
+#   [22] "t"                   "P.Value"             "adj.P.Val"          
+#   [25] "B"
+
+
+
