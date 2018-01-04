@@ -29,7 +29,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 mkdir -p $output/figures $output/summary
 cd $output
 
-ls -trlgG $output/raw/*CEL | cut -f7 -d ' ' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
+ls -trlgG $output/raw/*CEL | awk '{print $7}' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
 
 
 R CMD BATCH $home/script*/affymetrix.R
@@ -49,7 +49,7 @@ summary=$output/summary/summary.full.$pbs.txt
 listFiles=$(find $output -maxdepth 2 -iname "*moderated*")
 
 # Create column names of the summary file
-echo -e "\tDesign\tModel\tRpack\tCategory\tParameter\tCount" > $summary
+echo -e "\tDesign\tModel\tRpack\tStatistics\tCategory\tParameter\tCount" > $summary
 
 for i in total up down; do
     for f in $listFiles; do
@@ -57,9 +57,9 @@ for i in total up down; do
 
     ## count the total number of diff expressed significant genes
     if [ $i == "total" ]; then
-    bval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4) print $0}' | wc -l)
-    adjpval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
-    avgex=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
+    bval=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4) print $0}' | wc -l)
+    adjpval=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
+    avgex=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
 
     for col in bval adjpval avgex; do
     paste <(printf "%s\n" "$design")  <(printf "%s\n" "total")  <(printf "%s\n" "$col") <(printf "%s\n" "${!col}") >> $summary
@@ -70,9 +70,9 @@ for i in total up down; do
     
     ## count the up regulated genes
     if [ $i == "up" ]; then
-    bval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4 && $20>=1) print $0}' | wc -l)
-    adjpval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20>=1) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
-    avgex=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20>=1) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
+    bval=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4 && $20>=1) print $0}' | wc -l)
+    adjpval=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20>=1) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
+    avgex=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20>=1) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
 
     for col in bval adjpval avgex; do
     paste <(printf "%s\n" "$design")  <(printf "%s\n" "up")  <(printf "%s\n" "$col") <(printf "%s\n" "${!col}") >> $summary
@@ -83,9 +83,9 @@ for i in total up down; do
 
     ## count the down regulated genes
     if [ $i == "down" ]; then
-    bval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4 && $20<=-1) print $0}' | wc -l)
-    adjpval=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20<=-1) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
-    avgex=$(cat ../test | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20<=-1) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
+    bval=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>-4 && $20<=-1) print $0}' | wc -l)
+    adjpval=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20<=-1) print $0}' | awk '{if($24<=.01) print $24}' | wc -l)
+    avgex=$(cat $f | sed -e '1d' -e 's/ /./g' | awk '{if($25>=-4 && $20<=-1) print $0}' | awk '{if($21>=10) print $0}' | wc -l)
 
     for col in bval adjpval avgex; do
     paste <(printf "%s\n" "$design")  <(printf "%s\n" "down")  <(printf "%s\n" "$col") <(printf "%s\n" "${!col}") >> $summary
