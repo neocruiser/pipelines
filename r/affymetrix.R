@@ -65,21 +65,21 @@ RLE(plmFit, col=cols)
 dev.off();dev.off()
 
 ## Samples classification and experimental designs
-#metadata <- read.table("summary/phenodata.txt", sep = "\t", header = T) %>%
-metadata <- read.table("phenodata", sep = "\t", header = T) %>%
-  dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, ABClikelihood) %>%
-  filter(Timepoint != "T2") %>%
 #  filter(!PATIENT_ID %in% c(paste0("CNR800",1:4),paste0("CNR900",1:2))) %>% # remove controls
-  mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
-                                         "CNS_RELAPSE_CHOPorEQUIVALENT",
-                                         "CNS_DIAGNOSIS") ~ 1,
-                             GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ 0,
-                             GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ 0,
-                             TRUE ~ 2)) %>%
-  mutate(ABClassify = case_when(ABClikelihood >= .9 ~ 1,
-                                ABClikelihood <= .1 ~ 0,
-                                TRUE ~ 2)) %>%
-mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0))
+metadata <- read.table("phenodata", sep = "\t", header = T) %>%
+    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, ABClikelihood) %>%
+    filter(Timepoint != "T2") %>%
+    mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
+                                            "CNS_RELAPSE_CHOPorEQUIVALENT",
+                                            "CNS_DIAGNOSIS") ~ 1,
+                               GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ 0,
+                               GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ 0,
+                               TRUE ~ 2)) %>%
+    mutate(ABClassify = case_when(ABClikelihood >= .9 ~ 1,
+                                  ABClikelihood <= .1 ~ 0,
+                                  TRUE ~ 2)) %>%
+    mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0)) %>%
+    mutate(Nodes = case_when(SITE == "LN" ~ "LN", TRUE ~ "EN"))
 
 
 # make sure all samples preserve their ID
@@ -112,9 +112,9 @@ sink()
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("relapseCellsFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCells")
+groups = c("relapseCellsFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCells", "relapseNodesFactorial")
 
-g = c("relapseCellsFactorial")
+g = c("relapseNodesFactorial")
 f=1
 
 for (g in groups) {
@@ -139,6 +139,20 @@ for (g in groups) {
         contrast.matrix <- makeContrasts(Relapse2ABC=ABC.1-ABC.0,
                                          Relapse2GCB=GCB.1-GCB.0,
                                          ABC2GCB=(ABC.1-ABC.0)-(GCB.1-GCB.0),
+                                         levels=design)
+        coef <- rep(1:ncol(design)) # refrence to each contrast
+
+    } else if (g == "relapseNodesFactorial") {
+        sample.factors <- paste(metadata$Nodes, metadata$Relapse, sep=".")
+        sample.factors <- factor(sample.factors,
+                                 levels = c("LN.0", "EN.0",
+                                            "LN.1", "EN.1",
+                                            "LN.2", "EN.2"))
+        design <- model.matrix(~0 + sample.factors)
+        colnames(design) <- levels(sample.factors)
+        contrast.matrix <- makeContrasts(Relapse2LN=LN.1-LN.0,
+                                         Relapse2EN=EN.1-EN.0,
+                                         LN2EN=(LN.1-LN.0)-(EN.1-EN.0),
                                          levels=design)
         coef <- rep(1:ncol(design)) # refrence to each contrast
 
