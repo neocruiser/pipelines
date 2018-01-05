@@ -26,6 +26,11 @@ palette.rd <- brewer.pal(11, name = "RdYlBu")
 palette.green <- colorRampPalette(palette.gr)(n = 200)
 palette.red <- colorRampPalette(palette.rd)(n = 200)
 
+
+#########################
+####  Read samples   ####
+#########################
+
 # Microarray files loaded into array
 # Robust Multi-Chip average for background correction, normalization
 # expressions are log2 transformed
@@ -35,6 +40,11 @@ sampleNames(cel.raw)
 #ids <- read.table("summary/sampleIDs.txt")
 ids <- read.table("sampleIDs")
 
+
+
+###########################
+####  Quality control  ####
+###########################
 # Log intensities
 pdf("boxplot.raw.pdf")
 boxplot(cel.raw, target="core")
@@ -64,6 +74,76 @@ NUSE(plmFit, col=cols)
 RLE(plmFit, col=cols)
 dev.off();dev.off()
 
+
+########################################
+####  Differential gene expression  ####
+########################################
+## Wrap of essential functions for fitting gene expression
+## standard error standardization
+## output plots: volcano, heatmaps, venn
+## output summary: log transformed expressions
+moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=0.001, coef=coef, percent=.15){
+# Fit Bayesian model and extract Differential Genes (sorted by significance)
+# Benjamini & Hochberg (1995): adjusted "fdr"
+# get the description of the two sample groups being compared
+    contrast.group <- gsub(" ","",colnames(contrasts)) # diana 3atetne el wa7e
+    
+# get a proportion of differentially expressed genes
+    selected <- round(dim(data)[[1]] * percent)
+
+    
+    for (f in coef) {
+
+        cel.fit <- lmFit(data, design) %>%
+            contrasts.fit(contrasts) %>%
+            eBayes()
+        
+        topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
+                 number=selected) %>%
+            write.table(file=paste0(contrast.group[f],
+                                    ".moderated-tstat-bayes.limma.",labels,".txt"),
+                        row.names=FALSE, sep="\t", quote=FALSE) 
+
+# heatmap and volcanoplots based on p-vals without clustering and bootrstapping
+        pdf(paste0(contrast.group[f],".heatmap.tstat-bayes.limma.",labels,".pdf"))
+        decideTests(cel.fit, p.value=pval) %>%
+            heatDiagram(cel.fit$coef, primary=f) # is primary the coef??????????
+        dev.off()
+
+        pdf(paste0(contrast.group[f],".volvano.tstat-bayes.limma.",labels,".pdf"))
+        volcanoplot(cel.fit,coef=f,highlight=10)
+        dev.off()
+
+# export significant genes and charts
+# F-test p-values rather than t-test p-values (NESTEDF)
+# Benjamini and Hochberg’s method to control the false discovery rate (GLOBAL)
+        index <- c("up", "down")
+        pvalue <- c(0.01, 0.001, 0.0001, "global", "nestedF")
+
+        for (i in index) {
+            for (p in pvalue) {
+                pdf(paste0(contrast.group[f],".",i,".P",
+                           p,".venn.tstat-bayes.limma.",
+                           labels,".pdf"))
+                if (p>0) {
+                    decideTests(cel.fit, p.value=p) %>%
+                        vennDiagram(include=i)
+                } else {
+                    decideTests(cel.fit, method=p) %>%
+                        vennDiagram(include=i)
+                }
+                dev.off()
+            }
+        }
+    }
+}
+
+
+
+##################################
+####  First samples grouping  ####
+##################################
+
 ## Samples classification and experimental designs
 #  filter(!PATIENT_ID %in% c(paste0("CNR800",1:4),paste0("CNR900",1:2))) %>% # remove controls
 metadata <- read.table("phenodata", sep = "\t", header = T) %>%
@@ -71,10 +151,10 @@ metadata <- read.table("phenodata", sep = "\t", header = T) %>%
     filter(Timepoint != "T2") %>%
     mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
                                             "CNS_RELAPSE_CHOPorEQUIVALENT",
-                                            "CNS_DIAGNOSIS") ~ 1,
-                               GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ 0,
-                               GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ 0,
-                               TRUE ~ 2)) %>%
+                                            "CNS_DIAGNOSIS") ~ "R",
+                               GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NR",
+                               GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "NR",
+                               TRUE ~ "C")) %>%
     mutate(ABClassify = case_when(ABClikelihood >= .9 ~ 1,
                                   ABClikelihood <= .1 ~ 0,
                                   TRUE ~ 2)) %>%
@@ -83,7 +163,6 @@ metadata <- read.table("phenodata", sep = "\t", header = T) %>%
 
 
 # make sure all samples preserve their ID
-metadata$Relapse <- as.factor(metadata$Relapse)
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
@@ -92,7 +171,7 @@ colnames(cel.raw) = metadata$SAMPLE_ID
 pd <- AnnotatedDataFrame(data=metadata)
 sampleNames(pd) <- metadata$SAMPLE_ID
 phenoData(cel.raw) <- pd
-sink("metadata.samples.info.txt")
+sink("metadata.3groups.samples.info.txt")
 summary(metadata)
 sink()
 
@@ -101,7 +180,6 @@ trx.normalized <- oligo::rma(cel.raw, target='core')
 probe.normalized <- oligo::rma(cel.raw, target='probeset')
 write.exprs(trx.normalized, file="normalized.trx.expression.txt")
 write.exprs(probe.normalized, file="normalized.probe.expression.txt")
-
 
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
@@ -114,9 +192,6 @@ sink()
 # by empirical Bayes shrinkage of the standard errors
 groups = c("relapseCellsFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCells", "relapseNodesFactorial")
 
-g = c("relapseNodesFactorial")
-f=1
-
 for (g in groups) {
 
     if (g == "multiGrpRelapse") {
@@ -127,34 +202,37 @@ for (g in groups) {
                                          relapse-control,
                                          levels=design)
         coef <- rep(1:ncol(design)) # refrence to each contrast
-
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+            
     } else if (g == "relapseCellsFactorial") {
         sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
         sample.factors <- factor(sample.factors,
-                                 levels = c("ABC.0", "GCB.0", "U.0",
-                                            "ABC.1", "GCB.1", "U.1",
-                                            "ABC.2", "GCB.2"))
+                                 levels = c("ABC.NR", "GCB.NR", "U.NR",
+                                            "ABC.R", "GCB.R", "U.R",
+                                            "ABC.C", "GCB.C"))
         design <- model.matrix(~0 + sample.factors)
         colnames(design) <- levels(sample.factors)
-        contrast.matrix <- makeContrasts(Relapse2ABC=ABC.1-ABC.0,
-                                         Relapse2GCB=GCB.1-GCB.0,
-                                         ABC2GCB=(ABC.1-ABC.0)-(GCB.1-GCB.0),
+        contrast.matrix <- makeContrasts(Relapse2ABC=ABC.R-ABC.NR,
+                                         Relapse2GCB=GCB.R-GCB.NR,
+                                         ABC2GCB=(ABC.R-ABC.NR)-(GCB.R-GCB.NR),
                                          levels=design)
         coef <- rep(1:ncol(design)) # refrence to each contrast
-
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+        
     } else if (g == "relapseNodesFactorial") {
         sample.factors <- paste(metadata$Nodes, metadata$Relapse, sep=".")
         sample.factors <- factor(sample.factors,
-                                 levels = c("LN.0", "EN.0",
-                                            "LN.1", "EN.1",
-                                            "LN.2", "EN.2"))
+                                 levels = c("LN.NR", "EN.NR",
+                                            "LN.R", "EN.R",
+                                            "LN.C", "EN.C"))
         design <- model.matrix(~0 + sample.factors)
         colnames(design) <- levels(sample.factors)
-        contrast.matrix <- makeContrasts(Relapse2LN=LN.1-LN.0,
-                                         Relapse2EN=EN.1-EN.0,
-                                         LN2EN=(LN.1-LN.0)-(EN.1-EN.0),
+        contrast.matrix <- makeContrasts(Relapse2LN=LN.R-LN.NR,
+                                         Relapse2EN=EN.R-EN.NR,
+                                         LN2EN=(LN.R-LN.NR)-(EN.R-EN.NR),
                                          levels=design)
         coef <- rep(1:ncol(design)) # refrence to each contrast
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
 
     } else if (g == "multiGrpCells") {
         design <- model.matrix(~ -1 + metadata$ABClassify)
@@ -164,67 +242,97 @@ for (g in groups) {
                                          ABC-Redundant,
                                          levels=design)
         coef <- rep(1:ncol(design)) # refrence to each contrast
-
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+        
     } else if (g == "twoGrpNodes") {
         design <- model.matrix(~ -1 + metadata$Lymphnodes)
         colnames(design) <- c("Extranodal", "Lymphnodes")
         contrast.matrix <- makeContrasts(Extranodal-Lymphnodes, levels=design)
         coef <- c(1) # refrence to each contrast
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+        
     }
-
-    
-    # get the description of the two sample groups being compared
-    contrast.group <- gsub(" ","",colnames(contrast.matrix)) # diana 3atetne el wa7e
-
-    # get 15% of differentially expressed genes
-    selected <- round(dim(trx.normalized)[[1]] * .15)
-
-    
-    # Fit Bayesian model and extract Differential Genes (sorted by significance)
-    # Benjamini & Hochberg (1995): adjusted "fdr"
-    for (f in coef) {
-        cel.fit <- lmFit(trx.normalized, design) %>%
-            contrasts.fit(contrast.matrix) %>%
-            eBayes()
-        topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
-                     number=selected) %>%
-            write.table(file=paste0(contrast.group[f],".moderated-tstat-bayes.limma.",g,".txt"),
-                row.names=FALSE, sep="\t", quote=FALSE) 
-
-        # heatmap and volcanoplots based on p-vals without clustering and bootrstapping
-        pdf(paste0(contrast.group[f],".heatmap.tstat-bayes.limma.",g,".pdf"))
-        decideTests(cel.fit, p.value=0.000005) %>%
-            heatDiagram(cel.fit$coef, primary=f) # is primary the coef??????????
-        dev.off()
-
-        pdf(paste0(contrast.group[f],".volvano.tstat-bayes.limma.",g,".pdf"))
-        volcanoplot(cel.fit,coef=f,highlight=10)
-        dev.off()
-
-        # export significant genes and charts
-        # F-test p-values rather than t-test p-values (NESTEDF)
-        # Benjamini and Hochberg’s method to control the false discovery rate (GLOBAL)
-        index <- c("up", "down")
-        pval <- c(0.01, 0.001, 0.0001, "global", "nestedF")
-        for (i in index) {
-            for (p in pval) {
-                pdf(paste0(contrast.group[f],".",i,".P",p,".venn.tstat-bayes.limma.",g,".pdf"))
-                if (p>0) {
-                    decideTests(cel.fit, p.value=p) %>%
-                        vennDiagram(include=i)
-                } else {
-                    decideTests(cel.fit, method=p) %>%
-                        vennDiagram(include=i)
-                }
-                dev.off()
-            }
-        }
-
-    }
-
 }
 
 
+###################################
+####  Second samples grouping  ####
+###################################
+
+## Samples classification and experimental designs
+metadata <- read.table("phenodata", sep = "\t", header = T) %>%
+    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, ABClikelihood) %>%
+    filter(Timepoint != "T2") %>%
+    mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
+                                            "CNS_RELAPSE_CHOPorEQUIVALENT",
+                                            "CNS_DIAGNOSIS") ~ "R",
+                               GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NR",
+                               GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "S",
+                               TRUE ~ "C")) %>%
+    mutate(ABClassify = case_when(ABClikelihood >= .9 ~ 1,
+                                  ABClikelihood <= .1 ~ 0,
+                                  TRUE ~ 2)) %>%
+    mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0)) %>%
+    mutate(Nodes = case_when(SITE == "LN" ~ "LN", TRUE ~ "EN"))
+
+
+# make sure all samples preserve their ID
+metadata$ABClassify <- as.factor(metadata$ABClassify)
+metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
+metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
+row.names(metadata) = metadata$SAMPLE_ID
+colnames(cel.raw) = metadata$SAMPLE_ID
+pd <- AnnotatedDataFrame(data=metadata)
+sampleNames(pd) <- metadata$SAMPLE_ID
+phenoData(cel.raw) <- pd
+sink("metadata.4groups.samples.info.txt")
+summary(metadata)
+sink()
+
+
+# RMA normalization
+trx.normalized <- oligo::rma(cel.raw, target='core')
+probe.normalized <- oligo::rma(cel.raw, target='probeset')
+write.exprs(trx.normalized, file="normalized.systemic.trx.expression.txt")
+write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
+
+
+# Pull affymetrix annotations for genes and exons
+featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
+
+# moderated t-statistics (of standard errors) and log-odds of differential expression 
+# by empirical Bayes shrinkage of the standard errors
+groups = c("relapseSystemic", "systemicCellsFactorial")
+
+for (g in groups) {
+
+    if (g == "relapseSystemic") {
+        design <- model.matrix(~ -1 + metadata$Relapse)
+        colnames(design) <- c("noRelapse", "relapse", "systemic", "control")
+        contrast.matrix <- makeContrasts(noRelapse-relapse,
+                                         relapse-systemic,
+                                         relapse-control,
+                                         levels=design)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=3, percent=.15)
+            
+    } else if (g == "systemicCellsFactorial") {
+        sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
+        sample.factors <- factor(sample.factors,
+                                 levels = c("ABC.NR", "GCB.NR", "U.NR",
+                                            "ABC.R", "GCB.R", "U.R",
+                                            "ABC.C", "GCB.C",
+                                            "ABC.S", "GCB.S"))
+        design <- model.matrix(~0 + sample.factors)
+        colnames(design) <- levels(sample.factors)
+        contrast.matrix <- makeContrasts(Relapse2ABC2S=ABC.R-ABC.S,
+                                         Relapse2GCB2S=GCB.R-GCB.S,
+                                         ABC2GCB2S=(ABC.R-ABC.S)-(GCB.R-GCB.S),
+                                         levels=design)
+        coef <- rep(1:ncol(design)) # refrence to each contrast
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+        
+    }
+    
 # Colomn names of the Annotated Limma TOptable
 #   [1] "transcriptclusterid" "probesetid"          "seqname"            
 #   [4] "strand"              "start"               "stop"               
