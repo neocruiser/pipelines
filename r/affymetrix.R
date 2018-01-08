@@ -332,7 +332,8 @@ for (g in groups) {
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
     }
-    
+}
+
 # Colomn names of the Annotated Limma TOptable
 #   [1] "transcriptclusterid" "probesetid"          "seqname"            
 #   [4] "strand"              "start"               "stop"               

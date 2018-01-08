@@ -118,10 +118,15 @@ for i in total up down; do
 		     output=$_AVGEX
 		fi
 
-		eval ${alpha}_min=$(printf "%.2f" $(cat ${output} | awk '{print $25}' | sort -n | sed '2,$d'))
-		eval ${alpha}_max=$(printf "%.2f" $(cat ${output} | awk '{print $25}' | sort -nr | sed '2,$d'))
-		eval ${alpha}_avg=$(printf "%.2f" $(cat ${output} | awk '{print $25}' | awk '{ sum += $1 } END { print sum/NR }'))
-		eval ${alpha}_median=$(printf "%.2f" $(cat ${output} | awk '{print $25}' | sort -n | awk ' { a[i++]=$1; } END { print a[int(i/2)]; }'))
+		_min=$(cat ${output} | awk '{print $25}' | sort -n | sed '2,$d')
+		_max=$(cat ${output} | awk '{print $25}' | sort -nr | sed '2,$d')
+		_avg=$(cat ${output} | awk '{print $25}' | awk '{ sum += $1 } END { print sum/NR }')
+		_median=$(cat ${output} | awk '{print $25}' | sort -n | awk ' { a[i++]=$1; } END { print a[int(i/2)]; }')
+
+		eval ${alpha}_min=$(printf "%.2f%%" $(echo "(e($_min)/(e($_min)+1))*100" | bc -l))
+		eval ${alpha}_max=$(printf "%.2f%%" $(echo "(e($_max)/(e($_max)+1))*100" | bc -l))
+		eval ${alpha}_avg=$(printf "%.2f%%" $(echo "(e($_avg)/(e($_avg)+1))*100" | bc -l))
+		eval ${alpha}_median=$(printf "%.2f%%" $(echo "(e($_median)/(e($_median)+1))*100" | bc -l))
 	    done
 
 	    scaledSummary $summary
@@ -144,10 +149,15 @@ for i in total up down; do
 		     output=$_AVGEX
 		fi
 
-		eval ${alpha}_min=$(printf "%.2f" $(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | sort -n | sed '2,$d'))
-		eval ${alpha}_max=$(printf "%.2f" $(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | sort -nr | sed '2,$d'))
-		eval ${alpha}_avg=$(printf "%.2f" $(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | awk '{ sum += $1 } END { print sum/NR }'))
-		eval ${alpha}_median=$(printf "%.2f" $(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | sort -n | awk ' { a[i++]=$1; } END { print a[int(i/2)]; }'))
+		_min=$(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | sort -n | sed '2,$d')
+		_max=$(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | sort -nr | sed '2,$d')
+		_avg=$(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | awk '{ sum += $1 } END { print sum/NR }')
+		_median=$(cat ${output} | awk -vh=$_foldH '{if($20>=h) print $0}' | awk '{print $25}' | sort -n | awk ' { a[i++]=$1; } END { print a[int(i/2)]; }')
+
+		eval ${alpha}_min=$(printf "%.2f%%" $(echo "(e($_min)/(e($_min)+1))*100" | bc -l))
+		eval ${alpha}_max=$(printf "%.2f%%" $(echo "(e($_max)/(e($_max)+1))*100" | bc -l))
+		eval ${alpha}_avg=$(printf "%.2f%%" $(echo "(e($_avg)/(e($_avg)+1))*100" | bc -l))
+		eval ${alpha}_median=$(printf "%.2f%%" $(echo "(e($_median)/(e($_median)+1))*100" | bc -l))
 	    done
 
 	    scaledSummary $summary
@@ -169,10 +179,15 @@ for i in total up down; do
 		     output=$_AVGEX
 		fi
 
-		eval ${alpha}_min=$(printf "%.2f" $(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | sort -n | sed '2,$d'))
-		eval ${alpha}_max=$(printf "%.2f" $(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | sort -nr | sed '2,$d'))
-		eval ${alpha}_avg=$(printf "%.2f" $(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | awk '{ sum += $1 } END { print sum/NR }'))
-		eval ${alpha}_median=$(printf "%.2f" $(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | sort -n | awk ' { a[i++]=$1; } END { print a[int(i/2)]; }'))
+		_min=$(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | sort -n | sed '2,$d')
+		_max=$(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | sort -nr | sed '2,$d')
+		_avg=$(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | awk '{ sum += $1 } END { print sum/NR }')
+		_median=$(cat ${output} | awk -vl=$_foldL '{if($20<=l) print $0}' | awk '{print $25}' | sort -n | awk ' { a[i++]=$1; } END { print a[int(i/2)]; }')
+
+		eval ${alpha}_min=$(printf "%.2f%%" $(echo "(e($_min)/(e($_min)+1))*100" | bc -l))
+		eval ${alpha}_max=$(printf "%.2f%%" $(echo "(e($_max)/(e($_max)+1))*100" | bc -l))
+		eval ${alpha}_avg=$(printf "%.2f%%" $(echo "(e($_avg)/(e($_avg)+1))*100" | bc -l))
+		eval ${alpha}_median=$(printf "%.2f%%" $(echo "(e($_median)/(e($_median)+1))*100" | bc -l))
 	    done
 
 	    scaledSummary $summary
