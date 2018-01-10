@@ -12,11 +12,11 @@ _ADJPVAL=adjpval.tmp
 _AVGEX=avgex.tmp
 
 # Choose expression parameters: B-stats, adjusted Pval, average expression, logFC
-_B=-4
-_aP=.01
-_aE=10
-_foldH=1
-_foldL=-1
+_B=$1
+_aP=$2
+_aE=$3
+_foldH=$4
+_foldL=$5
 
 # Create column names of the summary file
 echo -e "\tDesign\tModel\tRpack\tStatistics\tCategory\tParameter\tTranscripts\tGeneCount\tMinimumB\tMaximumB\tMeanB\tMedianB" > $summary

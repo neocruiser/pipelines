@@ -1,7 +1,7 @@
 # Load packages
 pkgs <- c('RColorBrewer', 'genefilter', 'limma',
           'pvclust', 'foreach', 'oligo', 'pd.hta.2.0',
-          'dplyr', 'plyr', 'reshape', 'tidyr', 'doMC')
+          'plyr', 'dplyr', 'reshape', 'tidyr', 'doMC')
 lapply(pkgs, require, character.only = TRUE)
 
 # Multicore processing
@@ -30,16 +30,11 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 #########################
 ####  Read samples   ####
 #########################
-
 # Microarray files loaded into array
-# Robust Multi-Chip average for background correction, normalization
-# expressions are log2 transformed
-cel.raw <- list.celfiles(full=TRUE, listGzipped=FALSE) %>%
+cel.raw <- list.celfiles("raw", full=TRUE, listGzipped=FALSE) %>%
     read.celfiles()
 sampleNames(cel.raw)
-#ids <- read.table("summary/sampleIDs.txt")
-ids <- read.table("sampleIDs")
-
+ids <- read.table("summary/sampleIDs")
 
 
 ###########################
@@ -82,7 +77,7 @@ dev.off();dev.off()
 ## standard error standardization
 ## output plots: volcano, heatmaps, venn
 ## output summary: log transformed expressions
-moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=0.001, coef=coef, percent=.15){
+moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels="unsetGroup", pval=0.001, coef=coef, percent=.15){
 # Fit Bayesian model and extract Differential Genes (sorted by significance)
 # Benjamini & Hochberg (1995): adjusted "fdr"
 # get the description of the two sample groups being compared
@@ -107,7 +102,7 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
 # heatmap and volcanoplots based on p-vals without clustering and bootrstapping
         pdf(paste0(contrast.group[f],".heatmap.tstat-bayes.limma.",labels,".pdf"))
         decideTests(cel.fit, p.value=pval) %>%
-            heatDiagram(cel.fit$coef, primary=f) # is primary the coef??????????
+            heatDiagram(cel.fit$coef, primary=f) # is primary the coef?
         dev.off()
 
         pdf(paste0(contrast.group[f],".volvano.tstat-bayes.limma.",labels,".pdf"))
@@ -143,10 +138,9 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
 ##################################
 ####  First samples grouping  ####
 ##################################
-
 ## Samples classification and experimental designs
 #  filter(!PATIENT_ID %in% c(paste0("CNR800",1:4),paste0("CNR900",1:2))) %>% # remove controls
-metadata <- read.table("phenodata", sep = "\t", header = T) %>%
+metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, ABClikelihood) %>%
     filter(Timepoint != "T2") %>%
     mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
@@ -162,7 +156,7 @@ metadata <- read.table("phenodata", sep = "\t", header = T) %>%
     mutate(Nodes = case_when(SITE == "LN" ~ "LN", TRUE ~ "EN"))
 
 
-# make sure all samples preserve their ID
+# make sure all samples have correct IDs accross all the array
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
@@ -175,6 +169,8 @@ sink("metadata.3groups.samples.info.txt")
 summary(metadata)
 sink()
 
+# Robust Multi-Chip average for background correction, normalization
+# expressions are log2 transformed
 # RMA normalization
 trx.normalized <- oligo::rma(cel.raw, target='core')
 probe.normalized <- oligo::rma(cel.raw, target='probeset')
@@ -190,7 +186,8 @@ sink()
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("relapseCOOFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCOO", "relapseNodesFactorial")
+#groups = c("relapseCOOFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCOO", "relapseNodesFactorial")
+groups = c("multiGrpRelapse")
 
 for (g in groups) {
 
@@ -258,9 +255,8 @@ for (g in groups) {
 ###################################
 ####  Second samples grouping  ####
 ###################################
-
 ## Samples classification and experimental designs
-metadata <- read.table("phenodata", sep = "\t", header = T) %>%
+metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, ABClikelihood) %>%
     filter(Timepoint != "T2") %>%
     mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
@@ -302,11 +298,11 @@ featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("relapseSystemic", "systemicCOOFactorial")
+#groups = c("systemicRelapse", "systemicCOOFactorial")
 
 for (g in groups) {
 
-    if (g == "relapseSystemic") {
+    if (g == "systemicRelapse") {
         design <- model.matrix(~ -1 + metadata$Relapse)
         colnames(design) <- c("noRelapse", "relapse", "systemic", "control")
         contrast.matrix <- makeContrasts(noRelapse-relapse,
