@@ -190,7 +190,7 @@ sink()
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("relapseCellsFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCells", "relapseNodesFactorial")
+groups = c("relapseCOOFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCOO", "relapseNodesFactorial")
 
 for (g in groups) {
 
@@ -204,7 +204,7 @@ for (g in groups) {
         coef <- rep(1:ncol(design)) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
             
-    } else if (g == "relapseCellsFactorial") {
+    } else if (g == "relapseCOOFactorial") {
         sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
         sample.factors <- factor(sample.factors,
                                  levels = c("ABC.NR", "GCB.NR", "U.NR",
@@ -234,7 +234,7 @@ for (g in groups) {
         coef <- rep(1:ncol(design)) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
 
-    } else if (g == "multiGrpCells") {
+    } else if (g == "multiGrpCOO") {
         design <- model.matrix(~ -1 + metadata$ABClassify)
         colnames(design) <- c("GCB", "ABC", "Redundant")
         contrast.matrix <- makeContrasts(GCB-ABC,
@@ -302,7 +302,7 @@ featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("relapseSystemic", "systemicCellsFactorial")
+groups = c("relapseSystemic", "systemicCOOFactorial")
 
 for (g in groups) {
 
@@ -311,11 +311,12 @@ for (g in groups) {
         colnames(design) <- c("noRelapse", "relapse", "systemic", "control")
         contrast.matrix <- makeContrasts(noRelapse-relapse,
                                          relapse-systemic,
+                                         noRelapse-systemic,
                                          relapse-control,
                                          levels=design)
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=3, percent=.15)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=4, percent=.15)
             
-    } else if (g == "systemicCellsFactorial") {
+    } else if (g == "systemicCOOFactorial") {
         sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
         sample.factors <- factor(sample.factors,
                                  levels = c("ABC.NR", "GCB.NR", "U.NR",
