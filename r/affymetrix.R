@@ -31,7 +31,7 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 ####  Read samples   ####
 #########################
 # Microarray files loaded into array
-cel.raw <- list.celfiles("raw", full=TRUE, listGzipped=FALSE) %>%
+cel.raw <- list.celfiles("../raw", full=TRUE, listGzipped=FALSE) %>%
     read.celfiles()
 sampleNames(cel.raw)
 ids <- read.table("summary/sampleIDs")
@@ -60,7 +60,7 @@ sink()
 
 
 # Probe level model fitted to the raw data
-# normalized unscaled standard errors and relative log expression
+# scaling the standard errors and relative log expression
 plmFit <- fitProbeLevelModel(cel.raw, target='core')
 cols <- rep(darkColors(nlevels(cel.raw$Prediction)), each=2)
 mypar(2, 1)

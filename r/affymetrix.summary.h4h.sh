@@ -3,20 +3,23 @@
 ## Create a summary of number of genes
 ## per condition
 ## and per statistical parameter
-
-# index all files to be summarized
-summary=$output/summary/summary.full.$pbs.txt
-listFiles=$(find $output -maxdepth 2 -iname "*moderated*")
-_BVAL=bval.tmp
-_ADJPVAL=adjpval.tmp
-_AVGEX=avgex.tmp
-
 # Choose expression parameters: B-stats, adjusted Pval, average expression, logFC
 _B=$1
 _aP=$2
 _aE=$3
 _foldH=$4
 _foldL=$5
+
+## server information
+pbs=$6
+output=$7
+
+# index all files to be summarized
+summary=$output/summary/summary.full.$pbs.txt
+listFiles=$(find $output -maxdepth 3 -iname "*moderated*")
+_BVAL=bval.tmp
+_ADJPVAL=adjpval.tmp
+_AVGEX=avgex.tmp
 
 # Create column names of the summary file
 echo -e "\tDesign\tModel\tRpack\tStatistics\tCategory\tParameter\tTranscripts\tGeneCount\tMinimumB\tMaximumB\tMeanB\tMedianB" > $summary

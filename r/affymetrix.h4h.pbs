@@ -1,13 +1,13 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=02:00:00,vmem=12g
-#PBS -N affymetrix
+#PBS -l nodes=1:ppn=16,walltime=72:00:00,vmem=30g
+#PBS -N testing
 #PBS -q all
 #PBS -V
 #PBS -j oe
 #PBS -m abe
 #PBS -M slei.bass@gmail.com
 
-set -eux
+set -x
 
 module load R
 
@@ -30,6 +30,7 @@ mkdir -p $output/figures $output/summary
 cd $output
 
 ## listing the selected samples for analysis
+## phenodayta is a mantained sample classification file
 ls -trlgG $project/raw/*CEL | awk '{print $7}' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
 cp $project/summary/phenodata $output/summary
 
@@ -49,7 +50,7 @@ averageexpression=10
 highfoldchange=1
 lowfoldchange=-1
 
-bash $home/script*/r/affymetrix.summary.h4h.sh $bstatistics $adjustedpvalue $averageexpression $highfoldchange $lowfoldchange
+bash $home/script*/r/affymetrix.summary.h4h.sh $bstatistics $adjustedpvalue $averageexpression $highfoldchange $lowfoldchange $pbs $output
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 
