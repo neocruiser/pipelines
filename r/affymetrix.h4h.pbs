@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=72:00:00,vmem=30g
-#PBS -N testing
-#PBS -q all
+#PBS -l nodes=1:ppn=16,walltime=72:00:00,vmem=60g
+#PBS -N affymetrix
+#PBS -q himem
 #PBS -V
 #PBS -j oe
 #PBS -m abe
@@ -17,7 +17,7 @@ scratch=/cluster/projects/kridelgroup
 home=/cluster/home/sbassim
 
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
-project=$scratch/testing
+project=$scratch/relapse
 output=$project/$pbs
 
 # time monitoring
@@ -44,13 +44,17 @@ rm -r $output/ffObjs
 
 ## summarizing the output of differential genes
 # Choose expression parameters: B-stats, adjusted Pval, average expression, logFC
-bstatistics=-4
+#bstatistics=0
 adjustedpvalue=.01
 averageexpression=10
 highfoldchange=1
 lowfoldchange=-1
 
 bash $home/script*/r/affymetrix.summary.h4h.sh $bstatistics $adjustedpvalue $averageexpression $highfoldchange $lowfoldchange $pbs $output
+
+
+tar cf $output/$pbs.affymetrix.figures.tar $output/figures
+gzip $output/$pbs.affymetrix.figures.tar
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 

@@ -10,8 +10,9 @@ lapply(pkgs, require, character.only = TRUE)
 
 # Parallel processing
 #registerDoMC(12)
+#require(ff)
 #ldPath()
-#ocSamples(50)
+#ocSamples(200)
 #ocProbesets(200)
 #dir.create('ffObjs')
 #ldPath('ffObjs')
@@ -33,8 +34,9 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 # Microarray files loaded into array
 cel.raw <- list.celfiles("../raw", full=TRUE, listGzipped=FALSE) %>%
     read.celfiles()
-sampleNames(cel.raw)
+length(sampleNames(cel.raw))
 ids <- read.table("summary/sampleIDs")
+gc()
 
 
 ###########################
@@ -50,6 +52,7 @@ dev.off()
 pdf("ma.raw.pdf")
 MAplot(cel.raw[, 1:4], pairs=TRUE)
 dev.off()
+gc()
 
 # get probeset info
 pInfo <- getProbeInfo(cel.raw, target="probeset",field=c("fid","type"),sortBy="none")
@@ -57,17 +60,18 @@ dim(cel.raw); dim(pInfo)
 sink("probe.info.affymetrix.chip.txt")
 table(pInfo$type[pInfo$fid %in% rownames(cel.raw)])
 sink()
-
+gc()
 
 # Probe level model fitted to the raw data
 # scaling the standard errors and relative log expression
-plmFit <- fitProbeLevelModel(cel.raw, target='core')
-cols <- rep(darkColors(nlevels(cel.raw$Prediction)), each=2)
-mypar(2, 1)
-pdf("nuse.plm.raw.pdf")
-NUSE(plmFit, col=cols)
-RLE(plmFit, col=cols)
-dev.off();dev.off()
+#plmFit <- fitProbeLevelModel(cel.raw, target='core')
+#cols <- rep(darkColors(nlevels(cel.raw$Prediction)), each=2)
+#mypar(2, 1)
+#pdf("nuse.plm.raw.pdf")
+#NUSE(plmFit, col=cols)
+#RLE(plmFit, col=cols)
+#dev.off();dev.off()
+#gc()
 
 
 ########################################
@@ -95,17 +99,17 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
         
         topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
                  number=selected) %>%
-            write.table(file=paste0(contrast.group[f],
-                                    ".moderated-tstat-bayes.limma.",labels,".txt"),
+            write.table(file=paste0(contrast.group[f],".",labels,
+                                    ".moderated-tstat-bayes.limma.txt"),
                         row.names=FALSE, sep="\t", quote=FALSE) 
 
 # heatmap and volcanoplots based on p-vals without clustering and bootrstapping
-        pdf(paste0(contrast.group[f],".heatmap.tstat-bayes.limma.",labels,".pdf"))
+        pdf(paste0(contrast.group[f],".",labels,".heatmap.tstat-bayes.limma.pdf"))
         decideTests(cel.fit, p.value=pval) %>%
             heatDiagram(cel.fit$coef, primary=f) # is primary the coef?
         dev.off()
 
-        pdf(paste0(contrast.group[f],".volvano.tstat-bayes.limma.",labels,".pdf"))
+        pdf(paste0(contrast.group[f],".",labels,".volvano.tstat-bayes.limma.pdf"))
         volcanoplot(cel.fit,coef=f,highlight=10)
         dev.off()
 
@@ -117,9 +121,8 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
 
         for (i in index) {
             for (p in pvalue) {
-                pdf(paste0(contrast.group[f],".",i,".P",
-                           p,".venn.tstat-bayes.limma.",
-                           labels,".pdf"))
+                pdf(paste0(contrast.group[f],".",labels,".",i,".P",
+                           p,".venn.tstat-bayes.limma.pdf"))
                 if (p>0) {
                     decideTests(cel.fit, p.value=p) %>%
                         vennDiagram(include=i)
@@ -155,6 +158,9 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0)) %>%
     mutate(Nodes = case_when(SITE == "LN" ~ "LN", TRUE ~ "EN"))
 
+sink("metadata.3groups.samples.info.txt")
+summary(metadata)
+sink()
 
 # make sure all samples have correct IDs accross all the array
 metadata$ABClassify <- as.factor(metadata$ABClassify)
@@ -165,29 +171,26 @@ colnames(cel.raw) = metadata$SAMPLE_ID
 pd <- AnnotatedDataFrame(data=metadata)
 sampleNames(pd) <- metadata$SAMPLE_ID
 phenoData(cel.raw) <- pd
-sink("metadata.3groups.samples.info.txt")
-summary(metadata)
-sink()
 
 # Robust Multi-Chip average for background correction, normalization
 # expressions are log2 transformed
 # RMA normalization
 trx.normalized <- oligo::rma(cel.raw, target='core')
-probe.normalized <- oligo::rma(cel.raw, target='probeset')
 write.exprs(trx.normalized, file="normalized.trx.expression.txt")
-write.exprs(probe.normalized, file="normalized.probe.expression.txt")
+#probe.normalized <- oligo::rma(cel.raw, target='probeset')
+#write.exprs(probe.normalized, file="normalized.probe.expression.txt")
+gc()
 
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 sink("annotation.gene.exon.affy.txt")
 with(fData(trx.normalized), table(seqname, category))
 sink()
-
+gc()
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-#groups = c("relapseCOOFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCOO", "relapseNodesFactorial")
-groups = c("multiGrpRelapse")
+groups = c("relapseCOOFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCOO", "relapseNodesFactorial")
 
 for (g in groups) {
 
@@ -213,7 +216,7 @@ for (g in groups) {
                                          Relapse2GCB=GCB.R-GCB.NR,
                                          ABC2GCB=(ABC.R-ABC.NR)-(GCB.R-GCB.NR),
                                          levels=design)
-        coef <- rep(1:ncol(design)) # refrence to each contrast
+        coef <- rep(1:3) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
     } else if (g == "relapseNodesFactorial") {
@@ -228,7 +231,7 @@ for (g in groups) {
                                          Relapse2EN=EN.R-EN.NR,
                                          LN2EN=(LN.R-LN.NR)-(EN.R-EN.NR),
                                          levels=design)
-        coef <- rep(1:ncol(design)) # refrence to each contrast
+        coef <- rep(1:3) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
 
     } else if (g == "multiGrpCOO") {
@@ -271,6 +274,9 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0)) %>%
     mutate(Nodes = case_when(SITE == "LN" ~ "LN", TRUE ~ "EN"))
 
+sink("metadata.4groups.samples.info.txt")
+summary(metadata)
+sink()
 
 # make sure all samples preserve their ID
 metadata$ABClassify <- as.factor(metadata$ABClassify)
@@ -281,24 +287,21 @@ colnames(cel.raw) = metadata$SAMPLE_ID
 pd <- AnnotatedDataFrame(data=metadata)
 sampleNames(pd) <- metadata$SAMPLE_ID
 phenoData(cel.raw) <- pd
-sink("metadata.4groups.samples.info.txt")
-summary(metadata)
-sink()
-
+gc()
 
 # RMA normalization
 trx.normalized <- oligo::rma(cel.raw, target='core')
-probe.normalized <- oligo::rma(cel.raw, target='probeset')
 write.exprs(trx.normalized, file="normalized.systemic.trx.expression.txt")
-write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
-
+#probe.normalized <- oligo::rma(cel.raw, target='probeset')
+#write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
+gc()
 
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-#groups = c("systemicRelapse", "systemicCOOFactorial")
+groups = c("systemicRelapse", "systemicCOOFactorial")
 
 for (g in groups) {
 
@@ -309,11 +312,17 @@ for (g in groups) {
                                          relapse-systemic,
                                          noRelapse-systemic,
                                          relapse-control,
+                                         noRelapse-control,
+                                         systemic-control,
                                          levels=design)
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=4, percent=.15)
+        coef <- rep(1:6)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
             
-    } else if (g == "systemicCOOFactorial") {
-        sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
+    } #else if (g == "systemicCOOFactorial") {
+
+}
+
+sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
         sample.factors <- factor(sample.factors,
                                  levels = c("ABC.NR", "GCB.NR", "U.NR",
                                             "ABC.R", "GCB.R", "U.R",
@@ -325,11 +334,11 @@ for (g in groups) {
                                          Relapse2GCB2S=GCB.R-GCB.S,
                                          ABC2GCB2S=(ABC.R-ABC.S)-(GCB.R-GCB.S),
                                          levels=design)
-        coef <- rep(1:ncol(design)) # refrence to each contrast
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+        coef <- rep(1:3) # refrence to each contrast
+#        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
-    }
-}
+#    }
+#}
 
 # Colomn names of the Annotated Limma TOptable
 #   [1] "transcriptclusterid" "probesetid"          "seqname"            
@@ -344,3 +353,12 @@ for (g in groups) {
 
 
 
+        cel.fit <- lmFit(trx.normalized, design) %>%
+            contrasts.fit(contrast.matrix) %>%
+            eBayes()
+        
+        topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
+                 number=selected) %>%
+            write.table(file=paste0(contrast.group[f],
+                                    ".moderated-tstat-bayes.limma.","systemicCOOFactorial",".txt"),
+                        row.names=FALSE, sep="\t", quote=FALSE) 
