@@ -301,7 +301,7 @@ featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("systemicRelapse", "systemicCOOFactorial")
+groups = c("systemicRelapse")
 
 for (g in groups) {
 
@@ -312,15 +312,13 @@ for (g in groups) {
                                          relapse-systemic,
                                          noRelapse-systemic,
                                          relapse-control,
-                                         noRelapse-control,
                                          systemic-control,
+#                                         noRelapse-control,
                                          levels=design)
-        coef <- rep(1:6)
+        coef <- rep(1:5) # only 5 for ven diagramms but 6 for all other analyses
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
             
-    } #else if (g == "systemicCOOFactorial") {
-
-}
+    } else if (g == "systemicCOOFactorial") {
 
 sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
         sample.factors <- factor(sample.factors,
@@ -335,10 +333,10 @@ sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
                                          ABC2GCB2S=(ABC.R-ABC.S)-(GCB.R-GCB.S),
                                          levels=design)
         coef <- rep(1:3) # refrence to each contrast
-#        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
-#    }
-#}
+    }
+}
 
 # Colomn names of the Annotated Limma TOptable
 #   [1] "transcriptclusterid" "probesetid"          "seqname"            
@@ -350,15 +348,3 @@ sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
 #   [19] "notes"               "logFC"               "AveExpr"            
 #   [22] "t"                   "P.Value"             "adj.P.Val"          
 #   [25] "B"
-
-
-
-        cel.fit <- lmFit(trx.normalized, design) %>%
-            contrasts.fit(contrast.matrix) %>%
-            eBayes()
-        
-        topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
-                 number=selected) %>%
-            write.table(file=paste0(contrast.group[f],
-                                    ".moderated-tstat-bayes.limma.","systemicCOOFactorial",".txt"),
-                        row.names=FALSE, sep="\t", quote=FALSE) 
