@@ -1,0 +1,67 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=16,walltime=01:00:00
+#PBS -N networks
+#PBS -q short
+#PBS -V
+#PBS -M sleiman.bassim@stonybrook.edu
+#PBS -j oe
+#PBS -m abe
+
+# IACS directories
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+
+_RUNID=80077
+project=
+_EXPRESSION=$project/summary/normalized.systemic.trx.expression.txt
+
+# Files _CHANGE_
+p=4
+c=2
+#_P=6
+#_T=01
+matrix=tissue
+_COR=pearson.average
+_DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
+file=DESeq2.eXpress.$matrix.p$p.c$c*
+log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
+output=$_DIR/networks/$pbs
+mkdir -p $output
+
+time=$home/time
+jobid=$pbs.R.networks
+start=$(date); echo "Job started at: $start" > $time/$jobid.time
+
+############
+## PART I ##
+############
+listFiles=$(find $output -maxdepth 3 -iname "*systemicrelapse*")
+for files in $listFiles; do
+
+    touch $output/ids.tmp
+    # get transcript IDs for differentially expressed genes based on B-statistics confidence score
+    # remove NAs
+    cat $files | sed -e '1d' -e 's/ /./g' | awk -vb=.5 '{if($25>=b) print $0}' | cut -f1 | sort - | uniq -u >> $output/ids.tmp
+
+done
+
+# create correct headers
+paste <(printf "%s\n" "ids") \
+      <(printf "%s\n" "$(sed '2, $d' $_EXPRESSION)") \
+      > $output/logs
+# get expression of only annotated genes (NAs are discarded)
+cat $project/$_RUNID/summary/normalized.systemic.trx.expression.txt | grep -Fwf <(cat $output/ids.tmp | sort - | uniq -) >> $output/logs
+
+
+    
+
+cd $output
+cp $log $output
+cp $_DIR/*id2description* $output
+cp $home/script*/convertMatrix2graph.R $output
+
+R CMD BATCH $home/script*/weighted.nets.affymetrix.R
+
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
+

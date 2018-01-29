@@ -90,10 +90,9 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
 # get a proportion of differentially expressed genes
     selected <- round(dim(data)[[1]] * percent)
 
-    
     for (f in coef) {
 
-        cel.fit <- lmFit(data, design) %>%
+        cel.fit <- lmFit(data, strategy) %>%
             contrasts.fit(contrasts) %>%
             eBayes()
         
@@ -158,13 +157,11 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0)) %>%
     mutate(Nodes = case_when(SITE == "LN" ~ "LN", TRUE ~ "EN"))
 
-sink("metadata.3groups.samples.info.txt")
-summary(metadata)
-sink()
-
 # make sure all samples have correct IDs accross all the array
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
+metadata$Relapse <- as.factor(metadata$Relapse)
+metadata$Nodes <- as.factor(metadata$Nodes)
 metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
 row.names(metadata) = metadata$SAMPLE_ID
 colnames(cel.raw) = metadata$SAMPLE_ID
@@ -172,13 +169,19 @@ pd <- AnnotatedDataFrame(data=metadata)
 sampleNames(pd) <- metadata$SAMPLE_ID
 phenoData(cel.raw) <- pd
 
+summary(metadata)
+sink("metadata.3groups.samples.info.txt")
+summary(metadata)
+sink()
+
 # Robust Multi-Chip average for background correction, normalization
 # expressions are log2 transformed
 # RMA normalization
 trx.normalized <- oligo::rma(cel.raw, target='core')
 write.exprs(trx.normalized, file="normalized.trx.expression.txt")
-#probe.normalized <- oligo::rma(cel.raw, target='probeset')
-#write.exprs(probe.normalized, file="normalized.probe.expression.txt")
+
+probe.normalized <- oligo::rma(cel.raw, target='probeset')
+write.exprs(probe.normalized, file="normalized.probe.expression.txt")
 gc()
 
 # Pull affymetrix annotations for genes and exons
@@ -188,6 +191,7 @@ with(fData(trx.normalized), table(seqname, category))
 sink()
 gc()
 
+
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
 groups = c("relapseCOOFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCOO", "relapseNodesFactorial")
@@ -195,65 +199,66 @@ groups = c("relapseCOOFactorial", "multiGrpRelapse", "twoGrpNodes", "multiGrpCOO
 for (g in groups) {
 
     if (g == "multiGrpRelapse") {
-        design <- model.matrix(~ -1 + metadata$Relapse)
-        colnames(design) <- c("noRelapse", "relapse", "control")
+        strategy <- model.matrix(~ -1 + metadata$Relapse)
+        colnames(strategy) <- c("noRelapse", "relapse", "control")
         contrast.matrix <- makeContrasts(noRelapse-relapse,
                                          noRelapse-control,
                                          relapse-control,
-                                         levels=design)
-        coef <- rep(1:ncol(design)) # refrence to each contrast
+                                         levels=strategy)
+        coef <- rep(1:ncol(strategy)) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
             
     } else if (g == "relapseCOOFactorial") {
-        sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
+        sample.factors <- paste(metadata$Relapse, metadata$ABClassify, sep=".")
         sample.factors <- factor(sample.factors,
-                                 levels = c("ABC.NR", "GCB.NR", "U.NR",
-                                            "ABC.R", "GCB.R", "U.R",
-                                            "ABC.C", "GCB.C"))
-        design <- model.matrix(~0 + sample.factors)
-        colnames(design) <- levels(sample.factors)
-        contrast.matrix <- makeContrasts(Relapse2ABC=ABC.R-ABC.NR,
-                                         Relapse2GCB=GCB.R-GCB.NR,
-                                         ABC2GCB=(ABC.R-ABC.NR)-(GCB.R-GCB.NR),
-                                         levels=design)
+                                 levels = c("NR.0", "NR.1", "NR.2",
+                                            "R.0", "R.1", "R.2",
+                                            "C.0", "C.1"))
+        strategy <- model.matrix(~0 + sample.factors)
+        colnames(strategy) <- levels(sample.factors)
+        contrast.matrix <- makeContrasts(Relapse2ABC=R.1-NR.1,
+                                         Relapse2GCB=R.0-NR.0,
+                                         ABC2GCB=(R.1-NR.1)-(R.0-NR.0),
+                                         levels=strategy)
         coef <- rep(1:3) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
     } else if (g == "relapseNodesFactorial") {
-        sample.factors <- paste(metadata$Nodes, metadata$Relapse, sep=".")
+        sample.factors <- paste(metadata$Relapse, metadata$Lymphnodes, sep=".")
         sample.factors <- factor(sample.factors,
-                                 levels = c("LN.NR", "EN.NR",
-                                            "LN.R", "EN.R",
-                                            "LN.C", "EN.C"))
-        design <- model.matrix(~0 + sample.factors)
-        colnames(design) <- levels(sample.factors)
-        contrast.matrix <- makeContrasts(Relapse2LN=LN.R-LN.NR,
-                                         Relapse2EN=EN.R-EN.NR,
-                                         LN2EN=(LN.R-LN.NR)-(EN.R-EN.NR),
-                                         levels=design)
+                                 levels = c("NR.1", "NR.0",
+                                            "R.1", "R.0",
+                                            "C.1", "C.0"))
+        strategy <- model.matrix(~0 + sample.factors)
+        colnames(strategy) <- levels(sample.factors)
+        contrast.matrix <- makeContrasts(Relapse2LN=R.1-NR.1,
+                                         Relapse2EN=R.0-NR.0,
+                                         LN2EN=(R.1-NR.1)-(R.0-NR.0),
+                                         levels=strategy)
         coef <- rep(1:3) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
 
     } else if (g == "multiGrpCOO") {
-        design <- model.matrix(~ -1 + metadata$ABClassify)
-        colnames(design) <- c("GCB", "ABC", "Redundant")
+        strategy <- model.matrix(~ -1 + metadata$ABClassify)
+        colnames(strategy) <- c("GCB", "ABC", "Redundant")
         contrast.matrix <- makeContrasts(GCB-ABC,
                                          GCB-Redundant,
                                          ABC-Redundant,
-                                         levels=design)
-        coef <- rep(1:ncol(design)) # refrence to each contrast
+                                         levels=strategy)
+        coef <- rep(1:ncol(strategy)) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
     } else if (g == "twoGrpNodes") {
-        design <- model.matrix(~ -1 + metadata$Lymphnodes)
-        colnames(design) <- c("Extranodal", "Lymphnodes")
-        contrast.matrix <- makeContrasts(Extranodal-Lymphnodes, levels=design)
+        strategy <- model.matrix(~ -1 + metadata$Lymphnodes)
+        colnames(strategy) <- c("Extranodal", "Lymphnodes")
+        contrast.matrix <- makeContrasts(Extranodal-Lymphnodes, levels=strategy)
         coef <- c(1) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
     }
 }
 
+warnings()
 
 ###################################
 ####  Second samples grouping  ####
@@ -274,13 +279,11 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     mutate(Lymphnodes = case_when(SITE == "LN" ~ 1, TRUE ~ 0)) %>%
     mutate(Nodes = case_when(SITE == "LN" ~ "LN", TRUE ~ "EN"))
 
-sink("metadata.4groups.samples.info.txt")
-summary(metadata)
-sink()
-
 # make sure all samples preserve their ID
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
+metadata$Relapse <- as.factor(metadata$Relapse)
+metadata$Nodes <- as.factor(metadata$Nodes)
 metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
 row.names(metadata) = metadata$SAMPLE_ID
 colnames(cel.raw) = metadata$SAMPLE_ID
@@ -288,6 +291,13 @@ pd <- AnnotatedDataFrame(data=metadata)
 sampleNames(pd) <- metadata$SAMPLE_ID
 phenoData(cel.raw) <- pd
 gc()
+
+
+summary(metadata)
+sink("metadata.4groups.samples.info.txt")
+summary(metadata)
+sink()
+
 
 # RMA normalization
 trx.normalized <- oligo::rma(cel.raw, target='core')
@@ -301,42 +311,87 @@ featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("systemicRelapse")
+groups = c("systemicRelapse", "systemicCOOFactorial", "systemicNodesFactorial", "systemicNodesCOOFactorial")
 
 for (g in groups) {
 
     if (g == "systemicRelapse") {
-        design <- model.matrix(~ -1 + metadata$Relapse)
-        colnames(design) <- c("noRelapse", "relapse", "systemic", "control")
+        strategy <- model.matrix(~ -1 + metadata$Relapse)
+        colnames(strategy) <- c("noRelapse", "relapse", "systemic", "control")
         contrast.matrix <- makeContrasts(noRelapse-relapse,
                                          relapse-systemic,
                                          noRelapse-systemic,
                                          relapse-control,
                                          systemic-control,
 #                                         noRelapse-control,
-                                         levels=design)
+                                         levels=strategy)
         coef <- rep(1:5) # only 5 for ven diagramms but 6 for all other analyses
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
             
     } else if (g == "systemicCOOFactorial") {
-
-sample.factors <- paste(metadata$Prediction, metadata$Relapse, sep=".")
+        sample.factors <- paste(metadata$Relapse, metadata$ABClassify, sep=".")
         sample.factors <- factor(sample.factors,
-                                 levels = c("ABC.NR", "GCB.NR", "U.NR",
-                                            "ABC.R", "GCB.R", "U.R",
-                                            "ABC.C", "GCB.C",
-                                            "ABC.S", "GCB.S"))
-        design <- model.matrix(~0 + sample.factors)
-        colnames(design) <- levels(sample.factors)
-        contrast.matrix <- makeContrasts(Relapse2ABC2S=ABC.R-ABC.S,
-                                         Relapse2GCB2S=GCB.R-GCB.S,
-                                         ABC2GCB2S=(ABC.R-ABC.S)-(GCB.R-GCB.S),
-                                         levels=design)
+                                 levels = c("NR.1", "NR.0", "NR.2",
+                                            "R.1", "R.0", "R.2",
+                                            "C.1", "C.0",
+                                            "S.1", "S.0"))
+        strategy <- model.matrix(~0 + sample.factors)
+        colnames(strategy) <- levels(sample.factors)
+        contrast.matrix <- makeContrasts(Relapse2ABC2S=R.1-S.1,
+                                         Relapse2GCB2S=R.0-S.0,
+                                         ABC2GCB2S=(R.1-S.1)-(R.0-S.0),
+                                         levels=strategy)
         coef <- rep(1:3) # refrence to each contrast
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
         
+    } else if (g == "systemicNodesFactorial") {
+        sample.factors <- paste(metadata$Relapse, metadata$Lymphnodes, sep=".")
+        sample.factors <- factor(sample.factors,
+                                 levels = c("NR.1", "NR.0",
+                                            "R.1", "R.0",
+                                            "S.1", "S.0",
+                                            "C.1", "C.0"))
+        strategy <- model.matrix(~0 + sample.factors)
+        colnames(strategy) <- levels(sample.factors)
+        contrast.matrix <- makeContrasts(Relapse2LN2S=R.1-S.1,
+                                         Relapse2EN2S=R.0-S.0,
+                                         LN2EN2S=(R.1-S.1)-(R.0-S.0),
+                                         levels=strategy)
+        coef <- rep(1:3) # refrence to each contrast
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+
+    } else if (g == "systemicNodesCOOFactorial") {
+        sample.factors <- paste(metadata$Nodes, metadata$ABClassify, sep=".")
+        sample.factors <- factor(sample.factors,
+                                 levels = c("LN.1", "LN.0", "LN.2",
+                                            "EN.1", "EN.0", "EN.2"))
+        strategy <- model.matrix(~0 + sample.factors)
+        colnames(strategy) <- levels(sample.factors)
+        contrast.matrix <- makeContrasts(LN2ABC2GCB=LN.1-LN.0,
+                                         EN2ABC2GCB=EN.1-EN.0,
+                                         levels=strategy)
+        coef <- rep(1:2) 
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, pval=.001, coef=coef, percent=.15)
+
+        
     }
 }
+
+warnings()
+
+
+
+
+#####################
+##### DEBUGGING #####
+#####################
+# save and load data. Best to set it after RMA
+# save.image("../debug.RData")
+# load("../debug.RData")
+
+# get structure of the matrices
+# sample.factors; head(strategy); dim(strategy); contrast.matrix; dim(contrast.matrix); dim(trx.normalized)
+    
 
 # Colomn names of the Annotated Limma TOptable
 #   [1] "transcriptclusterid" "probesetid"          "seqname"            

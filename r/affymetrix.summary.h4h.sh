@@ -16,17 +16,23 @@ output=$7
 
 # index all files to be summarized
 summary=$output/summary/summary.full.$pbs.txt
+_TMP=$output/summary/summary.tmp
+
 listFiles=$(find $output -maxdepth 3 -iname "*moderated*")
+
 _BVAL=bval.tmp
 _ADJPVAL=adjpval.tmp
 _AVGEX=avgex.tmp
 
-# Create column names of the summary file
-echo -e "Design\tModel\tRpack\tStatistics\tCategory\tParameter\tTranscripts\tGeneCount\tMinimumB\tMaximumB\tMeanB\tMedianB" > $summary
+touch $_TMP
 
+# Create column names of the summary file
 function scaledSummary () {
+    ## sort data into columns
+    ## data is generated from expression scores and gene lists
     local FILE=$1
     local CATGR=$2
+    local BTHRESHOLD=$3
     ## get the percentage
     ## percentage of B-statsitics (pbval) based on the 15% of genes selected
     ## percentange of adjusted Pval and average expression based on the total gene counts w/ only significant B-statistics
@@ -36,7 +42,9 @@ function scaledSummary () {
 
     
     for param in bval adjpval avgex; do
-	paste <(printf "%s\n" "$design")  \
+	paste <(printf "%s\n" "$design") \
+	      <(printf "%s\n" "$BTHRESHOLD") \
+	      <(printf "%s\n" "$_aP") \
 	      <(printf "%s\n" "$CATGR")  \
 	      <(printf "%s\n" "$param") \
 	      <(printf "%s\n" "${!param}") \
@@ -48,6 +56,26 @@ function scaledSummary () {
 	      >> $FILE
     done
 }
+
+
+function cleaning () {
+    ## organize the coliumns in the summary file
+    ## first will add column headers
+    ## second will sort depending on the statistical contrasts
+    ## finally will discard tmp files
+    local OUTPUT=$1
+    local FILE=$2
+    
+    echo -e "Design\tModel\tRpack\tStatistics\tBthreshold\tadjPval\tCategory\tParameter\tTranscripts\tGeneCount\tMinimumB\tMaximumB\tMeanB\tMedianB" > $FILE
+    cat $OUTPUT | sort -k2 >> $FILE
+    rm *tmp
+    rm $OUTPUT
+}
+
+# Counting number of genes representing different thresholds of the B-statistics
+# higher B-statistics scores higher is the confidence that each gene is significantly expressed
+# Up and down regulated genes are also counted
+# the R code above will in addition to preprocessing the data and extracting expression scores, create venn diagrams of gene expressions
 
 for _B in -2 -1 0 0.5 1 1.5; do 
     for i in total up down; do
@@ -92,7 +120,7 @@ for _B in -2 -1 0 0.5 1 1.5; do
 		    eval ${alpha}_median=$(printf "%.2f%%" $(echo "(e($_median)/(e($_median)+1))*100" | bc -l))
 		done
 
-		scaledSummary $summary $i
+		scaledSummary $_TMP $i $_B
 		
 		echo "Done counting the total number of differentially expressed genes for $files"
 
@@ -125,7 +153,7 @@ for _B in -2 -1 0 0.5 1 1.5; do
 		    eval ${alpha}_median=$(printf "%.2f%%" $(echo "(e($_median)/(e($_median)+1))*100" | bc -l))
 		done
 
-		scaledSummary $summary $i
+		scaledSummary $_TMP $i $_B
 
 		echo "Done counting the total number of up-regulated genes for $files"
 	    fi
@@ -157,7 +185,7 @@ for _B in -2 -1 0 0.5 1 1.5; do
 		    eval ${alpha}_median=$(printf "%.2f%%" $(echo "(e($_median)/(e($_median)+1))*100" | bc -l))
 		done
 
-		scaledSummary $summary $i
+		scaledSummary $_TMP $i $_B
 
 		echo "Done counting the total number of down-regulated genes for $files"
 	    fi
@@ -166,6 +194,4 @@ for _B in -2 -1 0 0.5 1 1.5; do
     done
 done
 
-rm *tmp
-
-
+cleaning $_TMP $summary

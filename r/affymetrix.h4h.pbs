@@ -29,8 +29,11 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 mkdir -p $output/figures $output/summary
 cd $output
 
+############
+## PART I ##
+############
 ## listing the selected samples for analysis
-## phenodayta is a mantained sample classification file
+## phenodata is a mantained sample classification file
 ls -trlgG $project/raw/*CEL | awk '{print $7}' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
 cp $project/summary/phenodata $output/summary
 
@@ -42,11 +45,15 @@ mv $output/*pdf $output/figures
 mv $output/*txt $output/summary
 rm -r $output/ffObjs
 
+
+#############
+## PART II ##
+#############
 ## summarizing the output of differential genes
 # Choose expression parameters: B-stats, adjusted Pval, average expression, logFC
 bstatistics=0
-adjustedpvalue=.01
-averageexpression=10
+adjustedpvalue=.049
+averageexpression=5
 highfoldchange=1
 lowfoldchange=-1
 
