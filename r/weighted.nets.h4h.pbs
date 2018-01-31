@@ -1,32 +1,29 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=01:00:00
+#PBS -l nodes=1:ppn=16,walltime=24:00:00,vmem=30g,mem=220g
 #PBS -N networks
-#PBS -q short
+#PBS -q all
 #PBS -V
-#PBS -M sleiman.bassim@stonybrook.edu
 #PBS -j oe
 #PBS -m abe
+#PBS -M slei.bass@gmail.com
 
-# IACS directories
-scratch=/gpfs/scratch/ballam
-home=/gpfs/home/ballam
+set -x
+
+module load R
+
+# cluster directories
+# server characteristics and files indexing
+scratch=/cluster/projects/kridelgroup
+home=/cluster/home/sbassim
+
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+project=$scratch/relapse
+output=$project/networks/$pbs
 
-_RUNID=80077
-project=
-_EXPRESSION=$project/summary/normalized.systemic.trx.expression.txt
+_workingDir=$project/80077
+_affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
+_bstatistics=.5
 
-# Files _CHANGE_
-p=4
-c=2
-#_P=6
-#_T=01
-matrix=tissue
-_COR=pearson.average
-_DIR=$scratch/ganglia/trinity/trinity_out_dir_00000
-file=DESeq2.eXpress.$matrix.p$p.c$c*
-log=$_DIR/$file/diffExpr.P1e-${p}_C${c}.matrix.log2.dat
-output=$_DIR/networks/$pbs
 mkdir -p $output
 
 time=$home/time
@@ -36,32 +33,56 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ############
 ## PART I ##
 ############
-listFiles=$(find $output -maxdepth 3 -iname "*systemicrelapse*")
+cd $output
+listFiles=$(find $_workingDir -maxdepth 3 -iname "*systemicrelapse*")
 for files in $listFiles; do
 
     touch $output/ids.tmp
     # get transcript IDs for differentially expressed genes based on B-statistics confidence score
     # remove NAs
-    cat $files | sed -e '1d' -e 's/ /./g' | awk -vb=.5 '{if($25>=b) print $0}' | cut -f1 | sort - | uniq -u >> $output/ids.tmp
+    cat $files | sed -e '1d' -e 's/ /./g' | awk -vb=$_bstatistics '{if($25>=b) print $0}' | cut -f1 | sort - | uniq -u >> $output/ids.tmp
 
 done
 
 # create correct headers
 paste <(printf "%s\n" "ids") \
-      <(printf "%s\n" "$(sed '2, $d' $_EXPRESSION)") \
+      <(printf "%s\n" "$(sed '2, $d' $_affymetrix)") \
       > $output/logs
 # get expression of only annotated genes (NAs are discarded)
-cat $project/$_RUNID/summary/normalized.systemic.trx.expression.txt | grep -Fwf <(cat $output/ids.tmp | sort - | uniq -) >> $output/logs
+cat $_affymetrix | grep -Fwf <(cat $output/ids.tmp | sort - | uniq -) >> $output/logs
 
 
-    
+#############
+## PART II ##
+#############
+# convert matrix of gene interactions into graphml output
+cp $home/script*/r/convertMatrix2graph.R $output
 
+# infer gene-gene interactions
+R CMD BATCH $home/script*/r/weighted.nets.affymetrix.R
+
+##############
+## PART III ##
+##############
 cd $output
-cp $log $output
-cp $_DIR/*id2description* $output
-cp $home/script*/convertMatrix2graph.R $output
 
-R CMD BATCH $home/script*/weighted.nets.affymetrix.R
+## sort the output files (networks and heatmaps) into subfolders
+## subfolders are later compressed
+function sorting_dir () {
+    local _index=$1
+    _sorted=networks/$_index
+
+    mkdir -p $_sorted
+    mv *{$_index}* $_sorted
+    tar cf $_index.tar $_sorted
+    gzip $_index.tar
+
+}
+
+for i in heatmap standardize range log module; do
+    sorting_dir $i
+done
+
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 

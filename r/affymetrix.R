@@ -381,6 +381,9 @@ warnings()
 
 
 
+sink("r_session.info")
+sessionInfo()
+sink()
 
 #####################
 ##### DEBUGGING #####
@@ -403,3 +406,4 @@ warnings()
 #   [19] "notes"               "logFC"               "AveExpr"            
 #   [22] "t"                   "P.Value"             "adj.P.Val"          
 #   [25] "B"
+
