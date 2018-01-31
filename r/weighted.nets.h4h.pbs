@@ -22,9 +22,10 @@ output=$project/networks/$pbs
 
 _workingDir=$project/80077
 _affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
+_contrast=systemicrelapse
 _bstatistics=.5
 
-mkdir -p $output
+mkdir -p $output $output/$_contrast
 
 time=$home/time
 jobid=$pbs.R.networks
@@ -34,7 +35,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## PART I ##
 ############
 cd $output
-listFiles=$(find $_workingDir -maxdepth 3 -iname "*systemicrelapse*")
+listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}*")
 for files in $listFiles; do
 
     touch $output/ids.tmp
@@ -81,7 +82,9 @@ function sorting_dir () {
 
 for i in heatmap standardize range log module; do
     sorting_dir $i
+    mv *gz $_contrast
 done
+
 
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
