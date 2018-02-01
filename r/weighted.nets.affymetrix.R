@@ -1,5 +1,5 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(2, 7, 1)
+pow <- seq(2, 10, 2)
 th <- seq(.4, .5, .1)
 
 #################
@@ -21,14 +21,19 @@ counts <- as.matrix(counts[, -1])
 tbl_df(counts)
 
 
+# sampling for heatmaps
+nco <- dim(counts)[1]
+heatmap.indices.sampling <- sample(nco, c(nco*.1))
 
 # standardization
 standardize_df <- c("standardize", "range", "log") # hellinger
+
 for ( s in standardize_df ) {
+
     counts <- decostand(x = counts, method = s)
-    nco <- dim(counts)[1]
 
     allowWGCNAThreads()
+
     #create similarity matrix
     cordist <- function(dat) {
         cor_matrix  <- cor(t(dat))
@@ -42,7 +47,7 @@ for ( s in standardize_df ) {
     sim_matrix <- cordist(counts)
 
     pdf(paste("similarity.matrix.SSIZE",nco,".STD",s,".heatmap.pdf",sep = ""))
-    heatmap_indices <- sample(nrow(sim_matrix), c(nco*.1))
+    heatmap_indices = heatmap.indices.sampling
     heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
               col=palette.green,
               labRow=NA, labCol=NA,

@@ -35,7 +35,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## PART I ##
 ############
 cd $output
-listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}*")
+listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}*txt")
 for files in $listFiles; do
 
     touch $output/ids.tmp
@@ -74,7 +74,7 @@ function sorting_dir () {
     _sorted=networks/$_index
 
     mkdir -p $_sorted
-    mv *{$_index}* $_sorted
+    mv *${_index}* $_sorted
     tar cf $_index.tar $_sorted
     gzip $_index.tar
 
@@ -83,6 +83,7 @@ function sorting_dir () {
 for i in heatmap standardize range log module; do
     sorting_dir $i
     mv *gz $_contrast
+    rm -rf networks
 done
 
 
