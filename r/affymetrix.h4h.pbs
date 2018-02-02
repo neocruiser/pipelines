@@ -17,7 +17,7 @@ scratch=/cluster/projects/kridelgroup
 home=/cluster/home/sbassim
 
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
-project=$scratch/relapse
+project=$scratch/relapse/expression
 output=$project/$pbs
 
 # time monitoring

@@ -32,7 +32,7 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 ####  Read samples   ####
 #########################
 # Microarray files loaded into array
-cel.raw <- list.celfiles("../raw", full=TRUE, listGzipped=FALSE) %>%
+cel.raw <- list.celfiles("../../raw", full=TRUE, listGzipped=FALSE) %>%
     read.celfiles()
 length(sampleNames(cel.raw))
 ids <- read.table("summary/sampleIDs")

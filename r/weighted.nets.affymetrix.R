@@ -1,6 +1,6 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(2, 10, 2)
-th <- seq(.4, .5, .1)
+pow <- seq(2, 12, 2)
+th <- seq(.5, .5, .1)
 
 #################
 ### RUN CODE ####

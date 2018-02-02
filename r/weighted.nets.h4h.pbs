@@ -20,7 +20,7 @@ pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 project=$scratch/relapse
 output=$project/networks/$pbs
 
-_workingDir=$project/80077
+_workingDir=$project/expression/82816
 _affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
 _contrast=systemicrelapse
 _bstatistics=.5
@@ -80,7 +80,7 @@ function sorting_dir () {
 
 }
 
-for i in heatmap standardize range log module; do
+for i in heatmap module standardize range log; do
     sorting_dir $i
     mv *gz $_contrast
     rm -rf networks
