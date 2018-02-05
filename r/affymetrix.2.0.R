@@ -114,7 +114,7 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
 metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction, ABClikelihood) %>%
     filter(Timepoint != "T2") %>%
-    mutate(Relapse = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
+    mutate(Groups = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
                                             "CNS_RELAPSE_CHOPorEQUIVALENT",
                                             "CNS_DIAGNOSIS") ~ "CNS",
                                GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NOREL",
@@ -130,7 +130,7 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0))
 
 # make sure all samples preserve their ID
-metadata$Relapse <- as.factor(metadata$Relapse)
+metadata$Groups <- as.factor(metadata$Groups)
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$Nodes <- as.factor(metadata$Nodes)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
@@ -169,7 +169,7 @@ groups = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOO")
 for (g in groups) {
 
     if (g == "systemicRelapse") {
-        strategy <- model.matrix(~ -1 + metadata$GROUP)
+        strategy <- model.matrix(~ -1 + metadata$Groups)
         colnames(strategy) <- c("CNS", "NOREL", "SYST", "CTRL")
         contrast.matrix <- makeContrasts(CNSvsNOREL = CNS-NOREL,
                                          SYSTvsNOREL = SYST-NOREL,
@@ -181,7 +181,7 @@ for (g in groups) {
 
         
     } else if (g == "systemicRelapseNodes") {
-        sample.factors <- paste(metadata$GROUP, metadata$SITE, sep=".")
+        sample.factors <- paste(metadata$Groups, metadata$Nodes, sep=".")
         sample.factors <- factor(sample.factors,
                                  levels = c("CNS.LN", "CNS.EN",
                                             "NOREL.LN", "NOREL.EN",
@@ -189,37 +189,37 @@ for (g in groups) {
                                             "CTRL.LN", "CTRL.EN"))
         strategy <- model.matrix(~0 + sample.factors)
         colnames(strategy) <- levels(sample.factors)
-        contrast.matrix <- makeContrasts(CNSvsNOREL2LN = CNS.LN-NOREL.LN,
-                                         CNSvsNOREL2EN = CNS.EN-NOREL.EN,
-                                         SYSTvsNOREL2LN = SYST.LN-NOREL.LN,
-                                         SYSTvsNOREL2EN = SYST.EN-NOREL.EN,
-                                         CNSvsSYST2LN = CNS.LN-SYST.LN,
-                                         CNSvsSYST2EN = CNS.EN-SYST.EN,
-                                         diffCNSvsNOREL2LNvsEN = (CNS.LN-NOREL.LN)-(CNS.EN-NOREL.EN),
-                                         diffSYSTvsNOREL2LNvsEN = (SYST.LN-NOREL.LN)-(SYST.EN-NOREL.EN),
-                                         diffCNSvsSYST2LNvsEN = (CNS.LN-SYST.LN)-(CNS.EN-SYST.EN),
+        contrast.matrix <- makeContrasts(CNSvsNOREL_LN = CNS.LN-NOREL.LN,
+                                         CNSvsNOREL_EN = CNS.EN-NOREL.EN,
+                                         SYSTvsNOREL_LN = SYST.LN-NOREL.LN,
+                                         SYSTvsNOREL_EN = SYST.EN-NOREL.EN,
+                                         CNSvsSYST_LN = CNS.LN-SYST.LN,
+                                         CNSvsSYST_EN = CNS.EN-SYST.EN,
+                                         diffCNSvsNOREL_LNvsEN = (CNS.LN-NOREL.LN)-(CNS.EN-NOREL.EN),
+                                         diffSYSTvsNOREL_LNvsEN = (SYST.LN-NOREL.LN)-(SYST.EN-NOREL.EN),
+                                         diffCNSvsSYST_LNvsEN = (CNS.LN-SYST.LN)-(CNS.EN-SYST.EN),
                                          levels = strategy)
         coef <- rep(1:9)
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=.15)
         
     } else if (g == "systemicRelapseCOO") {
-        sample.factors <- paste(metadata$GROUP, metadata$ABClassify, sep=".")
+        sample.factors <- paste(metadata$Groups, metadata$ABClassify, sep=".")
         sample.factors <- factor(sample.factors,
                                  levels = c("CNS.ABC", "CNS.GCB", "CNS.U",
                                             "NOREL.ABC", "NOREL.GCB", "NOREL.U",
-                                            "SYST.ABC", "SYST.GCB", "SYST.U",
+                                            "SYST.ABC", "SYST.GCB",
                                             "CTRL.ABC", "CTRL.GCB"))
         strategy <- model.matrix(~0 + sample.factors)
         colnames(strategy) <- levels(sample.factors)
-        contrast.matrix <- makeContrasts(CNSvsNOREL2ABC = CNS.ABC-NOREL.ABC,
-                                         CNSvsNOREL2GCB = CNS.GCB-NOREL.GCB,
-                                         SYSTvsNOREL2ABC = SYST.ABC-NOREL.ABC,
-                                         SYSTvsNOREL2GCB = SYST.GCB-NOREL.GCB,
-                                         CNSvsSYST2ABC = CNS.ABC-SYST.ABC,
-                                         CNSvsSYST2GCB = CNS.GCB-SYST.GCB,
-                                         diffCNSvsNOREL2ABCvsGCB = (CNS.ABC-NOREL.ABC)-(CNS.GCB-NOREL.GCB),
-                                         diffSYSTvsNOREL2ABCvsGCB = (SYST.ABC-NOREL.ABC)-(SYST.GCB-NOREL.GCB),
-                                         diffCNSvsSYST2ABCvsGCB = (CNS.ABC-SYST.ABC)-(CNS.GCB-SYST.GCB),
+        contrast.matrix <- makeContrasts(CNSvsNOREL_ABC = CNS.ABC-NOREL.ABC,
+                                         CNSvsNOREL_GCB = CNS.GCB-NOREL.GCB,
+                                         SYSTvsNOREL_ABC = SYST.ABC-NOREL.ABC,
+                                         SYSTvsNOREL_GCB = SYST.GCB-NOREL.GCB,
+                                         CNSvsSYST_ABC = CNS.ABC-SYST.ABC,
+                                         CNSvsSYST_GCB = CNS.GCB-SYST.GCB,
+                                         diffCNSvsNOREL_ABCvsGCB = (CNS.ABC-NOREL.ABC)-(CNS.GCB-NOREL.GCB),
+                                         diffSYSTvsNOREL_ABCvsGCB = (SYST.ABC-NOREL.ABC)-(SYST.GCB-NOREL.GCB),
+                                         diffCNSvsSYST_ABCvsGCB = (CNS.ABC-SYST.ABC)-(CNS.GCB-SYST.GCB),
                                          levels = strategy)
         coef <- rep(1:9)
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=.15)
