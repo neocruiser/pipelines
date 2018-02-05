@@ -17,8 +17,8 @@ scratch=/cluster/projects/kridelgroup
 home=/cluster/home/sbassim
 
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
-project=$scratch/relapse/expression
-output=$project/$pbs
+project=$scratch/relapse
+output=$project/expression/$pbs
 
 # time monitoring
 time=$home/time
@@ -38,7 +38,7 @@ ls -trlgG $project/raw/*CEL | awk '{print $7}' | cut -f4 -d '_' | sed 's/.CEL//g
 cp $project/summary/phenodata $output/summary
 
 ## Indexing, normalization, annoation, differential expression, and plotting of affymetrix data
-R CMD BATCH $home/script*/r/affymetrix.R
+R CMD BATCH $home/script*/r/affymetrix.2.0.R
 
 ## clean up and organization
 mv $output/*pdf $output/figures
