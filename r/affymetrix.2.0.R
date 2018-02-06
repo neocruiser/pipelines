@@ -275,7 +275,13 @@ sink()
 # load("../debug.RData")
 
 # get structure of the matrices
-# sample.factors; head(strategy); dim(strategy); contrast.matrix; dim(contrast.matrix); dim(trx.normalized)
+# sample.factors
+#unique(sample.factors)
+#strategy
+#dim(strategy)
+#contrast.matrix
+#dim(contrast.matrix)
+#dim(trx.normalized)
     
 
 # Colomn names of the Annotated Limma TOptable
