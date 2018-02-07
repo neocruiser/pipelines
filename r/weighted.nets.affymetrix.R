@@ -16,7 +16,7 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 source("./convertMatrix2graph.R")
 
 #LOAD DATA
-counts <- read.table("./logs", header = T, row.names = 1)
+counts <- read.table("./expressions", header = T, row.names = 1)
 counts <- as.matrix(counts[, -1])
 tbl_df(counts)
 

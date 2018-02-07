@@ -20,22 +20,30 @@ pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 project=$scratch/relapse
 output=$project/networks/$pbs
 
-_workingDir=$project/expression/82816
-_affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
-_contrast=systemicrelapse
-_bstatistics=.5
 
+
+
+## MUST DEFINE BEFORE EXECUTION
+_bstatistics=1.5
+_contrast=systemicRelapse
+_workingDir=$project/expression/90800
+_affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
+
+
+
+## DO NOT TOUCH
 mkdir -p $output $output/$_contrast
 
 time=$home/time
 jobid=$pbs.R.networks
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
+
 ############
 ## PART I ##
 ############
 cd $output
-listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}*txt")
+listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}.moderated*txt")
 for files in $listFiles; do
 
     touch $output/ids.tmp
@@ -48,9 +56,11 @@ done
 # create correct headers
 paste <(printf "%s\n" "ids") \
       <(printf "%s\n" "$(sed '2, $d' $_affymetrix)") \
-      > $output/logs
+      > $output/expressions
 # get expression of only annotated genes (NAs are discarded)
-cat $_affymetrix | grep -Fwf <(cat $output/ids.tmp | sort - | uniq -) >> $output/logs
+cat $_affymetrix | grep -Fwf <(cat $output/ids.tmp | sort - | uniq -) >> $output/expressions
+
+
 
 
 #############
@@ -61,6 +71,8 @@ cp $home/script*/r/convertMatrix2graph.R $output
 
 # infer gene-gene interactions
 R CMD BATCH $home/script*/r/weighted.nets.affymetrix.R
+
+
 
 ##############
 ## PART III ##
