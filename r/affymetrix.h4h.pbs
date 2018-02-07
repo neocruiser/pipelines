@@ -63,5 +63,8 @@ bash $home/script*/r/affymetrix.summary.h4h.sh $bstatistics $adjustedpvalue $ave
 tar cf $output/$pbs.affymetrix.figures.tar $output/figures
 gzip $output/$pbs.affymetrix.figures.tar
 
+tar cf $output/$pbs.affymetrix.summary.tar $output/summary
+gzip $output/$pbs.affymetrix.summary.tar
+
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 
