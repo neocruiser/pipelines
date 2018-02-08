@@ -166,6 +166,31 @@ gc()
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
 
+# Test the matrix construction process
+# get structure of the matrices
+# example design
+sample.factors <- paste(metadata$Groups, metadata$Nodes, sep=".")
+sample.factors <- factor(sample.factors, levels=c(unique(sample.factors)))
+strategy <- model.matrix(~0 + sample.factors)
+colnames(strategy) <- levels(sample.factors)
+contrast.matrix <- makeContrasts(CNSvsNOREL_LN = CNS.LN-NOREL.LN, levels=strategy)
+
+cat("\n\n\n\nSummary Metadata:\n")
+summary(metadata)
+cat("\n\n\n\nAll possible permutations between sample cases:\n")
+sample.factors           
+cat("\n\n\n\nAll possible associations between pemutations and samples:\n")
+strategy
+cat("\n\n\n\nNumber of samples and number of permutations:\n")
+dim(strategy)            
+cat("\n\n\n\nDesign of the analysis and which cases to be used:\n")
+contrast.matrix          
+cat("\n\n\n\nNumber columns must be identical to the number of rows in trx.normalized:\n")
+dim(contrast.matrix)     
+cat("\n\n\n\nDimensions of the gene expressions x sample cases (trx.normalized):\n")
+dim(trx.normalized)      
+
+
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
@@ -273,16 +298,6 @@ sink()
 # save and load data. Best to set it after RMA
 # save.image("../debug.RData")
 # load("../debug.RData")
-
-# get structure of the matrices
-# sample.factors
-#unique(sample.factors)
-#strategy
-#dim(strategy)
-#contrast.matrix
-#dim(contrast.matrix)
-#dim(trx.normalized)
-    
 
 # Colomn names of the Annotated Limma TOptable
 #   [1] "transcriptclusterid" "probesetid"          "seqname"            
