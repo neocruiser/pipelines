@@ -23,7 +23,14 @@ tbl_df(counts)
 
 # sampling for heatmaps
 nco <- dim(counts)[1]
-heatmap.indices.sampling <- sample(nco, c(nco*.1))
+
+if ( nco >= 100 ){
+    heatmap.indices.sampling <- sample(nco, c(nco*.1))
+    
+} else {
+    heatmap.indices.sampling <- seq(1:nco)
+}
+
 
 # standardization
 standardize_df <- c("standardize", "range", "log") # hellinger
@@ -104,8 +111,17 @@ for ( s in standardize_df ) {
                 d <- NULL
 
                 # max number of genes per module            
-                imax = c(nco * .1)
-                ival = c(nco * .001)
+                if ( nco >= 100 ) {
+                    imax = c(nco * .1)
+                    ival = c(nco * .01)
+                } else {
+                    imax = nco
+                    if ( nco >= 50 ) {
+                        ival = c(nco * .05)           
+                    } else {
+                        ival = c(nco * .1)
+                    }
+                }
 
                 for ( i in seq(5, imax, ival) ) {
                     module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=i,
@@ -118,9 +134,9 @@ for ( s in standardize_df ) {
                 min.mods
 
                 ## number of genes per module
-                mods_a = min.mods[[1]] - 50
+                mods_a = min.mods[[1]] - c( nco / 2 )
                 mods_b = min.mods[[1]]
-                mods_c = min.mods[[1]] + 50
+                mods_c = min.mods[[1]] + c( nco / 2 )
                 
                 # Iterate clustering based on the number of genes per module
                 for ( fm in c(mods_a, mods_b, mods_c) ) {

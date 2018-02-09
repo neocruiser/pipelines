@@ -13,6 +13,16 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 genre <- as.matrix(read.table("expressions", header = TRUE, row.names = 1))
 
 
+## debugging
+## resampling
+tenpercent <- c(dim(genre)[1] * .1)
+selected <- sample(dim(genre)[1], tenpercent)
+rawdata <- genre[selected, ]
+rawdata <- decostand(x = rawdata, method = s)
+scaledata=scale(rawdata)
+
+
+
 standardize_df <- c("standardize", "range", "log")
 normalize_df <- c("complete", "ward.D2", "average")
 correlate_rows <- c("pearson", "spearman")
@@ -24,16 +34,16 @@ for ( s in standardize_df ) {
         for ( cr in correlate_rows ) {
             for ( cc in correlate_columns ) {
 
-                                        # standardization
+                # standardization
                 genre <- decostand(x = genre, method = s)
-                                        #genre <- wisconsin(genre)
+                #genre <- wisconsin(genre)
 
                 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
-                ## by sample
+                ## clustering by sample (columns)
                 rawdata <- t(genre)
                 scaledata=t(scale(genre))
 
-                ## by genes/species
+                ## clustering by genes/species (rows)
                 rawdata <- genre
                 scaledata=scale(genre)
 
@@ -59,6 +69,9 @@ for ( s in standardize_df ) {
                 heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=palette.green, scale="row", RowSideColors=mycolhc, cexRow=.1, cexCol=.1)
                 dev.off()
 
+
+
+                
                 ## BOOTSTRAPING to create pvalues
                 # multiscale bootstrap resampling
                 bst=2000
