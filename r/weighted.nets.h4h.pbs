@@ -31,7 +31,7 @@ _strategy=up
 
 
 ## DO NOT TOUCH
-mkdir -p $output $output/$_contrast
+mkdir -p $output
 
 time=$home/time
 jobid=$pbs.R.networks
@@ -49,6 +49,8 @@ _avgexpression=5
 _foldchange=1
 
 if [ $_strategy == "total" ]; then
+
+    mkdir -p $output/$_contrast
 
     _bstatistics=1.5
     
@@ -157,6 +159,8 @@ cp $home/script*/r/convertMatrix2graph.R $output
 # infer gene-gene interactions
 R CMD BATCH $home/script*/r/weighted.nets.affymetrix.R
 
+# finish writing heatmaps
+sleep 600
 
 
 ##############
