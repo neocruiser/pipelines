@@ -142,12 +142,12 @@ cat $_affymetrix | grep -Fwf <(cat $output/ids.$_strategy.tmp | sort - | uniq -)
 
 ## for verification, output the dimensions (rows x columns) of the expression file
 ## number of rows, or genes, must be equal to the number of genes being selected based on their B-stats and average expession
-_selected=$(cat $output/expressions | wc -l && awk '{ if(NF>max) max=NF } END {print max}' $output/expressions | sed '1d')
+_selected=$(cat $output/expressions | sed '1d' | wc -l && awk '{ if(NF>max) max=NF } END {print max}' $output/expressions | sed '1d')
 echo -e "\n\nNumber of selected genes x Number of sample cases: "
 echo "$_selected"
 echo -e "\nNumber of significant genes based on their Bstats >= 0 and average expression >= 10: "
 echo "$_counts"
-touch $output/${_counts}genes.min${_bstatistics}bstats.min${_avgexpression}avgexp.$(cat $output/expressions | wc -l)selected
+touch $output/${_counts}genes.min${_bstatistics}bstats.min${_avgexpression}avgexp.$(cat $output/expressions | sed '1d' | wc -l)selected
 
 
 #############

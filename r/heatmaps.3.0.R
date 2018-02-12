@@ -1,26 +1,27 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan')
 lapply(pkgs, require, character.only = TRUE)
 
-# choose color palettes
-display.brewer.all()
-palette.gr <- brewer.pal(11, name = "PRGn")
-palette.rd <- brewer.pal(11, name = "RdYlBu")
-palette.green <- colorRampPalette(palette.gr)(n = 200)
-palette.red <- colorRampPalette(palette.rd)(n = 200)
-
 
 # Load data in matrix form
 genre <- as.matrix(read.table("expressions", header = TRUE, row.names = 1))
+gct <- dim(genre)[1]
 
 
 ## debugging
 ## resampling
-tenpercent <- c(dim(genre)[1] * .1)
-selected <- sample(dim(genre)[1], tenpercent)
-rawdata <- genre[selected, ]
-rawdata <- decostand(x = rawdata, method = s)
-scaledata=scale(rawdata)
+#tenpercent <- c(gct * .1)
+#selected <- sample(gct, tenpercent)
+#rawdata <- genre[selected, ]
+#rawdata <- decostand(x = rawdata, method = s)
+#scaledata=scale(rawdata)
 
+
+# choose color palettes
+#display.brewer.all()
+palette.gr <- brewer.pal(11, name = "PiYG")
+palette.rd <- brewer.pal(9, name = "YIOrRd")
+palette.green <- colorRampPalette(palette.gr)(n = gct)
+palette.red <- colorRampPalette(palette.rd)(n = gct)
 
 
 standardize_df <- c("standardize", "range", "log")
@@ -44,8 +45,8 @@ for ( s in standardize_df ) {
                 scaledata=t(scale(genre))
 
                 ## clustering by genes/species (rows)
-                rawdata <- genre
-                scaledata=scale(genre)
+#                rawdata <- genre
+#                scaledata=scale(genre)
 
                 ## Clustering using dissimilarity analysis
                 # use "pairwise.complete.obs" when generating NAs
@@ -55,42 +56,60 @@ for ( s in standardize_df ) {
 
 
                 ## CUT THE TREE
-                mycl <- cutree(hra, h=max(hra$height)/2)
-                maxClusters <- length(unique(mycl))
-                if ( maxClusters <= 12) {
-                    mycolhc <- brewer.pal(maxClusters, name = 'Set3')
-                    
+                mycl.row <- cutree(hra, h=max(hra$height)/2)
+                mycl.col <- cutree(hca, h=max(hca$height)/2)                
+
+                ## attribute colors to clusters
+                maxClusters.row <- length(unique(mycl.row))
+                maxClusters.col <- length(unique(mycl.col))                
+
+                if ( maxClusters.row <= 12) {
+                    myrowhc <- brewer.pal(maxClusters.row, name = 'Paired')
                 } else {
-                    mycolhc <- colorRampPalette(brewer.pal(11, name="Spectral"))(maxClusters)
+                    myrowhc <- colorRampPalette(brewer.pal(8, name="Dark2"))(maxClusters.row)
                 }
-                mycolhc <- mycolhc[as.vector(mycl)]
-                
-                pdf(paste("heatmap1.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".pdf", sep = ""))
-                heatmap(rawdata, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=palette.green, scale="row", RowSideColors=mycolhc, cexRow=.1, cexCol=.1)
-                dev.off()
 
+                if ( maxClusters.col <= 12) {
+                    mycolhc <- brewer.pal(maxClusters.col, name = 'Paired')
+                } else {
+                    mycolhc <- colorRampPalette(brewer.pal(9, name="Set1"))(maxClusters.col)
+                }
 
+                myrowhc <- myrowhc[as.vector(mycl.row)]
+                mycolhc <- mycolhc[as.vector(mycl.col)]                
 
-                
                 ## BOOTSTRAPING to create pvalues
                 # multiscale bootstrap resampling
                 bst=2000
                 a=0.95
-                pvData <- pvclust(scale(t(rawdata)), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
+                pvData.row <- pvclust(scale(t(rawdata)), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
+                pvData.col <- pvclust(scale(rawdata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
 
-                pdf(paste("bootstrap.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
-                plot(pvData, hang=-1, cex.pv=.2, cex=.2, float=0)
-                pvrect(pvData, alpha=a, pv="au", type="geq", cex.lab=.3)
+                # boostrapping genes
+                pdf(paste("bootstrap.genes.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                plot(pvData.row, hang=-1, cex.pv=.2, cex=.2, float=0)
+                pvrect(pvData.row, alpha=a, pv="au", type="geq", cex.lab=.3)
                 dev.off()
 
+                pdf(paste("standardErrors.Bootstrappedgenes.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                seplot(pvData.row, type=c("au", "bp"))
+                dev.off()
 
-                pdf(paste("standardErrors.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
-                seplot(pvData, type=c("au", "bp"))
+                # bootstrapping samples
+                pdf(paste("bootstrap.cases.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                plot(pvData.col, hang=-1, cex.pv=.2, cex=.2, float=0)
+                pvrect(pvData.col, alpha=a, pv="au", type="geq", cex.lab=.3)
+                dev.off()
+
+                pdf(paste("standardErrors.Bootstrappedcases.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                seplot(pvData.col, type=c("au", "bp"))
                 dev.off()
 
                 
+                
                 ## RETRIEVE MEMBERS OF SIGNIFICANT CLUSTERS.
-                clsig <- unlist(pvpick(pvData, alpha=0.95, pv="au", type="geq", max.only=TRUE)$clusters)
+                clsig.row <- unlist(pvpick(pvData.row, alpha=0.95, pv="au", type="geq", max.only=TRUE)$clusters)
+                clsig.col <- unlist(pvpick(pvData.col, alpha=0.95, pv="au", type="geq", max.only=TRUE)$clusters)                
 
                 ## Function to Color Dendrograms
                 dendroCol <- function(dend=dend, keys=keys, xPar="edgePar", bgr="red", fgr="blue", pch=20, lwd=1, ...) {
@@ -106,15 +125,32 @@ for ( s in standardize_df ) {
                     return(dend)
                 }
 
-                dend_colored <- dendrapply(as.dendrogram(pvData$hclust), dendroCol, keys=clsig, xPar="edgePar", bgr="black", fgr="red", pch=20)
-                                        # use xPar="nodePar" to color tree labels
+
+                ## color the edges of the dendrogram based on 5000 bootstrap significance
+                dend_colored.row <- dendrapply(as.dendrogram(pvData.row$hclust), dendroCol, keys=clsig.row, xPar="edgePar", bgr="black", fgr="red", pch=20)
+                dend_colored.col <- dendrapply(as.dendrogram(pvData.col$hclust), dendroCol, keys=clsig.col, xPar="edgePar", bgr="black", fgr="red", pch=20)                
 
 
                 ## PLOT HEATMAP
-                pdf(paste("heatmap2.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
-                heatmap.2(rawdata, Rowv=dend_colored, Colv=as.dendrogram(hca), col=palette.green, scale="row", trace="none", RowSideColors = mycolhc, margins=c(5,5), cexRow=.1, cexCol=.1)
+                pdf(paste("heatmap.green.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                heatmap.2(rawdata,
+                          Rowv=dend_colored.row, Colv=dend_colored.col,
+                          col=palette.green,
+                          scale="row", trace="none",
+                          RowSideColors = myrowhc, ColSideColors=mycolhc,
+                          margins=c(5,5), cexRow=.1, cexCol=.1)
                 dev.off()
 
+
+                pdf(paste("heatmap.red.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                heatmap.2(rawdata,
+                          Rowv=dend_colored.row, Colv=dend_colored.col,
+                          col=palette.red,
+                          scale="row", trace="none",
+                          RowSideColors = myrowhc, ColSideColors=mycolhc,
+                          margins=c(5,5), cexRow=.1, cexCol=.1)
+                dev.off()
+                
             }
         }
     }
