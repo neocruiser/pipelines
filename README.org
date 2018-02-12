@@ -39,8 +39,10 @@ This git repository contains RNA-seq pipelines for transcriptome assembly, gene 
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][hmmer]]                            | S. Bassim   | 2016 |                     |
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][blast]]                            | S. Bassim   | 2016 |                     |
 | Network analysis                  | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.R][R]]                      | S. Bassim   | 2016 |                     |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][R]] v(2.0)                 | S. Bassim   | 2018 |                     |
 | Clustering                        | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.buildo.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.R][R]] (v2.0, hierarchical) | S. Bassim   | 2016 |                     |
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][R]] (v3.0)                 | S. Bassim   | 2018 |                     |
 | Regularization (machine learning) | coming ...                       | S. Bassim   |      |                     |
 | Packages                          |                                  | [[https://github.com/neocruiser/pipelines/blob/master/packages.org][Open Source]] |      |                     |
+|                                   |                                  |             |      |                     |
 
