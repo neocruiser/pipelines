@@ -1,4 +1,4 @@
-#+TITLE: Summary of genomic pipelines
+#+TITLE: Translational Research: Pipelines in Data Mining and Systems Biology
 #+AUTHOR: Sleiman Bassim, PhD
 #+EMAIL: slei.bass@gmail.com
 
@@ -20,7 +20,11 @@
 #+EXPORT_SELECT_TAGS: export
 #+EXPORT_EXCLUDE_TAGS: noexport
 
-This git repository contains RNA-seq pipelines for transcriptome assembly, gene expression, gene annotation, and other. All scripts are running on [[https://www.xsede.org/][XSEDE]] supercomputers and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]] cluster in the US, including Greenfield, Bridges, and LIred servers.
+This git repository contains RNA-seq and microarray pipelines for transcriptome
+assembly, gene expression, gene annotation, and other. Scripts dated
+between 2015 and 2017 are running on [[https://www.xsede.org/][XSEDE]] supercomputers and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]] cluster in
+the US, including Greenfield, Bridges, and LIred servers. All others
+are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]].
 
 | Workflow                          | Pipeline                         | Author      | Year | Related Publication |
 |-----------------------------------+----------------------------------+-------------+------+---------------------|
@@ -40,9 +44,11 @@ This git repository contains RNA-seq pipelines for transcriptome assembly, gene 
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][blast]]                            | S. Bassim   | 2016 |                     |
 | Network analysis                  | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.R][R]]                      | S. Bassim   | 2016 |                     |
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][R]] v(2.0)                 | S. Bassim   | 2018 |                     |
+|                                   | [[https://github.com/neocruiser/thesis2014/blob/master/ebdbn/ebdbn%2520-%2520W2.R][R]] (Bayesian Networks)            | S. Bassim   | 2014 |                     |
 | Clustering                        | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.buildo.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.R][R]] (v2.0, hierarchical) | S. Bassim   | 2016 |                     |
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][R]] (v3.0)                 | S. Bassim   | 2018 |                     |
-| Regularization (machine learning) | coming ...                       | S. Bassim   |      |                     |
+|                                   | [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy Clustering]]                 | S. Bassim   | 2014 |                     |
+| Regularization (machine learning) | [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Lasso and ANN]]                    | S. Bassim   | 2015 |                     |
 | Packages                          |                                  | [[https://github.com/neocruiser/pipelines/blob/master/packages.org][Open Source]] |      |                     |
 |                                   |                                  |             |      |                     |
 

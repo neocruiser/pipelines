@@ -19,7 +19,7 @@ gct <- dim(genre)[1]
 # choose color palettes
 #display.brewer.all()
 palette.gr <- brewer.pal(11, name = "PiYG")
-palette.rd <- brewer.pal(9, name = "YIOrRd")
+palette.rd <- brewer.pal(9, name = "YlOrRd")
 palette.green <- colorRampPalette(palette.gr)(n = gct)
 palette.red <- colorRampPalette(palette.rd)(n = gct)
 
@@ -40,13 +40,14 @@ for ( s in standardize_df ) {
                 #genre <- wisconsin(genre)
 
                 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
+                ## set measures to one same scale
+
                 ## clustering by sample (columns)
                 rawdata <- t(genre)
-                scaledata=t(scale(genre))
-
                 ## clustering by genes/species (rows)
-#                rawdata <- genre
-#                scaledata=scale(genre)
+                rawdata <- genre
+
+                scaledata=scale(rawdata)
 
                 ## Clustering using dissimilarity analysis
                 # use "pairwise.complete.obs" when generating NAs
@@ -82,8 +83,9 @@ for ( s in standardize_df ) {
                 # multiscale bootstrap resampling
                 bst=2000
                 a=0.95
-                pvData.row <- pvclust(scale(t(rawdata)), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
-                pvData.col <- pvclust(scale(rawdata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
+                pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
+                pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
+
 
                 # boostrapping genes
                 pdf(paste("bootstrap.genes.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
