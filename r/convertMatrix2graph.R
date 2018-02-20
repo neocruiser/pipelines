@@ -9,13 +9,6 @@ export_network_to_graphml <- function (adj_mat, filename=NULL, weighted=TRUE,
         filename='network.graphml'
     }
 
-    # TODO 2015/04/09
-    # Add option to rescale correlations for each module before applying
-    # threshold (this is simpler than the previous approach of trying to
-    # determine a different threshold for each module)
-    #
-    # Still, modules with very low correlations should be given somewhat
-    # less priority than those with very high correlations.
 
     #module_colors <- unique(nodeAttrDataFrame$color)
     #module_genes <- which(nodeAttrDataFrame$color == color)

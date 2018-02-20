@@ -1,23 +1,19 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(2, 12, 2)
-th <- seq(.5, .5, .1)
+pow <- seq(2, 14, 2)
+th <- seq(.1, .6, .1)
 
+
+th=.5
 #################
 ### RUN CODE ####
 #################
 pkgs <- c('limma','reshape2','gplots','WGCNA','dplyr','igraph',"RColorBrewer","vegan")
 lapply(pkgs, require, character.only = TRUE)
 
-palette.gr <- brewer.pal(11, name = "PRGn")
-palette.rd <- brewer.pal(11, name = "RdYlBu")
-palette.green <- colorRampPalette(palette.gr)(n = 200)
-palette.red <- colorRampPalette(palette.rd)(n = 200)
-
 source("./convertMatrix2graph.R")
 
 #LOAD DATA
-counts <- read.table("./expressions", header = T, row.names = 1)
-counts <- as.matrix(counts[, -1])
+counts <- as.matrix(read.table("./expressions", header = T, row.names = 1))
 tbl_df(counts)
 
 
@@ -32,11 +28,41 @@ if ( nco >= 100 ){
 }
 
 
+palette.gr <- brewer.pal(11, name = "PiYG")
+palette.rd <- brewer.pal(9, name = "YlOrRd")
+palette.green <- colorRampPalette(palette.gr)(n = nco)
+palette.red <- colorRampPalette(palette.rd)(n = nco)
+
+#require(svMisc)
+#for (i in 0:101)
+#progress(i, progress.bar = TRUE)
+
+
+### DEBUGGING ###
+
+#debug()
+#browser()
+#traceback()
+
+### END ###
+
+    
 # standardization
-standardize_df <- c("standardize", "range", "log") # hellinger
+standardize_df <- c("hellinger")
+
+## Initialize variable that will contain different networks iterations
+networks.summary=NULL
+## Initialize variable that will contain differnt module/gene iterations
+dm <- NULL
+
 
 for ( s in standardize_df ) {
 
+    ## This normalization step will change the scores
+    ## based on the sum by Margins
+    ## uses ranges, logs, square roots etc.,
+    ## some scores are converted to NaN, this means the method was not compatible
+    ## the scores should remain non-negative to successfuly get a graph
     counts <- decostand(x = counts, method = s)
 
     allowWGCNAThreads()
@@ -65,6 +91,12 @@ for ( s in standardize_df ) {
     dev.off()
 
 
+    
+## Start a progress bar
+#pb <- txtProgressBar(min = 0, max = nco, style = 3)
+#k=0
+
+
 ## construct different networks based on their power analysis
     for(p in pow) {
 
@@ -89,8 +121,10 @@ for ( s in standardize_df ) {
 
         ## Detect co-expression modules
         ## Hierarchical clustering first
-        correlate_rows <- c("pearson", "spearman")
-        normalize_df <- c("complete", "ward.D2", "average")
+#        correlate_rows <- c("pearson", "spearman")
+        correlate_rows <- c("spearman")        
+#        normalize_df <- c("complete", "ward.D2", "average")
+        normalize_df <- c("complete")
 
 
 ## redistribute genes into modules based on different correlation strategies
@@ -99,44 +133,58 @@ for ( s in standardize_df ) {
 
 
                 gene_tree <- hclust(as.dist(1-cor(t(adj_matrix),
-                                                  method= cr)), method = n)
+                                                  method= cr,
+                                                  use = "pairwise.complete.obs")), method = n)
                                         #gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
 
 
                 ## create only a dendrogram from cluster visualization
                 dend <- as.dendrogram(hclust(as.dist(1-cor(t(adj_matrix),
-                                                           method= cr)), method= n))
+                                                           method= cr,
+                                                           use = "pairwise.complete.obs")), method= n))
 
                 ## Get the number of clusters (modules) and the number of genes per cluster
-                d <- NULL
-
                 # max number of genes per module            
                 if ( nco >= 100 ) {
-                    imax = c(nco * .1)
-                    ival = c(nco * .01)
+                    imax = floor(nco * .1)
+                    ival = floor(nco * .01)
                 } else {
                     imax = nco
                     if ( nco >= 50 ) {
-                        ival = c(nco * .05)           
+                        ival = floor(nco * .05)           
                     } else {
-                        ival = c(nco * .1)
+                        ival = floor(nco * .1)
                     }
                 }
 
+
+
+
                 for ( i in seq(5, imax, ival) ) {
-                    module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=i,
+
+                    module_labels <- cutreeDynamicTree(dendro=gene_tree,
+                                                       minModuleSize=i,
                                                        deepSplit=TRUE)
-                    d <- rbind(d, data.frame(genes = i, modules = summary(module_labels)[[6]]))
+                    
+                    dm <- rbind(dm, data.frame(MaxGenesPerModule = i,
+                                               NbModules = summary(module_labels)[[6]],
+                                               Normalization=n, Correlation=cr,
+                                               Standardization=s,
+                                               SimilaritySize=nco,
+                                               EdgeThreshold=th,
+                                               CorrelationPower=p))
                 }
 
+
+
                 ## The mean of the number of modules will be used to cut the dendrogram
-                min.mods <- floor(apply(d, 2, function(x) mean(x)))
+                min.mods <- floor(apply(dm[, 1:2], 2, function(x) mean(x)))
                 min.mods
 
                 ## number of genes per module
-                mods_a = min.mods[[1]] - c( nco / 2 )
+                mods_a = min.mods[[1]] - c( round(min.mods[[1]]/min.mods[[2]]) * 2 )
                 mods_b = min.mods[[1]]
-                mods_c = min.mods[[1]] + c( nco / 2 )
+                mods_c = min.mods[[1]] + c( round(min.mods[[1]]/min.mods[[2]]) * 4 )
                 
                 # Iterate clustering based on the number of genes per module
                 for ( fm in c(mods_a, mods_b, mods_c) ) {
@@ -147,10 +195,13 @@ for ( s in standardize_df ) {
                     module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                                        minModuleSize=fm,
                                                        deepSplit=TRUE)
+
+
+
                     pdf(paste("minimum.module.SSIZE",nco,".STD",s,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
-                    plot(d, main = paste("Module (cluster) size selected = ", fm, sep=""))
-                    abline(lm(d$modules ~ d$genes), col="red")
-                    lines(lowess(d$genes,d$modules), col="blue")
+                    plot(dm, main = paste("Module (cluster) size selected = ", fm, sep=""))
+                    abline(lm(dm$NbModules ~ dm$MaxGenesPerModule), col="red")
+                    lines(lowess(dm$MaxGenesPerModule,dm$NbModules), col="blue")
                     dev.off()
 
                     module_colors <- labels2colors(module_labels)
@@ -175,8 +226,41 @@ for ( s in standardize_df ) {
                                                                         ".graphml",
                                                                         sep = "" ),
                                                        threshold=t,
-                                                       nodeAttrDataFrame=df)
+                                                       nodeAttrDataFrame=df,
+                                                       verbose = TRUE)
+
                     }
+
+
+                    ## Count all genes and their connections per method used, threshold, power.
+                    ## Group all nodes and edges
+                    adj_matrix[abs(adj_matrix) < th] <- 0
+                    orphaned <- (colSums(adj_matrix) == 0)
+                    fit_matrix <- adj_matrix[!orphaned, !orphaned]
+
+                    fx <- graph.adjacency(fit_matrix, mode='undirected', weighted=TRUE, diag=FALSE)
+
+                    degree(fx)[1:10]
+
+                    x=degree(fx)
+                    for ( l in seq(1, nco, floor(nco * .01))) {
+                        a <- length(x[ x > l ])
+                        networks.summary <- rbind(networks.summary,
+                                                  data.frame(MaxEdgesPerGene= l, NbNodes= a,
+                                                             Normalization=n, Correlation=cr,
+                                                             Standardization=s,
+                                                             MaxGenesPerModule=fm,
+                                                             SimilaritySize=nco,
+                                                             EdgeThreshold=th,
+                                                             CorrelationPower=p
+                                                             ))
+
+                    }
+
+## Update the progress bar
+#k<=k+1
+#setTxtProgressBar(pb, k)
+
                 }
             }
             
@@ -185,6 +269,12 @@ for ( s in standardize_df ) {
         
     }
 }
+
+
+## Create a summarized tabulated file about clustering, network organization, and correlation
+write.table(networks.summary, "networks.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
+write.table(dm, "modules.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
+
 
 
 #save(file = "log.Rdata")

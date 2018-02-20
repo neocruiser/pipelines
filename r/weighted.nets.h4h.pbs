@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=24:00:00,vmem=30g,mem=220g
+#PBS -l nodes=1:ppn=16,walltime=72:00:00,vmem=30g,mem=220g
 #PBS -N networks
 #PBS -q all
 #PBS -V
@@ -7,7 +7,7 @@
 #PBS -m abe
 #PBS -M slei.bass@gmail.com
 
-set -eux
+set -x
 
 module load R
 
@@ -24,10 +24,10 @@ output=$project/networks/$pbs
 
 
 ## MUST DEFINE BEFORE EXECUTION
-_contrast=systemicRelapse
+_contrast=systemicRelapseNodes
 _workingDir=$project/expression/90800
 _affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
-_strategy=up
+_strategy=total
 
 
 ## DO NOT TOUCH
@@ -47,6 +47,7 @@ cd $output
 _adjPval=0.049
 _avgexpression=5
 _foldchange=1
+
 
 if [ $_strategy == "total" ]; then
 
@@ -68,6 +69,11 @@ if [ $_strategy == "total" ]; then
 
     _counts=$(cat $output/ids.total.tmp | wc -l)
 
+
+
+
+
+
 elif [ $_strategy == "up" ]; then
 
     _bstatistics=0
@@ -76,6 +82,8 @@ elif [ $_strategy == "up" ]; then
 
     ## Get upregulated genes COUNTS
     _counts=$(cat $_workingDir/summary/summary.full*.txt | awk -vb=$_bstatistics '/avgex/ && /up/ {if($9>=1 && $5>=b)print $9}'| awk '{sum+=$1} END {print sum}')
+
+
 
     if [[ $_counts > 150 ]]; then
 
@@ -101,6 +109,9 @@ elif [ $_strategy == "up" ]; then
 	    done
 
 	done
+
+
+
 
     elif [[ $_counts < 150 ]]; then
 
@@ -175,7 +186,8 @@ function sorting_dir () {
     _sorted=networks/$_index
 
     mkdir -p $_sorted
-    mv *${_index}* $_sorted
+    mv *${_index}*pdf $_sorted
+    mv *${_index}*graphml $_sorted    
     tar cf $_index.tar $_sorted
     gzip $_index.tar
 

@@ -1,6 +1,8 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan')
 lapply(pkgs, require, character.only = TRUE)
 
+## increase ctt to get more clusters. Stay in range [ .5 - 3 ]
+ctt=1.5
 
 # Load data in matrix form
 genre <- as.matrix(read.table("expressions", header = TRUE, row.names = 1))
@@ -57,8 +59,8 @@ for ( s in standardize_df ) {
 
 
                 ## CUT THE TREE
-                mycl.row <- cutree(hra, h=max(hra$height)/2)
-                mycl.col <- cutree(hca, h=max(hca$height)/2)                
+                mycl.row <- cutree(hra, h=max(hra$height)/ctt)
+                mycl.col <- cutree(hca, h=max(hca$height)/ctt)                
 
                 ## attribute colors to clusters
                 maxClusters.row <- length(unique(mycl.row))
@@ -81,12 +83,22 @@ for ( s in standardize_df ) {
 
                 ## BOOTSTRAPING to create pvalues
                 # multiscale bootstrap resampling
-                bst=2000
-                a=0.95
+                bst=50
+                a=0.98
                 pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
                 pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
 
+                write.table(print(pvData.row),file=paste0("bootstrap.PVAL.genes.STD",
+                                                          s,".CLU",n,".VAR-CORR",cr,
+                                                          ".FEA-CORR",cc,".BST",bst,".txt"),
+                            row.names=FALSE, sep="\t", quote=FALSE) 
 
+                write.table(print(pvData.col),file=paste0("bootstrap.PVAL.cases.STD",
+                                                          s,".CLU",n,".VAR-CORR",cr,
+                                                          ".FEA-CORR",cc,".BST",bst,".txt"),
+                            row.names=FALSE, sep="\t", quote=FALSE) 
+                
+                
                 # boostrapping genes
                 pdf(paste("bootstrap.genes.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
                 plot(pvData.row, hang=-1, cex.pv=.2, cex=.2, float=0)
