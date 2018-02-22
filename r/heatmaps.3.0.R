@@ -38,9 +38,10 @@ for ( s in standardize_df ) {
             for ( cc in correlate_columns ) {
 
                 # standardization
+#                genre <- log1p(genre)
                 genre <- decostand(x = genre, method = s)
                 #genre <- wisconsin(genre)
-
+                
                 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
                 ## set measures to one same scale
 
@@ -66,12 +67,14 @@ for ( s in standardize_df ) {
                 maxClusters.row <- length(unique(mycl.row))
                 maxClusters.col <- length(unique(mycl.col))                
 
+                ## Clustering variables
                 if ( maxClusters.row <= 12) {
                     myrowhc <- brewer.pal(maxClusters.row, name = 'Paired')
                 } else {
                     myrowhc <- colorRampPalette(brewer.pal(8, name="Dark2"))(maxClusters.row)
                 }
 
+                ## Clustering features
                 if ( maxClusters.col <= 12) {
                     mycolhc <- brewer.pal(maxClusters.col, name = 'Paired')
                 } else {

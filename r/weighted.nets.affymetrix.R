@@ -1,5 +1,5 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(2, 14, 2)
+pow <- seq(2, 18, 2)
 th <- seq(.1, .6, .1)
 
 
@@ -15,6 +15,9 @@ source("./convertMatrix2graph.R")
 #LOAD DATA
 counts <- as.matrix(read.table("./expressions", header = T, row.names = 1))
 tbl_df(counts)
+
+
+
 
 
 # sampling for heatmaps
@@ -48,7 +51,7 @@ palette.red <- colorRampPalette(palette.rd)(n = nco)
 
     
 # standardization
-standardize_df <- c("hellinger")
+standardize_df <- c("hellinger", "standardize", "range", "log")
 
 ## Initialize variable that will contain different networks iterations
 networks.summary=NULL
@@ -65,6 +68,8 @@ for ( s in standardize_df ) {
     ## the scores should remain non-negative to successfuly get a graph
     counts <- decostand(x = counts, method = s)
 
+#    counts <- scale(counts, center=T, scale = T)
+
     allowWGCNAThreads()
 
     #create similarity matrix
@@ -72,14 +77,18 @@ for ( s in standardize_df ) {
         cor_matrix  <- cor(t(dat))
 
         dist_matrix <- as.matrix(dist(dat, diag=TRUE, upper=TRUE))
-        dist_matrix <- log1p(dist_matrix)
-        dist_matrix <- 1 - (dist_matrix / max(dist_matrix))
 
-        sign(cor_matrix) * ((abs(cor_matrix) + dist_matrix)/ 2)
+#        dist_matrix <- as.matrix(dist(scale(dat, center=T, scale=T), diag=TRUE, upper=TRUE))
+
+        # Calculates the log-likelihood
+#        dist_matrix <- log1p(dist_matrix)
+        # Scale negative values
+        dist_matrix <- 1 - (dist_matrix / max(dist_matrix))
+#        sign(cor_matrix) * ((abs(cor_matrix) + dist_matrix)/ 2)
     }
     sim_matrix <- cordist(counts)
 
-    pdf(paste("similarity.matrix.SSIZE",nco,".STD",s,".heatmap.pdf",sep = ""))
+    pdf(paste("similarity.matrix.standardize.SSIZE",nco,".STD",s,".heatmap.pdf",sep = ""))
     heatmap_indices = heatmap.indices.sampling
     heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
               col=palette.green,
@@ -182,9 +191,9 @@ for ( s in standardize_df ) {
                 min.mods
 
                 ## number of genes per module
-                mods_a = min.mods[[1]] - c( round(min.mods[[1]]/min.mods[[2]]) * 2 )
+                mods_a = c((min.mods[[1]] - c( round(min.mods[[1]]/min.mods[[2]]) * 10 ) ) + 1)
                 mods_b = min.mods[[1]]
-                mods_c = min.mods[[1]] + c( round(min.mods[[1]]/min.mods[[2]]) * 4 )
+                mods_c = c((min.mods[[1]] + c( round(min.mods[[1]]/min.mods[[2]]) * 12 ) ))
                 
                 # Iterate clustering based on the number of genes per module
                 for ( fm in c(mods_a, mods_b, mods_c) ) {
