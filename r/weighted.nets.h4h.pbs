@@ -24,7 +24,7 @@ output=$project/networks/$pbs
 
 
 ## MUST DEFINE BEFORE EXECUTION
-_contrast=systemicRelapseNodes
+_contrast=systemicRelapse
 _workingDir=$project/expression/90800
 _affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
 _strategy=total
@@ -193,7 +193,7 @@ function sorting_dir () {
 
 }
 
-for i in heatmap module standardize range log; do
+for i in POW heatmap module standardize range; do
     sorting_dir $i
     rm -rf networks
 done

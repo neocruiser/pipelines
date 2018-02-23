@@ -22,8 +22,8 @@ gct <- dim(genre)[1]
 #display.brewer.all()
 palette.gr <- brewer.pal(11, name = "PiYG")
 palette.rd <- brewer.pal(9, name = "YlOrRd")
-palette.green <- colorRampPalette(palette.gr)(n = gct)
-palette.red <- colorRampPalette(palette.rd)(n = gct)
+palette.green <- colorRampPalette(palette.gr)(n = c(gct * .05))
+palette.red <- colorRampPalette(palette.rd)(n = c(gct * .05))
 
 
 standardize_df <- c("standardize", "range", "log")
@@ -40,7 +40,6 @@ for ( s in standardize_df ) {
                 # standardization
 #                genre <- log1p(genre)
                 genre <- decostand(x = genre, method = s)
-                #genre <- wisconsin(genre)
                 
                 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
                 ## set measures to one same scale

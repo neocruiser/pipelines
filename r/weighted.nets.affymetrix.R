@@ -17,9 +17,6 @@ counts <- as.matrix(read.table("./expressions", header = T, row.names = 1))
 tbl_df(counts)
 
 
-
-
-
 # sampling for heatmaps
 nco <- dim(counts)[1]
 
@@ -36,22 +33,28 @@ palette.rd <- brewer.pal(9, name = "YlOrRd")
 palette.green <- colorRampPalette(palette.gr)(n = nco)
 palette.red <- colorRampPalette(palette.rd)(n = nco)
 
+
+### DEBUGGING ###
+
 #require(svMisc)
 #for (i in 0:101)
 #progress(i, progress.bar = TRUE)
-
-
-### DEBUGGING ###
 
 #debug()
 #browser()
 #traceback()
 
+## output analyses done for debugging purposes
+## create an iterative counter and initialize it
+icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
+ite <- icc()
+steps_done=NULL
+                    
 ### END ###
 
     
 # standardization
-standardize_df <- c("hellinger", "standardize", "range", "log")
+standardize_df <- c("hellinger", "standardize", "range")
 
 ## Initialize variable that will contain different networks iterations
 networks.summary=NULL
@@ -266,10 +269,24 @@ for ( s in standardize_df ) {
 
                     }
 
-## Update the progress bar
-#k<=k+1
-#setTxtProgressBar(pb, k)
 
+
+                    ## output analyses done for debugging purposes
+                    if ( file.exists(steps_done) )
+                        file.remove(steps_done)
+
+                    
+                    # increase counter by 1 and amend new methods succesfully executed
+                    steps_done=paste0("iteration_",ite(),".POW",p,
+                                      ".Th",t,".GEN",fm,".STD",s,".SSIZE",nco,
+                                      ".CLU",n,".var-CORR",cr,".tmp")
+
+
+                    if ( !file.exists(steps_done) )
+                        file.create(steps_done)
+
+                    
+                
                 }
             }
             
