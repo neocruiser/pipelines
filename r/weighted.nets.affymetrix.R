@@ -48,7 +48,7 @@ palette.red <- colorRampPalette(palette.rd)(n = nco)
 ## create an iterative counter and initialize it
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
 ite <- icc()
-steps_done=NULL
+steps_done="tmp"
                     
 ### END ###
 
