@@ -30,29 +30,29 @@ are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]].
 Licence: MIT Licence
 
 
-| Workflow                          | Pipeline                  | Author      | Year | Related Publication |
-|-----------------------------------+---------------------------+-------------+------+---------------------|
-| Gene annotation                   | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash]]                      | S. Bassim   | 2016 |                     |
-| Transcriptome assembly            | [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][trinity]]                   | S. Bassim   | 2016 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][bwa]]                       | S. Bassim   | 2016 |                     |
-| Host-pathogen read separation     | [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][PBS]]                       | S. Bassim   | 2017 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/debug/debug4.slurm][Slurm-abundance]]           | S. Bassim   | 2017 |                     |
-| Transcriptome size reduction      | [[https://github.com/neocruiser/pipelines/blob/master/expression/filter-bridges.slurm][Slurm]]                     | S. Bassim   | 2017 |                     |
-| Gene expression                   | [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][R]] (RNA-seq)               | S. Bassim   | 2016 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.2.0.R][R]] (affymetrix)    | S. Bassim   | 2017 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.summary.h4h.sh][bash]] (affymetrix summary) | S. Bassim   | 2018 |                     |
-| Shotgun annotation                | [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][kraken]]                    | S. Bassim   | 2016 |                     |
-| Gene annotation                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][diamond]]                   | S. Bassim   | 2016 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/interproscan-bridges.slurm][interpro]]                  | S. Bassim   | 2016 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][hmmer]]                     | S. Bassim   | 2016 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][blast]]                     | S. Bassim   | 2016 |                     |
-| Network analysis                  | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.R][R]]               | S. Bassim   | 2016 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][R]] v(2.0)          | S. Bassim   | 2018 |                     |
-|                                   | [[https://github.com/neocruiser/thesis2014/blob/master/ebdbn/ebdbn%2520-%2520W2.R][R]] (Bayesian Networks)     | S. Bassim   | 2014 |                     |
-| Clustering                        | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.buildo.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.R][R]] (v2.0)        | S. Bassim   | 2016 |                     |
-|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][R]] (v3.0)          | S. Bassim   | 2018 |                     |
-|                                   | [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy Clustering]]          | S. Bassim   | 2014 |                     |
-| Regularization (machine learning) | [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Lasso and ANN]]             | S. Bassim   | 2015 |                     |
-| Packages                          |                           | [[https://github.com/neocruiser/pipelines/blob/master/packages.org][Open Source]] |      |                     |
-|                                   |                           |             |      |                     |
+| Workflow                          | Pipeline         | Platform   | Version | Author      | Year |
+|-----------------------------------+------------------+------------+---------+-------------+------|
+| Gene annotation                   | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash - mining]]    | multi      | v5.0    | S. Bassim   | 2016 |
+| Transcriptome assembly            | [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][trinity]]          | RNA-seq    | v3.5    | S. Bassim   | 2016 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][bwa]]              | RNA-seq    | v0.1    | S. Bassim   | 2016 |
+| Host-pathogen read separation     | [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][PBS]]              | RNA-seq    | v0.1    | S. Bassim   | 2017 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/debug/debug4.slurm][Slurm-abundance]]  | RNA-seq    | v0.1    | S. Bassim   | 2017 |
+| Transcriptome size reduction      | [[https://github.com/neocruiser/pipelines/blob/master/expression/filter-bridges.slurm][Slurm]]            | RNA-seq    | v0.1    | S. Bassim   | 2017 |
+| Gene expression                   | [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][R]]                | RNA-seq    | v1.0    | S. Bassim   | 2016 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.2.0.R][R]]        | Affymetrix | v2.0    | S. Bassim   | 2017 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.summary.h4h.sh][bash - mining]]    | Affymetrix | v1.0    | S. Bassim   | 2018 |
+| Shotgun annotation                | [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][kraken]]           | Shotgun    | v1.0    | S. Bassim   | 2016 |
+| Gene annotation                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][diamond]]          | multi      | v1.0    | S. Bassim   | 2016 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/interproscan-bridges.slurm][interpro]]         | multi      | v2.0    | S. Bassim   | 2016 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][hmmer]]            | multi      | v0.3    | S. Bassim   | 2016 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][blast]]            | multi      | v1.0    | S. Bassim   | 2016 |
+| Network analysis                  | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.R][R]]      | RNA-seq    | v1.0    | S. Bassim   | 2016 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][R]]        | Affymetrix | v2.0    | S. Bassim   | 2018 |
+|                                   | [[https://github.com/neocruiser/thesis2014/blob/master/ebdbn/ebdbn%2520-%2520W2.R][Bayesian - R]]     | Agilent    | v0.5    | S. Bassim   | 2014 |
+| Clustering                        | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.buildo.slurm][Slurm]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.R][R]]      | RNA-seq    | v2.0    | S. Bassim   | 2016 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][R]]        | Affymetrix | v3.0    | S. Bassim   | 2018 |
+|                                   | [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy Clustering]] | Agilent    | v0.3    | S. Bassim   | 2014 |
+| Regularization (machine learning) | [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Lasso and ANN]]    | RNA-seq    | v1.0    | S. Bassim   | 2015 |
+| Packages                          |                  |            |         | [[https://github.com/neocruiser/pipelines/blob/master/packages.org][Open Source]] |      |
+
 
