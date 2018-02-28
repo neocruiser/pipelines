@@ -26,6 +26,10 @@ between 2015 and 2017 are running on [[https://www.xsede.org/][XSEDE]] supercomp
 the US, including Greenfield, Bridges, and LIred servers. All others
 are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]].
 
+
+Licence: MIT Licence
+
+
 | Workflow                          | Pipeline                         | Author      | Year | Related Publication |
 |-----------------------------------+----------------------------------+-------------+------+---------------------|
 | Gene annotation                   | [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][bash]]                             | S. Bassim   | 2016 |                     |
