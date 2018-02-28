@@ -134,7 +134,7 @@ for ( s in standardize_df ) {
         ## Detect co-expression modules
         ## Hierarchical clustering first
 #        correlate_rows <- c("pearson", "spearman")
-        correlate_rows <- c("spearman")        
+        correlate_rows <- c("pearson")        
 #        normalize_df <- c("complete", "ward.D2", "average")
         normalize_df <- c("complete")
 
