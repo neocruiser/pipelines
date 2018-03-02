@@ -277,7 +277,7 @@ for ( s in standardize_df ) {
 
                     
                     # increase counter by 1 and amend new methods succesfully executed
-                    steps_done=paste0("iteration_",ite(),".POW",p,
+                    steps_done=paste0("network.iteration_",ite(),".POW",p,
                                       ".Th",t,".GEN",fm,".STD",s,".SSIZE",nco,
                                       ".CLU",n,".var-CORR",cr,".tmp")
 

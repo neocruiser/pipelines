@@ -10,6 +10,8 @@ gct <- dim(genre)[1]
 
 
 ## debugging
+## START ##
+
 ## resampling
 #tenpercent <- c(gct * .1)
 #selected <- sample(gct, tenpercent)
@@ -17,6 +19,13 @@ gct <- dim(genre)[1]
 #rawdata <- decostand(x = rawdata, method = s)
 #scaledata=scale(rawdata)
 
+## output analyses done for debugging purposes
+## create an iterative counter and initialize it
+icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
+ite <- icc()
+steps_done="tmp"
+                    
+### END ###
 
 # choose color palettes
 #display.brewer.all()
@@ -26,7 +35,7 @@ palette.green <- colorRampPalette(palette.gr)(n = c(gct * .05))
 palette.red <- colorRampPalette(palette.rd)(n = c(gct * .05))
 
 
-standardize_df <- c("standardize", "range", "log")
+standardize_df <- c("standardize", "range", "hellinger", "log")
 normalize_df <- c("complete", "ward.D2", "average")
 correlate_rows <- c("pearson", "spearman")
 correlate_columns <- c("pearson", "spearman")
@@ -38,7 +47,6 @@ for ( s in standardize_df ) {
             for ( cc in correlate_columns ) {
 
                 # standardization
-#                genre <- log1p(genre)
                 genre <- decostand(x = genre, method = s)
                 
                 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
@@ -83,10 +91,14 @@ for ( s in standardize_df ) {
                 myrowhc <- myrowhc[as.vector(mycl.row)]
                 mycolhc <- mycolhc[as.vector(mycl.col)]                
 
+
+
+
                 ## BOOTSTRAPING to create pvalues
                 # multiscale bootstrap resampling
-                bst=50
-                a=0.98
+                bst=5000
+                ## interval confidence (5% chance wrong clustering)
+                a=0.95
                 pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
                 pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
 
@@ -107,7 +119,7 @@ for ( s in standardize_df ) {
                 pvrect(pvData.row, alpha=a, pv="au", type="geq", cex.lab=.3)
                 dev.off()
 
-                pdf(paste("standardErrors.Bootstrappedgenes.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                pdf(paste("standardErrors.bootstrappedgenes.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
                 seplot(pvData.row, type=c("au", "bp"))
                 dev.off()
 
@@ -117,7 +129,7 @@ for ( s in standardize_df ) {
                 pvrect(pvData.col, alpha=a, pv="au", type="geq", cex.lab=.3)
                 dev.off()
 
-                pdf(paste("standardErrors.Bootstrappedcases.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
+                pdf(paste("standardErrors.bootstrappedcases.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
                 seplot(pvData.col, type=c("au", "bp"))
                 dev.off()
 
@@ -167,6 +179,25 @@ for ( s in standardize_df ) {
                           margins=c(5,5), cexRow=.1, cexCol=.1)
                 dev.off()
                 
+
+
+                ## output analyses done for debugging purposes
+                if ( file.exists(steps_done) )
+                    file.remove(steps_done)
+
+                
+                # increase counter by 1 and amend new methods succesfully executed
+                steps_done=paste0("cluster.iteration_",ite(),".STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst)
+
+
+                if ( !file.exists(steps_done) )
+                    file.create(steps_done)
+
+
+
+
+
+
             }
         }
     }

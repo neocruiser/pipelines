@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=4,walltime=200:00:00,vmem=30g,mem=220g
+#PBS -l nodes=1:ppn=16,walltime=200:00:00,vmem=30g,mem=220g
 #PBS -N networks
-#PBS -q all
+#PBS -q long
 #PBS -V
 #PBS -j oe
 #PBS -m abe
@@ -161,29 +161,17 @@ echo "$_counts"
 touch $output/${_counts}genes.min${_bstatistics}bstats.min${_avgexpression}avgexp.$(cat $output/expressions | sed '1d' | wc -l)selected
 
 
+
+
 #############
 ## PART II ##
 #############
-# convert matrix of gene interactions into graphml output
-cp $home/script*/r/convertMatrix2graph.R $output
-
-# infer gene-gene interactions
-R CMD BATCH $home/script*/r/weighted.nets.affymetrix.R
-
-# finish writing heatmaps
-sleep 600
-
-
-##############
-## PART III ##
-##############
-cd $output
-
 ## sort the output files (networks and heatmaps) into subfolders
 ## subfolders are later compressed
-function sorting_dir () {
+function sorting_dir ()
+{
     local _index=$1
-    _sorted=networks/$_index
+    local _sorted=$2/$_index
 
     mkdir -p $_sorted
     mv *${_index}*pdf $_sorted
@@ -193,10 +181,52 @@ function sorting_dir () {
 
 }
 
-for i in POW heatmap module standardize range; do
-    sorting_dir $i
-    rm -rf networks
-done
+function execute_sort ()
+{
+    local j=$1
+
+    if [ $j == "clusters" ]; then
+
+	for i in bootstrap standardize range hellinger log; do
+	    sorting_dir $i $j
+	    rm -rf $j
+	done
+
+    elif [ $j == "networks" ]; then
+	
+	for i in POW heatmap module standardize range; do
+	    sorting_dir $i $j
+	    rm -rf $j
+	done
+
+    fi
+}
+
+
+
+
+##############
+## PART III ##
+##############
+# convert matrix of gene interactions into graphml output
+cd $output
+cp $home/script*/r/convertMatrix2graph.R $output
+
+# Cluster data (hierarchical clustering)
+R CMD BATCH $home/script*/r/heatmaps.3.0.R
+# sort files
+execute_sort clusters
+# finish writing R outputs
+sleep 600
+
+# infer gene-gene interactions (networks)
+R CMD BATCH $home/script*/r/weighted.nets.affymetrix.R
+# sort files
+execute_sort networks
+# finish writing R outputs
+sleep 600
+
+
 
 
 
