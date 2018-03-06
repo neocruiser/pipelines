@@ -35,8 +35,10 @@ palette.green <- colorRampPalette(palette.gr)(n = c(gct * .05))
 palette.red <- colorRampPalette(palette.rd)(n = c(gct * .05))
 
 
-standardize_df <- c("standardize", "range", "hellinger", "log")
-normalize_df <- c("complete", "ward.D2", "average")
+## "standardize", "range", "hellinger", "log"
+## complete, ward.D2, average
+standardize_df <- c("hellinger")
+normalize_df <- c("complete")
 correlate_rows <- c("pearson", "spearman")
 correlate_columns <- c("pearson", "spearman")
 
@@ -96,18 +98,18 @@ for ( s in standardize_df ) {
 
                 ## BOOTSTRAPING to create pvalues
                 # multiscale bootstrap resampling
-                bst=5000
+                bst=2000
                 ## interval confidence (5% chance wrong clustering)
                 a=0.95
                 pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
                 pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
 
-                write.table(print(pvData.row),file=paste0("bootstrap.PVAL.genes.STD",
+                write.table(print(pvData.row),file=paste0("bootstrap.PVAL",c(a*100),"p.STD",
                                                           s,".CLU",n,".VAR-CORR",cr,
                                                           ".FEA-CORR",cc,".BST",bst,".txt"),
                             row.names=FALSE, sep="\t", quote=FALSE) 
 
-                write.table(print(pvData.col),file=paste0("bootstrap.PVAL.cases.STD",
+                write.table(print(pvData.col),file=paste0("bootstrap.PVAL",c(a*100),"p.STD",
                                                           s,".CLU",n,".VAR-CORR",cr,
                                                           ".FEA-CORR",cc,".BST",bst,".txt"),
                             row.names=FALSE, sep="\t", quote=FALSE) 
@@ -136,8 +138,8 @@ for ( s in standardize_df ) {
                 
                 
                 ## RETRIEVE MEMBERS OF SIGNIFICANT CLUSTERS.
-                clsig.row <- unlist(pvpick(pvData.row, alpha=0.95, pv="au", type="geq", max.only=TRUE)$clusters)
-                clsig.col <- unlist(pvpick(pvData.col, alpha=0.95, pv="au", type="geq", max.only=TRUE)$clusters)                
+                clsig.row <- unlist(pvpick(pvData.row, alpha=a, pv="au", type="geq", max.only=TRUE)$clusters)
+                clsig.col <- unlist(pvpick(pvData.col, alpha=a, pv="au", type="geq", max.only=TRUE)$clusters)                
 
                 ## Function to Color Dendrograms
                 dendroCol <- function(dend=dend, keys=keys, xPar="edgePar", bgr="red", fgr="blue", pch=20, lwd=1, ...) {
