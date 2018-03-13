@@ -1,11 +1,9 @@
-pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan')
+pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan', 'dplyr')
 lapply(pkgs, require, character.only = TRUE)
-
-## import custom functions
-source('01funcs.R')
 
 ## load expression data
 ## optimized for t-statistics microarray expressions
+## rows=genes; col=samples
 means <- read.table("means22samples15K.txt", sep="\t", header=T, row.names=3)
 x <- t(means[,-c(1,2)])
 dim(x)
@@ -22,40 +20,71 @@ y <- c(rep("E",3), rep("Lc",6), rep("PLc",6), rep("Lt",3),rep("PLt",4))
 y <- c(rep("L",9), rep("PL",6), rep("L",3),rep("PL",4))
 
 
-##############################
-# Filter subset selection
-##############################
-## Unsupervised gene selection based on high variance
-## discard extreme variance
-nset=5000
 
-hi.x <- set.var(t(xs), 1, nset)
-summary(apply(hi.x, 2, var))
-summary(apply(hi.x, 2, sd))
+######################
+## FUNCTION CALLING ##
+######################
+get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE ){
+    ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
+    locus.var <- apply(t(dat), n, var)
+    hi.var <- order(abs(locus.var), decreasing = T)[from:to]
 
-cor.x <- cor(hi.x)
-summary(cor.x[upper.tri(cor.x)])
+    if ( silent == FALSE ) {
+        cat("Number of selected high-variance genes:",length(hi.var),"\n")    
+    }
+    
+    return(hi.x <- dat[,hi.var])
+}
 
+
+######################
+## SUBSET SELECTION ##
+######################
 
 ## get number of discarded high variance genes
-## iteration multiple thresholds
+## iterate multiple thresholds, maximum 20 iterations
 gv <- NULL
-for (i in seq(500, 10000, 500)) {
-hi.x <- set.var(t(xs), 1, i)
+start_th=c( (nrow(xs) * 0.1) / 2)
+end_th=nrow(xs)
+increment_th=c( (end_th - start_th) / 20 )
 
-# get mean (dm) and maximum value of variance (dmv) of the whole dataset
-dm <- summary(apply(hi.x, 2, var))[[4]]
-dmvb <- summary(apply(hi.x, 2, var))[[6]]
-offset = c( (dm * (log(dmv)) + (dmv * 0.1)) )
+for (nset in seq(start_th, end_th, increment_th)) {
+    ## UNSUPERVISED GENE SELECTION BASED ON HIGH VARIANCE
+    ## TO DISCARD EXTREME VARIANCE
+    hi.x <- get.var(t(xs), 1, from = 1, to = nset)
 
-# get the mean for each gene
-selected <- data.frame(locus=colnames(hi.x),var=apply(hi.x, 2, var)) %>%
-    filter(var > offset)
+    # get mean (dm) and maximum value of variance (dmv) of the whole dataset
+    dm_old<- summary(apply(hi.x, 2, var))[[4]]
+    dmv_old<- summary(apply(hi.x, 2, var))[[6]]
+    offset = c( (dm_old* (log(dmv_old)) + (dmv_old* 0.1)) )
 
-gv <- rbind(gv, data.frame(dimension=i,
-                           meanVariance=dm,
-                           maxVariance=dmv,
-                           discarded=dim(selected)[1]))
+    # get mean standard deviation (dms) and max SD (dsv)
+    dms_old <- summary(apply(hi.x, 2, sd))[[4]]
+    dsv_old <- summary(apply(hi.x, 2, sd))[[6]]
+
+    # get the mean for each gene
+    selected <- data.frame(locus = colnames(hi.x),
+                           var = apply(hi.x, 2, var)) %>%
+        filter(var > offset) %>%
+        nrow
+
+    # recalculate variance based on adujusted new thresholds
+    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset, silent = TRUE)
+    dm_new <- summary(apply(hi.x, 2, var))[[4]]
+    dmv_new <- summary(apply(hi.x, 2, var))[[6]]
+    dms_new <- summary(apply(hi.x, 2, sd))[[4]]
+    dsv_new <- summary(apply(hi.x, 2, sd))[[6]]
+    gv <- rbind(gv, data.frame(dimension=nset,
+                               meanVariance=dm_old,
+                               maxVariance=dmv_old,
+                               meanSD=dms_old,
+                               maxSD=dsv_old,
+                               discarded=selected,
+                               adj.meanVariance=dm_new,
+                               adj.maxVariance=dmv_new,
+                               adj.meanSD=dms_new,
+                               adj.maxSD=dsv_new))
+
 }
 
 
