@@ -1,7 +1,8 @@
 # Load packages
 pkgs <- c('RColorBrewer', 'genefilter', 'limma',
           'pvclust', 'foreach', 'oligo', 'pd.hta.2.0',
-          'plyr', 'dplyr', 'reshape', 'tidyr', 'doMC')
+          'plyr', 'dplyr', 'reshape', 'tidyr', 'doMC',
+          'vegan')
 lapply(pkgs, require, character.only = TRUE)
 
 # Multicore processing
@@ -162,6 +163,100 @@ probe.normalized <- oligo::rma(cel.raw, target='probeset')
 write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
 gc()
 
+
+#### REMOVE HIGH VARIANCE GENES
+x <- t(as.matrix(trx.normalized))
+dim(x)
+
+xs <- decostand(t(x), "standardize")
+######################
+## FUNCTION CALLING ##
+######################
+get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE ){
+    ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
+    locus.var <- apply(t(dat), n, var)
+    hi.var <- order(abs(locus.var), decreasing = T)[from:to]
+
+    if ( silent == FALSE ) {
+        cat("Number of selected high-variance genes:",length(hi.var),"\n")    
+    }
+    
+    return(hi.x <- dat[,hi.var])
+}
+
+
+######################
+## SUBSET SELECTION ##
+######################
+set.seed(15879284)
+
+## get number of discarded high variance genes
+## iterate multiple thresholds, maximum 20 iterations
+gv <- NULL
+start_th=floor( (nrow(xs) * 0.1) / 2)
+end_th=nrow(xs)
+increment_th=floor( (end_th - start_th) / 20 )
+
+for (nset in seq(start_th, end_th, increment_th)) {
+    ## UNSUPERVISED GENE SELECTION BASED ON HIGH VARIANCE
+    ## TO DISCARD EXTREME VARIANCE
+    hi.x <- get.var(t(xs), 1, from = 1, to = nset)
+
+    # get mean (dm) and maximum value of variance (dmv) of the whole dataset
+    dm_old<- summary(apply(hi.x, 2, var))[[4]]
+    dmv_old<- summary(apply(hi.x, 2, var))[[6]]
+    offset = c( (dm_old* (log(dmv_old)) + (dmv_old* 0.1)) )
+
+    # get mean standard deviation (dms) and max SD (dsv)
+    dms_old <- summary(apply(hi.x, 2, sd))[[4]]
+    dsv_old <- summary(apply(hi.x, 2, sd))[[6]]
+
+    # get the mean for each gene
+    selected <- data.frame(locus = colnames(hi.x),
+                           var = apply(hi.x, 2, var)) %>%
+        filter(var > offset) %>%
+        nrow
+
+    # recalculate variance based on adujusted new thresholds
+    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset, silent = TRUE)
+    dm_new <- summary(apply(hi.x, 2, var))[[4]]
+    dmv_new <- summary(apply(hi.x, 2, var))[[6]]
+    dms_new <- summary(apply(hi.x, 2, sd))[[4]]
+    dsv_new <- summary(apply(hi.x, 2, sd))[[6]]
+    gv <- rbind(gv, data.frame(dimension=nset,
+                               meanVariance=dm_old,
+                               maxVariance=dmv_old,
+                               meanSD=dms_old,
+                               maxSD=dsv_old,
+                               discarded=selected,
+                               adj.meanVariance=dm_new,
+                               adj.maxVariance=dmv_new,
+                               adj.meanSD=dms_new,
+                               adj.maxSD=dsv_new))
+
+}
+
+write.table(gv, "summary.adjusted.means.subsetting.txt", quote=FALSE, sep="\t", row.names=F)
+
+
+
+## subset the dataset based on a selected mean and SD
+means2subset <- gv %>%
+    filter(adj.meanVariance >= 0.1 & adj.meanVariance < 0.2) %>%
+    select(dimension, discarded)
+
+from.m=c(means2subset$discarded[[1]] + 1)
+to.m=means2subset$dimension[[1]]
+
+## dimension minus the discarded high variance genes
+adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, silent = TRUE)
+
+
+##   subset and selcet normal variance genes
+trx.normalized <- trx.normalized[colnames(adj.x), ]
+write.exprs(trx.normalized, file=paste0("normalized.subset.",to.m,".systemic.trx.expression.txt"))
+
+
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
@@ -206,7 +301,7 @@ for (g in groups) {
                                          CNSvsSYST = CNS-SYST,
                                          levels = strategy)
         coef <- rep(1:3)
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=.15)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
 
 
         
@@ -226,7 +321,7 @@ for (g in groups) {
                                          diffCNSvsSYST_LNvsEN = (CNS.LN-SYST.LN)-(CNS.EN-SYST.EN),
                                          levels = strategy)
         coef <- rep(1:9)
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=.15)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
     } else if (g == "systemicRelapseCOOclasses") {
         sample.factors <- paste(metadata$Groups, metadata$ABClassify, sep=".")
@@ -244,7 +339,7 @@ for (g in groups) {
                                          diffCNSvsSYST_ABCvsGCB = (CNS.ABC-SYST.ABC)-(CNS.GCB-SYST.GCB),
                                          levels = strategy)
         coef <- rep(1:9)
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=.15)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
     } else if (g == "systemicRelapseCOOprediction") {
         sample.factors <- paste(metadata$Groups, metadata$Prediction, sep=".")
@@ -262,7 +357,7 @@ for (g in groups) {
                                          diffCNSvsSYST_ABCvsGCB = (CNS.ABC-SYST.ABC)-(CNS.GCB-SYST.GCB),
                                          levels = strategy)
         coef <- rep(1:9)
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=.15)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
     } else if (g == "systemicRelapseCOOscores") {
         sample.factors <- paste(metadata$Groups, metadata$ABCScore, sep=".")
@@ -280,7 +375,7 @@ for (g in groups) {
                                          diffCNSvsSYST_ABCvsGCB = (CNS.ABC-SYST.ABC)-(CNS.GCB-SYST.GCB),
                                          levels = strategy)
         coef <- rep(1:9)
-        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=.15)
+        moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
     }
 }

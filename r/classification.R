@@ -1,11 +1,12 @@
-pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan', 'dplyr')
+pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
+          'dplyr', 'mRMRe', 'glmnet')
 lapply(pkgs, require, character.only = TRUE)
 
 ## load expression data
 ## optimized for t-statistics microarray expressions
 ## rows=genes; col=samples
-means <- read.table("means22samples15K.txt", sep="\t", header=T, row.names=3)
-x <- t(means[,-c(1,2)])
+means <- read.table("normalized.systemic.trx.expression.txt", sep="\t", header=T, row.names=1)
+x <- t(means)
 dim(x)
 
 xs <- decostand(t(x), "standardize")
@@ -40,13 +41,14 @@ get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE ){
 ######################
 ## SUBSET SELECTION ##
 ######################
+set.seed(15879284)
 
 ## get number of discarded high variance genes
 ## iterate multiple thresholds, maximum 20 iterations
 gv <- NULL
-start_th=c( (nrow(xs) * 0.1) / 2)
+start_th=floor( (nrow(xs) * 0.1) / 2)
 end_th=nrow(xs)
-increment_th=c( (end_th - start_th) / 20 )
+increment_th=floor( (end_th - start_th) / 20 )
 
 for (nset in seq(start_th, end_th, increment_th)) {
     ## UNSUPERVISED GENE SELECTION BASED ON HIGH VARIANCE
@@ -87,62 +89,76 @@ for (nset in seq(start_th, end_th, increment_th)) {
 
 }
 
+write.table(gv, "summary.adjusted.means.subsetting.txt", quote=FALSE, sep="\t", row.names=F)
 
-require(mRMRe)
-feature.select <- new("mRMRe.Data",data=data.frame(hi.x[,1:1500, drop=F]))
-## extract data
-set.seed(1445612321)
-locus.select <- new("mRMRe.Filter", data=feature.select, target_indices=1, levels=c(500,1), continuous_estimator="spearman")
-## feature select min redundant max relevant genes
-range_correlation(locus.select,n=1,t=1,hi.x,method="spearman")	# n=gene(set w target_indices); t=different gene mashups
-## view range of correlated selected features
-locus <- locusRMR(locus.select,feature.select,n=1,t=1)
-length(locus)
-## extract LOCUS names
-## Parallelized mRMR ensemble Feature selection
 
-##############################
-# Training/Testing
-##############################
-foo2 <- hi.x[,locus];dim(foo2)
-train <- sample(1:nrow(foo2), 2*nrow(foo2)/2.5); length(train)
-test <- -train
-y[test]; length(y[test])
-## prepare training/testing sets
-set.seed(1445612321)
-dat <- data.frame(y=y, foo2)
+
+## subset the dataset based on a selected mean and SD
+means2subset <- gv %>%
+    filter(adj.meanVariance >= 2 & adj.meanVariance < 3) %>%
+    select(dimension, discarded)
+
+from.m=c(means2subset$discarded[[1]] + 1)
+to.m=means2subset$dimension[[1]]
+
+## dimension minus the discarded high variance genes
+adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, silent = TRUE)
+
+
+######################
+## TRAINING/TESTING ##
+######################
+# Split the dataset into 80% training data
+# rest used as validation data
+training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+y[-training]
+length(y[-training])
+
+dat <- data.frame(y=y, adj.x)
 y <- as.vector(model.matrix(~y,dat)[,2])
 #y <- c(rep(0,6),rep(1,9),rep(-1,7))	## dummy variables for 3 levels None, Coc, Tiso
 
-##############################
-# Feature extraction
-##############################
+########################
+## FEATURE EXTRACTION ##
+########################
 
 ## LASSO
 grid <- 10^seq(10, -2, length=100)
-require(glmnet)
-set.seed(1445612321)
-lasso.mod <- glmnet(foo2[train,],y[train], alpha=0.4, lambda=grid, family = "gaussian", standardize=T, type.gaussian = "naive")
+lasso.mod <- glmnet(adj.x[training,],y[training], alpha=0.4, lambda=grid, family = "gaussian", standardize=T, type.gaussian = "naive")
+
 ## (1) Model Training. Select the kernel function and associated kernel parameters
 #coef(lasso.mod, s=0)
 #par(mfrow = c(2,2));
 plot(lasso.mod, xvar="lambda", label=T)
 plot(lasso.mod, xvar="dev", label=T) 	## fraction deviance explained =R2
-system.time(cv.out <- cv.glmnet(foo2[train,], y[train], alpha=0.4, family="gaussian", standardize=T, nfolds = 10, type.gaussian="naive"))
+
+cv.out <- cv.glmnet(adj.x[training,], y[training], alpha=0.4, family="gaussian", standardize=T, nfolds = 10, type.gaussian="naive")
+
 ## (2) Regularization. Cross validation for hyperparameter tuning. Optimization of model selection to avoid overfitting
-par(mfrow = c(1,1)); plot(cv.out)
-bestlam <- cv.out$lambda.min; bestlam
+plot(cv.out)
+bestlam <- cv.out$lambda.min
+bestlam
 #lasso.bestlam <- coef(lasso.mod, s=bestlam)
 #bestlam <- cv.out$lambda.1se; bestlam
+
 ## Select the best hyperparameter
-lasso.pred <- predict(lasso.mod, s=bestlam, newx=foo2[test,], type="nonzero"); str(lasso.pred)
-lasso.pred <- predict(lasso.mod, s=bestlam, newx=foo2[test,], type="response"); lasso.pred
-lasso.pred <- predict(lasso.mod, s=bestlam, newx=foo2[test,], type="class")
-table(lasso.pred, y[test])		## Confusion matrix for classification
-mean((lasso.pred - y[test])^2)		## Test set MSE for regression
+lasso.pred <- predict(lasso.mod, s=bestlam, newx=adj.x[-training,], type="nonzero")
+str(lasso.pred)
+
+lasso.pred <- predict(lasso.mod, s=bestlam, newx=adj.x[-training,], type="response")
+lasso.pred
+
+lasso.pred <- predict(lasso.mod, s=bestlam, newx=adj.x[-training,], type="class")
+
+table(lasso.pred, y[-training])		## Confusion matrix for classification
+mean((lasso.pred - y[-training])^2)		## Test set MSE for regression
+
 lasso.coef <- predict(lasso.mod, s=bestlam, type = "coefficients")
 str(lasso.coef)
+
 gene1leaf.mRMR <- lasso.coef	## SAVE to .Rdata
+
+
 ## show results
 ind.lasso <- lasso.coef@i
 loc.lasso <- lasso.coef@Dimnames[[1]]
@@ -151,6 +167,7 @@ foo <- row.names(means[rownames(means) %in% final.select,])
 means[rownames(means) %in% final.select,2]
 lasso.select <- x[,foo]
 dim(lasso.select)
+
 ## extract genes from model selection
 mmcDat <- means[rownames(means) %in% final.select,]
 #write.table(mmcDat,"mmcDat.txt",quote=F,sep="\t")
@@ -200,11 +217,11 @@ dat <- data.frame(y=y, lasso.select); dim(dat)
 #ctl=expand.grid(.mstop=seq(10:1000,length=20),.prune=no)	## glmboost
 #ctl=expand.grid(.lambda=10^seq(10,-2,length=100))	## Ridge
 set.seed(1445612321)
-model.reg(dat,train,test,method="RRF",folds=10,r=5,tune=10)
-nnet0 <- modelTune.reg(dat,train,test,method="nnet",folds=10,r=5,tune=10,ctl)	# Tune hyper-parameters
+model.reg(dat,training,-training,method="RRF",folds=10,r=5,tune=10)
+nnet0 <- modelTune.reg(dat,training,-training,method="nnet",folds=10,r=5,tune=10,ctl)	# Tune hyper-parameters
 ## Regression
-model.clas(dat,train,test,method="pls",folds=10,r=5,tune=10)
-modelTune.clas(dat,train,test,method="pls",folds=10,r=5,tune=10,ctl)
+model.clas(dat,training,-training,method="pls",folds=10,r=5,tune=10)
+modelTune.clas(dat,training,-training,method="pls",folds=10,r=5,tune=10,ctl)
 ## Classification
 ## Hyper-parameters tuning and model optimization
 
@@ -238,9 +255,9 @@ ctl=expand.grid(.mtry=0,.coefReg=0.89,.coefImp=0.5556)## Regularized Random fore
 #ctl=expand.grid(.lambda=0.007499)	## Ridge
 dat <- data.frame(y=y, lasso.select); dim(dat)
 set.seed(1445612321)
-RFF_bag500<- baggingTune(dat[train,],dat[test,],m=1.1,ite=500,methods="RRF",tune=10,gridZ=ctl)## For tuning the hyper-parameters
-test100 <- bagging(dat[train,],dat[test,],m=1.1,ite=100,methods="ridge",tune=10)## for testing
-bagging.clas(dat[train,],dat[test,],m=1.1,ite=100,methods="nnet",tune=10)## For Classification
+RFF_bag500<- baggingTune(dat[training,],dat[-training,],m=1.1,ite=500,methods="RRF",tune=10,gridZ=ctl)## For tuning the hyper-parameters
+test100 <- bagging(dat[training,],dat[-training,],m=1.1,ite=100,methods="ridge",tune=10)## for testing
+bagging.clas(dat[training,],dat[-training,],m=1.1,ite=100,methods="nnet",tune=10)## For Classification
 ## END RUN
 stopCluster(cl)		## close cluster only after finishing w all modelse
 

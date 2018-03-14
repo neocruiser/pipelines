@@ -53,6 +53,7 @@ Licence: MIT Licence
 |                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/heatmap.h4h.pbs][PBS]] and [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][R]]        | Affymetrix | v3.0    | S. Bassim   | 2018 |
 |                                   | [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy Clustering]] | Agilent    | v0.3    | S. Bassim   | 2014 |
 | Regularization (machine learning) | [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Lasso and ANN]]    | RNA-seq    | v1.0    | S. Bassim   | 2015 |
+|                                   | [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Bagging & NN]]     | Affymetrix | v2.0    | S. Bassim   | 2018 |
 | Packages                          |                  |            |         | [[https://github.com/neocruiser/pipelines/blob/master/packages.org][Open Source]] |      |
 
 
