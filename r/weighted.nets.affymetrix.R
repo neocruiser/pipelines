@@ -185,11 +185,11 @@ for ( s in standardize_df ) {
                     # so R throws an error, the pipe is then aborted
                     # below is to amend the broken pipe and keep the analysis going
                     nbmods = NULL
-                    nbmods = summary(module_labels)[[6]]
-                    if ( nbmods == NULL ) {
-                        NbModules = NA
-                    } else {
+                    nbmods = try(summary(module_labels)[[6]], silent = TRUE)
+                    if ( is.numeric(nbmods) == TRUE ) {
                         NbModules = nbmods
+                    } else {
+                        NbModules = NULL
                     }
                     
                     dm <- rbind(dm, data.frame(MaxGenesPerModule = i,
