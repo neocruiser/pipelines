@@ -1,5 +1,5 @@
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(2, 18, 2)
+pow <- seq(4, 12, 2)
 th <- seq(.1, .6, .1)
 
 
@@ -16,6 +16,7 @@ source("./convertMatrix2graph.R")
 counts <- as.matrix(read.table("./expressions", header = T, row.names = 1))
 tbl_df(counts)
 
+dim(counts)
 
 # sampling for heatmaps
 nco <- dim(counts)[1]
@@ -173,13 +174,26 @@ for ( s in standardize_df ) {
 
 
                 for ( i in seq(5, imax, ival) ) {
+                    ## Create a tabulated summary of networks topology
 
                     module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                                        minModuleSize=i,
                                                        deepSplit=TRUE)
+
+                    # during some iterations on higher power thresholds
+                    # the number of modules is 0
+                    # so R throws an error, the pipe is then aborted
+                    # below is to amend the broken pipe and keep the analysis going
+                    nbmods = NULL
+                    nbmods = summary(module_labels)[[6]]
+                    if ( nbmods == NULL ) {
+                        NbModules = NA
+                    } else {
+                        NbModules = nbmods
+                    }
                     
                     dm <- rbind(dm, data.frame(MaxGenesPerModule = i,
-                                               NbModules = summary(module_labels)[[6]],
+                                               NbModules = NbModules,
                                                Normalization=n, Correlation=cr,
                                                Standardization=s,
                                                SimilaritySize=nco,
@@ -255,7 +269,7 @@ for ( s in standardize_df ) {
                     degree(fx)[1:10]
 
                     x=degree(fx)
-                    for ( l in seq(1, nco, floor(nco * .01))) {
+                    for ( l in seq(1, nco, c(floor(nco * .01) + 1) )) {
                         a <- length(x[ x > l ])
                         networks.summary <- rbind(networks.summary,
                                                   data.frame(MaxEdgesPerGene= l, NbNodes= a,
@@ -277,7 +291,7 @@ for ( s in standardize_df ) {
 
                     
                     # increase counter by 1 and amend new methods succesfully executed
-                    steps_done=paste0("network.iteration_",ite(),".POW",p,
+                    steps_done=paste0("network.iteration_",ite(),".po",p,
                                       ".Th",t,".GEN",fm,".STD",s,".SSIZE",nco,
                                       ".CLU",n,".var-CORR",cr,".tmp")
 

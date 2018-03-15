@@ -49,7 +49,7 @@ for ( s in standardize_df ) {
             for ( cc in correlate_columns ) {
 
                 # standardization
-]                genre <- decostand(x = genre, method = s)
+                genre <- decostand(x = genre, method = s)
                 
                 ## HIERARCHICAL AND BOOTSTRAP ANALYSIS
                 ## set measures to one same scale

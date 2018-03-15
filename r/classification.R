@@ -95,7 +95,7 @@ write.table(gv, "summary.adjusted.means.subsetting.txt", quote=FALSE, sep="\t", 
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
-    filter(adj.meanVariance >= 2 & adj.meanVariance < 3) %>%
+    filter(adj.meanVariance >= .10 & adj.meanVariance < .17) %>%
     select(dimension, discarded)
 
 from.m=c(means2subset$discarded[[1]] + 1)

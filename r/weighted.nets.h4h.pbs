@@ -11,14 +11,19 @@ set -x
 
 module load R
 
+##################
+## DO NOT TOUCH ##
+##################
 # cluster directories
 # server characteristics and files indexing
 scratch=/cluster/projects/kridelgroup
 home=/cluster/home/sbassim
-
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 project=$scratch/relapse
 output=$project/networks/$pbs
+time=$home/time
+jobid=$pbs.R.networks
+start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 
 
@@ -27,14 +32,15 @@ output=$project/networks/$pbs
 #################
 ## MUST DEFINE BEFORE EXECUTION
 _contrast=systemicRelapseNodes
-_workingDir=$project/expression/90800
-_affymetrix=$_workingDir/summary/normalized.systemic.trx.expression.txt
-
-## total, up or clusters
-_strategy=clusters
+_workingDir=$project/expression/139102
+_affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all
-run_pipe=clusters
+run_pipe=all
+
+
+## total, up or clusters
+_strategy=total
 
 ## if strategy is clusters
 power=8
@@ -45,18 +51,10 @@ correlation=spearman
 _networkDir=$project/networks/104859
 _bstatistics=1.5
 
-##################
-## DO NOT TOUCH ##
-##################
-mkdir -p $output
-time=$home/time
-jobid=$pbs.R.networks
-start=$(date); echo "Job started at: $start" > $time/$jobid.time
-
-
 ############
 ## PART I ##
 ############
+mkdir -p $output
 cd $output
 
 ## already set thresholds based on the $_workingDir output
@@ -69,7 +67,7 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=1.5
+    _bstatistics=0
     
     touch $output/ids.total.tmp
     
@@ -214,6 +212,9 @@ function sorting_dir ()
 function execute_sort ()
 {
     local j=$1
+
+    mkdir -p $output/summary
+    mv *iteration* *Rout *tmp $output/summary
 
     if [ $j == "clusters" ]; then
 
