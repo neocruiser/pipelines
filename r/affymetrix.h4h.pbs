@@ -37,6 +37,12 @@ cd $output
 ls -trlgG $project/raw/*CEL | awk '{print $7}' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
 cp $project/summary/phenodata $output/summary
 
+
+## Discard probes related to RNAs or just ncRNA
+## they account for more than 60% of the array
+grep -iv "ncrna" $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 > $output/ids.wo.ncrna
+
+
 ## Indexing, normalization, annoation, differential expression, and plotting of affymetrix data
 R CMD BATCH $home/script*/r/affymetrix.2.0.R
 

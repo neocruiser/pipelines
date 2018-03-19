@@ -164,11 +164,16 @@ write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
 gc()
 
 
+
+#### REMOVE NCRNAS
+ids.wo.ncrna <- read.table("ids.wo.ncrna", header = FALSE)
+
 #### REMOVE HIGH VARIANCE GENES
-x <- t(as.matrix(trx.normalized))
+x <- as.matrix(trx.normalized[ids.wo.ncrna, ])
+colnames(x) <- colnames(trx.normalized)
 dim(x)
 
-xs <- decostand(t(x), "standardize")
+xs <- decostand(x, "standardize")
 ######################
 ## FUNCTION CALLING ##
 ######################
@@ -259,7 +264,7 @@ write.exprs(trx.normalized, file=paste0("normalized.subset.",to.m,".systemic.trx
 
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
-
+write.exprs(trx.normalized, file="annotated.normalized.systemic.expression.array.txt")
 
 # Test the matrix construction process
 # get structure of the matrices

@@ -5,11 +5,12 @@ lapply(pkgs, require, character.only = TRUE)
 ## load expression data
 ## optimized for t-statistics microarray expressions
 ## rows=genes; col=samples
-means <- read.table("normalized.systemic.trx.expression.txt", sep="\t", header=T, row.names=1)
-x <- t(means)
+means <- read.table("expressions.147599", sep="\t", header=T)
+x <- means[, -1]
+rownames(x) <- means[, 1]
 dim(x)
 
-xs <- decostand(t(x), "standardize")
+xs <- decostand(x, "standardize")
 
 ## prepare features
 y <- c(rep("E",3), rep("T",3), rep("VC",3),rep("PC",3),rep("JC",3),rep("VT",3),rep("PT",3), rep("JT",1))
