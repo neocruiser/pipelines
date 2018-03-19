@@ -47,13 +47,17 @@ cp $project/summary/phenodata $output/summary
 
 
 ## Discard probes related to RNAs or just ncRNA
-## they account for more than 60% of the array
+## they account for 46.68% of the array.
+## Array (75.523 probes) among which 35.253 annotated ncRNA
+## sorting and removing duplicated rows corrects for NAs from array construction
 if [ $discard == "yes" ]; then
-    grep -iv "ncrna" $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 > $output/ids.wo.ncrna
+    grep -iv "ncrna" $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 | sed '1d' | sort - | uniq -u > $output/ids.wo.ncrna
+    touch subsetting.ncrna.OK
 fi
 
 ## Indexing, normalization, annoation, differential expression, and plotting of affymetrix data
 R CMD BATCH $home/script*/r/affymetrix.2.0.R
+touch gene.expression.OK
 
 ## clean up and organization
 mv $output/*pdf $output/figures

@@ -82,7 +82,7 @@ gc()
 ## standard error standardization
 ## output plots: volcano, heatmaps, venn
 ## output summary: log transformed expressions
-moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels="unsetGroup", coef=coef, percent=.15){
+moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels="unsetGroup", coef=coef, percent=.15, group=g){
 # Fit Bayesian model and extract Differential Genes (sorted by significance)
 # Benjamini & Hochberg (1995): adjusted "fdr"
 # get the description of the two sample groups being compared
@@ -104,6 +104,9 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
                         row.names=FALSE, sep="\t", quote=FALSE) 
 
     }
+
+    sink(paste0(group,".regression.OK")); sink()
+    
 }
 
 
@@ -166,15 +169,17 @@ gc()
 
 
 ##### REMOVE HIGH VARIANCE GENES
-if ( file.exists(ids.wo.ncrna) ) {
+if ( file.exists("./ids.wo.ncrna") ) {
 
     ## file already constructed based on RNA pattern occurence in the annotated array
     ids.wo.ncrna <- read.table("ids.wo.ncrna", header = FALSE)
-
+    sink("create.subset.wo.ncRNA.OK"); sink()
+    
     # REMOVE NCRNAS
     x <- as.matrix(trx.normalized[as.matrix(ids.wo.ncrna), ])
     colnames(x) <- colnames(trx.normalized)
     dim(x)
+    sink("create.subset.w.ncRNA.OK"); sink()
     
 } else {
     
@@ -277,6 +282,8 @@ write.exprs(trx.normalized, file=paste0("normalized.subset.",to.m,".systemic.trx
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
 
+sink("subset.annotated.transcripts.OK"); sink()
+
 # Test the matrix construction process
 # get structure of the matrices
 # example design
@@ -318,7 +325,6 @@ for (g in groups) {
                                          levels = strategy)
         coef <- rep(1:3)
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
-
 
         
     } else if (g == "systemicRelapseNodes") {
