@@ -31,8 +31,8 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## USER DEFINE ##
 #################
 ## MUST DEFINE BEFORE EXECUTION
-_contrast=systemicRelapseNodes
-_workingDir=$project/expression/139102
+_contrast=systemicRelapse
+_workingDir=$project/expression/145485
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all

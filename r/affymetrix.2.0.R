@@ -324,6 +324,7 @@ for (g in groups) {
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
     } else if (g == "systemicRelapseCOOclasses") {
+        ## experimental
         sample.factors <- paste(metadata$Groups, metadata$ABClassify, sep=".")
         sample.factors <- factor(sample.factors, levels=c(unique(sample.factors)))        
         strategy <- model.matrix(~0 + sample.factors)
@@ -342,6 +343,7 @@ for (g in groups) {
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
     } else if (g == "systemicRelapseCOOprediction") {
+        ## selected
         sample.factors <- paste(metadata$Groups, metadata$Prediction, sep=".")
         sample.factors <- factor(sample.factors, levels=c(unique(sample.factors)))        
         strategy <- model.matrix(~0 + sample.factors)
@@ -360,6 +362,7 @@ for (g in groups) {
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
     } else if (g == "systemicRelapseCOOscores") {
+        ## experimental
         sample.factors <- paste(metadata$Groups, metadata$ABCScore, sep=".")
         sample.factors <- factor(sample.factors, levels=c(unique(sample.factors)))        
         strategy <- model.matrix(~0 + sample.factors)
