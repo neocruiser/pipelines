@@ -11,6 +11,7 @@ set -x
 
 module load R
 
+#### DO NOT TOUCH
 # cluster directories
 # server characteristics and files indexing
 scratch=/cluster/projects/kridelgroup
@@ -29,6 +30,13 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 mkdir -p $output/figures $output/summary
 cd $output
 
+
+#### USER DEFINED
+## subset dataset and remove ncRNA probes
+discard=yes
+
+
+
 ############
 ## PART I ##
 ############
@@ -40,8 +48,9 @@ cp $project/summary/phenodata $output/summary
 
 ## Discard probes related to RNAs or just ncRNA
 ## they account for more than 60% of the array
-grep -iv "ncrna" $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 > $output/ids.wo.ncrna
-
+if [ $discard == "yes" ]; then
+    grep -iv "ncrna" $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 > $output/ids.wo.ncrna
+fi
 
 ## Indexing, normalization, annoation, differential expression, and plotting of affymetrix data
 R CMD BATCH $home/script*/r/affymetrix.2.0.R

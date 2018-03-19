@@ -165,15 +165,28 @@ gc()
 
 
 
-#### REMOVE NCRNAS
-ids.wo.ncrna <- read.table("ids.wo.ncrna", header = FALSE)
+##### REMOVE HIGH VARIANCE GENES
+if ( file.exists(ids.wo.ncrna) ) {
 
-#### REMOVE HIGH VARIANCE GENES
-x <- as.matrix(trx.normalized[ids.wo.ncrna, ])
-colnames(x) <- colnames(trx.normalized)
-dim(x)
+    ## file already constructed based on RNA pattern occurence in the annotated array
+    ids.wo.ncrna <- read.table("ids.wo.ncrna", header = FALSE)
 
+    # REMOVE NCRNAS
+    x <- as.matrix(trx.normalized[as.matrix(ids.wo.ncrna), ])
+    colnames(x) <- colnames(trx.normalized)
+    dim(x)
+    
+} else {
+    
+    x <- as.matrix(trx.normalized)
+    dim(x)
+
+}
+
+# data transformation. Difference between gene expressions
+# has better variance interpretation
 xs <- decostand(x, "standardize")
+
 ######################
 ## FUNCTION CALLING ##
 ######################
@@ -261,10 +274,8 @@ adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, silent = TRUE)
 trx.normalized <- trx.normalized[colnames(adj.x), ]
 write.exprs(trx.normalized, file=paste0("normalized.subset.",to.m,".systemic.trx.expression.txt"))
 
-
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
-write.exprs(trx.normalized, file="annotated.normalized.systemic.expression.array.txt")
 
 # Test the matrix construction process
 # get structure of the matrices
