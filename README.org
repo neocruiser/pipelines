@@ -78,3 +78,6 @@ Licence: MIT Licence
     generalized linear model, and bagging]] in R (Bassim 2014)
 26. [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy clustering on Agilent microarray timeseries data for
     biomarker discovery]] in R (Bassim 2013)
+27. [[https://github.com/neocruiser/thesis2014/blob/master/ordination/rda%2520-%2520W2.R][Ordination analyses of timeseries microarray data]] in R (Bassim 2013)
+28. [[https://github.com/neocruiser/thesis2014/blob/master/microarrays/preProcessing_detailed.R][Agilent timeseries data processing and pattern extraction]] in R
+    (Bassim 2012)
