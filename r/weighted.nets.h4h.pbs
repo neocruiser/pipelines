@@ -32,7 +32,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 #################
 ## MUST DEFINE BEFORE EXECUTION
 _contrast=systemicRelapse
-_workingDir=$project/expression/145485
+_workingDir=$project/expression/149518
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all
@@ -173,8 +173,8 @@ fi
 
 
 # create correct headers
-paste <(printf "%s\n" "ids") \
-      <(printf "%s\n" "$(sed '2, $d' $_affymetrix)") \
+paste <(printf "%sids") \
+      <(printf "%s$(sed '2, $d' $_affymetrix)") \
       > $output/expressions
 # get expression of only annotated genes (NAs are discarded)
 cat $_affymetrix | grep -Fwf <(cat $output/ids.$_strategy.tmp | sort - | uniq -) >> $output/expressions

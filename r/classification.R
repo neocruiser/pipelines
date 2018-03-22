@@ -5,14 +5,16 @@ lapply(pkgs, require, character.only = TRUE)
 ## load expression data
 ## optimized for t-statistics microarray expressions
 ## rows=genes; col=samples
-means <- read.table("expressions.147599", sep="\t", header=T)
-x <- means[, -1]
-rownames(x) <- means[, 1]
-dim(x)
+cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n")
+means <- read.table("expressions.149444", sep="\t", header=T, row.names=1)
+dim(means)
+cat("\n\nStandardized transformed scores: Genes are columns and samples are rows\n")
+adj.x <- t(decostand(means, "standardize"))
+dim(adj.x)
 
-xs <- decostand(x, "standardize")
 
-## prepare features
+
+## formulate feature grouping (sample indexing)
 y <- c(rep("E",3), rep("T",3), rep("VC",3),rep("PC",3),rep("JC",3),rep("VT",3),rep("PT",3), rep("JT",1))
 y <- c(rep("E",3), rep("L",9), rep("PL",3), rep("L",6),rep("PL",1))
 y <- c(rep("E",3), rep("L",9), rep("PL",3), rep("Lc",6),rep("PLc",1))
@@ -22,98 +24,12 @@ y <- c(rep("E",3), rep("Lc",6), rep("PLc",6), rep("Lt",3),rep("PLt",4))
 y <- c(rep("L",9), rep("PL",6), rep("L",3),rep("PL",4))
 
 
-
-######################
-## FUNCTION CALLING ##
-######################
-get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE ){
-    ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
-    locus.var <- apply(t(dat), n, var)
-    hi.var <- order(abs(locus.var), decreasing = T)[from:to]
-
-    if ( silent == FALSE ) {
-        cat("Number of selected high-variance genes:",length(hi.var),"\n")    
-    }
-    
-    return(hi.x <- dat[,hi.var])
-}
-
-
-######################
-## SUBSET SELECTION ##
-######################
-set.seed(15879284)
-
-## get number of discarded high variance genes
-## iterate multiple thresholds, maximum 20 iterations
-gv <- NULL
-start_th=floor( (nrow(xs) * 0.1) / 2)
-end_th=nrow(xs)
-increment_th=floor( (end_th - start_th) / 20 )
-
-for (nset in seq(start_th, end_th, increment_th)) {
-    ## UNSUPERVISED GENE SELECTION BASED ON HIGH VARIANCE
-    ## TO DISCARD EXTREME VARIANCE
-    hi.x <- get.var(t(xs), 1, from = 1, to = nset)
-
-    # get mean (dm) and maximum value of variance (dmv) of the whole dataset
-    dm_old<- summary(apply(hi.x, 2, var))[[4]]
-    dmv_old<- summary(apply(hi.x, 2, var))[[6]]
-    offset = c( (dm_old* (log(dmv_old)) + (dmv_old* 0.1)) )
-
-    # get mean standard deviation (dms) and max SD (dsv)
-    dms_old <- summary(apply(hi.x, 2, sd))[[4]]
-    dsv_old <- summary(apply(hi.x, 2, sd))[[6]]
-
-    # get the mean for each gene
-    selected <- data.frame(locus = colnames(hi.x),
-                           var = apply(hi.x, 2, var)) %>%
-        filter(var > offset) %>%
-        nrow
-
-    # recalculate variance based on adujusted new thresholds
-    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset, silent = TRUE)
-    dm_new <- summary(apply(hi.x, 2, var))[[4]]
-    dmv_new <- summary(apply(hi.x, 2, var))[[6]]
-    dms_new <- summary(apply(hi.x, 2, sd))[[4]]
-    dsv_new <- summary(apply(hi.x, 2, sd))[[6]]
-    gv <- rbind(gv, data.frame(dimension=nset,
-                               meanVariance=dm_old,
-                               maxVariance=dmv_old,
-                               meanSD=dms_old,
-                               maxSD=dsv_old,
-                               discarded=selected,
-                               adj.meanVariance=dm_new,
-                               adj.maxVariance=dmv_new,
-                               adj.meanSD=dms_new,
-                               adj.maxSD=dsv_new))
-
-}
-
-write.table(gv, "summary.adjusted.means.subsetting.txt", quote=FALSE, sep="\t", row.names=F)
-
-
-
-## subset the dataset based on a selected mean and SD
-means2subset <- gv %>%
-    filter(adj.meanVariance >= .10 & adj.meanVariance < .17) %>%
-    select(dimension, discarded)
-
-from.m=c(means2subset$discarded[[1]] + 1)
-to.m=means2subset$dimension[[1]]
-
-## dimension minus the discarded high variance genes
-adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, silent = TRUE)
-
-
-######################
-## TRAINING/TESTING ##
-######################
+###########################################
+## Sampling dataset into testing cohorts ##
+###########################################
 # Split the dataset into 80% training data
 # rest used as validation data
 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
-y[-training]
-length(y[-training])
 
 dat <- data.frame(y=y, adj.x)
 y <- as.vector(model.matrix(~y,dat)[,2])

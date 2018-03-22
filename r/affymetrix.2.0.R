@@ -173,18 +173,18 @@ if ( file.exists("./ids.wo.ncrna") ) {
 
     ## file already constructed based on RNA pattern occurence in the annotated array
     ids.wo.ncrna <- read.table("ids.wo.ncrna", header = FALSE)
-    sink("create.subset.wo.ncRNA.OK"); sink()
     
     # REMOVE NCRNAS
     x <- as.matrix(trx.normalized[as.matrix(ids.wo.ncrna), ])
     colnames(x) <- colnames(trx.normalized)
     dim(x)
-    sink("create.subset.w.ncRNA.OK"); sink()
+    sink("create.subset.wo.ncRNA.OK"); sink()
     
 } else {
     
     x <- as.matrix(trx.normalized)
     dim(x)
+    sink("create.subset.w.ncRNA.OK"); sink()
 
 }
 
@@ -265,7 +265,7 @@ write.table(gv, "summary.adjusted.means.subsetting.txt", quote=FALSE, sep="\t", 
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
-    filter(adj.meanVariance > 0.042 & adj.meanVariance <= 0.045) %>%
+    filter(adj.meanVariance > 0.029 & adj.meanVariance <= 0.030) %>%
     select(dimension, discarded)
 
 from.m=c(means2subset$discarded[[1]] + 1)
