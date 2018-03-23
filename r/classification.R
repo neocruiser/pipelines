@@ -13,22 +13,48 @@ adj.x <- t(decostand(means, "standardize"))
 dim(adj.x)
 
 
+## restructure the dataset
+metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
+    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Score, Prediction, ABClikelihood) %>%
+    filter(Timepoint != "T2") %>%
+    mutate(Groups = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
+                                            "CNS_RELAPSE_CHOPorEQUIVALENT",
+                                            "CNS_DIAGNOSIS") ~ "CNS",
+                               GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NOREL",
+                               GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "SYST",
+                               TRUE ~ "CTRL")) %>%
+    mutate(ABClassify = case_when(ABClikelihood >= .9 ~ "ABC",
+                                  ABClikelihood <= .1 ~ "GCB",
+                                  TRUE ~ "U")) %>%
+    mutate(ABCScore = case_when(Score > 2412 ~ "ABC",
+                                Score <= 1900 ~ "GCB",
+#                                Score == NA ~ "NA",
+                                TRUE ~ "U")) %>%
+    mutate(Nodes = case_when(SITE == "LN" ~ "LN",
+                             SITE == "TO" ~ "LN",
+                             SITE == "SP" ~ "LN",
+                             TRUE ~ "EN")) %>%
+    mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0))
 
-## formulate feature grouping (sample indexing)
-y <- c(rep("E",3), rep("T",3), rep("VC",3),rep("PC",3),rep("JC",3),rep("VT",3),rep("PT",3), rep("JT",1))
-y <- c(rep("E",3), rep("L",9), rep("PL",3), rep("L",6),rep("PL",1))
-y <- c(rep("E",3), rep("L",9), rep("PL",3), rep("Lc",6),rep("PLc",1))
-y <- c(rep("Healthy", 15), rep("Deficient",7))
-y <- c(rep("None", 6), rep("Cocktail", 9), rep("Tiso",7))
-y <- c(rep("E",3), rep("Lc",6), rep("PLc",6), rep("Lt",3),rep("PLt",4))
-y <- c(rep("L",9), rep("PL",6), rep("L",3),rep("PL",4))
+# make sure all samples preserve their ID
+metadata$Groups <- as.factor(metadata$Groups)
+metadata$ABClassify <- as.factor(metadata$ABClassify)
+metadata$ABCScore <- as.factor(metadata$ABCScore)
+metadata$Nodes <- as.factor(metadata$Nodes)
+metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
+metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
+row.names(metadata) = metadata$SAMPLE_ID
+colnames(cel.raw) = metadata$SAMPLE_ID
+pd <- AnnotatedDataFrame(data=metadata)
+sampleNames(pd) <- metadata$SAMPLE_ID
+phenoData(cel.raw) <- pd
+gc()
 
 
-###########################################
-## Sampling dataset into testing cohorts ##
-###########################################
+
+
+## PREPARING A TESTING DATASET
 # Split the dataset into 80% training data
-# rest used as validation data
 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
 
 dat <- data.frame(y=y, adj.x)
