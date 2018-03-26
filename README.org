@@ -29,7 +29,7 @@ are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]].
 
 Licence: MIT Licence
 
-* Systemic Analytical Pipelines (scripts can be adjusted for any sample size)
+* Systemic Analytical Pipelines =scripts can be adjusted for any sample size=
 1. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][Affymetrix sample preprocessing and automation]] in bash (Bassim 2018)
 2. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.2.0.R][Affymetrix normalization and expression analyses]] in R (Bassim 2018)
 3. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.summary.h4h.sh][Automation to create summary report of all expression analyses]] in
