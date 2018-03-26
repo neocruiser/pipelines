@@ -1,10 +1,16 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
-          'dplyr', 'mRMRe', 'glmnet')
+          'dplyr', 'mRMRe', 'glmnet', 'caret', 'foreach',
+          'doSNOW', 'lattice')
 lapply(pkgs, require, character.only = TRUE)
 
+### DEFINE DATA FITTING MODEL
+classfication=TRUE
+regression=FALSE
+
 ## load expression data
-## optimized for t-statistics microarray expressions
-## rows=genes; col=samples
+# optimized for t-statistics microarray expressions
+# rows=genes
+# col=samples
 cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n")
 means <- read.table("expressions.149444", sep="\t", header=T, row.names=1)
 dim(means)
@@ -36,137 +42,207 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
                              TRUE ~ "EN")) %>%
     mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0))
 
-# make sure all samples preserve their ID
+# factorize
 metadata$Groups <- as.factor(metadata$Groups)
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$ABCScore <- as.factor(metadata$ABCScore)
 metadata$Nodes <- as.factor(metadata$Nodes)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
-metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
-row.names(metadata) = metadata$SAMPLE_ID
-colnames(cel.raw) = metadata$SAMPLE_ID
-pd <- AnnotatedDataFrame(data=metadata)
-sampleNames(pd) <- metadata$SAMPLE_ID
-phenoData(cel.raw) <- pd
-gc()
 
 
+## choose samples strutcture
+y <- metadata$Groups
 
-
-## PREPARING A TESTING DATASET
+## prepare testing dataset
 # Split the dataset into 80% training data
 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
 
+# create dummy variables
 dat <- data.frame(y=y, adj.x)
-y <- as.vector(model.matrix(~y,dat)[,2])
-#y <- c(rep(0,6),rep(1,9),rep(-1,7))	## dummy variables for 3 levels None, Coc, Tiso
+y <- as.vector(model.matrix( ~ 1 + y ))
+
+
+
+y <- metadata$Groups
+strategy <- model.matrix(~0 + y)
 
 ########################
 ## FEATURE EXTRACTION ##
 ########################
 
-## LASSO
-grid <- 10^seq(10, -2, length=100)
-lasso.mod <- glmnet(adj.x[training,],y[training], alpha=0.4, lambda=grid, family = "gaussian", standardize=T, type.gaussian = "naive")
+## LASSO as alpha 1
+# fit a generalized linear model via penalized maximum likelihood
+# fitting a symmetric multinomial model,
+grid <- 10^seq(5, -5, length=200)
+lasso.trained <- glmnet(adj.x[training,],y[training], alpha=1, lambda=grid, family = "multinomial", standardize=F, type.multinomial="grouped")
+#lasso.mod <- glmnet(adj.x[training,],y[testing], alpha=1, lambda=grid, family = "multinomial", standardize=F, type.gaussian = "naive")
 
-## (1) Model Training. Select the kernel function and associated kernel parameters
-#coef(lasso.mod, s=0)
-#par(mfrow = c(2,2));
-plot(lasso.mod, xvar="lambda", label=T)
-plot(lasso.mod, xvar="dev", label=T) 	## fraction deviance explained =R2
+pdf("regularization.lambda.grid.testing.pdf")
+par(mfrow = c(2,2))
+plot(lasso.trained, xvar="lambda", label=T)
+plot(lasso.trained, xvar="dev", label=T) 	## fraction deviance explained =R2
+dev.off()
 
-cv.out <- cv.glmnet(adj.x[training,], y[training], alpha=0.4, family="gaussian", standardize=T, nfolds = 10, type.gaussian="naive")
+cv.out <- cv.glmnet(adj.x[training,], y[training], alpha=1, family="multinomial", standardize=F, nfolds = 10, type.multinomial="grouped")
 
-## (2) Regularization. Cross validation for hyperparameter tuning. Optimization of model selection to avoid overfitting
+## Cross validation for hyperparameter tuning.
+# Optimization of model selection to avoid overfitting
+pdf("regularization.lambda.crossvalidation.pdf")
 plot(cv.out)
+dev.off()
 bestlam <- cv.out$lambda.min
 bestlam
 #lasso.bestlam <- coef(lasso.mod, s=bestlam)
 #bestlam <- cv.out$lambda.1se; bestlam
 
 ## Select the best hyperparameter
-lasso.pred <- predict(lasso.mod, s=bestlam, newx=adj.x[-training,], type="nonzero")
-str(lasso.pred)
+lasso.pred <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="nonzero")
+length(lasso.pred)
 
-lasso.pred <- predict(lasso.mod, s=bestlam, newx=adj.x[-training,], type="response")
-lasso.pred
+lasso.pred <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
+length(lasso.pred)
 
-lasso.pred <- predict(lasso.mod, s=bestlam, newx=adj.x[-training,], type="class")
+lasso.pred <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
 
-table(lasso.pred, y[-training])		## Confusion matrix for classification
-mean((lasso.pred - y[-training])^2)		## Test set MSE for regression
+if ( classification == TRUE ) {
+    ## build classification confusion matrix
+    table(lasso.pred, y[-training])
+} else if ( regression == TRUE ) {
+    ## Test set MSE only for regression-type analysis
+    mean((lasso.pred - y[test])^2)
+} else {
+    stop("Data must be fit as either a calssification or regression model")
+}
 
-lasso.coef <- predict(lasso.mod, s=bestlam, type = "coefficients")
+lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
 str(lasso.coef)
 
-gene1leaf.mRMR <- lasso.coef	## SAVE to .Rdata
 
 
-## show results
-ind.lasso <- lasso.coef@i
-loc.lasso <- lasso.coef@Dimnames[[1]]
-final.select <- loc.lasso[ind.lasso]
-foo <- row.names(means[rownames(means) %in% final.select,])
-means[rownames(means) %in% final.select,2]
-lasso.select <- x[,foo]
-dim(lasso.select)
-
-## extract genes from model selection
-mmcDat <- means[rownames(means) %in% final.select,]
-#write.table(mmcDat,"mmcDat.txt",quote=F,sep="\t")
-## LASSO (from the GLM package)
-
-##############################
-# Hierarchical clustering
-##############################
-require(pvclust)
-require(gplots)
-myanova = as.matrix(mmcDat[,-c(1,2)])
-colnames(myanova) <- c(rep("Healthy", 15), rep("Deficient",7))
-colnames(myanova) <- c(rep("L",9), rep("PL",6), rep("L",3),rep("PL",4))
-colnames(myanova) <- c(rep("None", 6), rep("Cocktail", 9), rep("Tiso",7))
-colnames(myanova) <- c(rep("E",3), rep("T",3), rep("VC",3),rep("PC",3),rep("JC",3),rep("VT",3),rep("PT",3), rep("JT",1))
-#rownames(myanova) <- paste(seq(1:nrow(mmcDat)),sep="-",mmcDat[,2])
-rownames(myanova) <- rownames(mmcDat)
-head(myanova)
-mydataanova <- t(scale(t(myanova)))
-source("http://faculty.ucr.edu/~tgirke/Documents/R_BioCond/My_R_Scripts/my.colorFct.R")
-hra <- hclust(as.dist(1-cor(t(mydataanova), method="pearson")), method="complete") ## ROWS (genes)
-hca <- hclust(as.dist(1-cor(mydataanova, method="pearson")), method="complete")	## COL (samples)
-heatmap(myanova, Rowv=as.dendrogram(hra), Colv=as.dendrogram(hca), col=my.colorFct(), scale="row")
-## to be continued in Heatmap.R
+## get regularized non-zero genes
+selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
+original.genes <- colnames(adj.x)
+selected.final <- original.genes[selected.genes]
 
 
-##############################
-# Enrichment analysis
-##############################
+if ( length(selected.final) == length(selected.genes) ) {
+    lasso.select <- adj.x[, selected.final ]
+    dim(lasso.select)
+    write.table(lasso.select,"expression.regularized.standardized",
+                quote=F,sep="\t")
+} else {
+    stop("Number of selected genes do not match the original dataset")
+}
 
-z=rownames(mmcDat)
-geneList <- factor(as.integer(geneNames %in% z))
-## extract locus names
-## continue from "Build top Go data"
 
 
-##############################
-# Building classifier on subset model
-##############################
+
+##########################
+## Define new functions ##
+##########################
+
+model.reg <- function(dat,train,test,method,folds=10,rep=5,tune){
+    ## requires caret
+    ## Regression
+    ## Train model and test on independant dataset
+    ## returns RMSE
+    trainCtrl <- trainControl(method="repeatedcv",number=folds, repeats=rep)
+    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                              method=method,
+                                              trControl= trainCtrl,
+                                              preProc=c("center","scale"),
+                                              tuneLength=tune ))
+    ploted <- plot(modelTrain)
+    Predd <- predict(modelTrain, newdata=dat[test,], type="raw")
+    ## Test set MSE for regression
+    rmse <- mean((Predd - y[test])^2)		
+    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd,Hyperparameters=modelTrain$bestTune, RMSE=rmse)
+    return(output)
+}
+
+modelTune.reg <- function(dat,train,test,method,folds=10,rep=5,tune,ctl){
+    ## requires caret
+    ## Regression
+    ## Uses GRID for HYPERPARAMETER tuning
+    ## Train model and test on independant dataset
+    ## returns RMSE
+    trainCtrl <- trainControl(method="repeatedcv",number=folds, repeats=rep)	## Regression
+    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                              method=method,
+                                              trControl= trainCtrl,
+                                              preProc=c("center","scale"),
+                                              tuneGrid=ctl,
+                                              tuneLength=tune ))
+    ploted <- plot(modelTrain)
+    Predd <- predict(modelTrain, newdata=dat[test,], type="raw")
+    ## Test set MSE for regression
+    rmse <- mean((Predd - y[test])^2)
+    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd, Hyperparameters=modelTrain$bestTune, RMSE=rmse)
+    return(output)
+}
+
+modelTune.clas <- function(dat, train, test, method, folds=10, rep=5, tune=10, grid=ctl){
+    ## requires caret
+    ## Classification
+    ## GRID search HYPERPARAMETERS tuning
+    ## Train model and test on independant dataset
+    ## returns a classification error
+    trainCtrl <- trainControl(method="repeatedcv",number=folds, repeats=rep, , classProbs=T,summaryFunction=defaultSummary)
+    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                              method=method,
+                                              trControl= trainCtrl,
+                                              preProc=c("center","scale"),
+                                              tuneGrid=grid,
+                                              tuneLength=tune,
+                                              metric="ROC"))
+    ploted <- plot(modelTrain)
+    Predd <- predict(modelTrain, newdata=dat[test,], type="raw")
+    ## confusion matrix for classification
+    conf.m <- confusionMatrix(data=Predd, dat[test,1])
+    Probs <- predict(modelTrain, newdata=dat[test,], type="prob")
+    output <- list(ploted,TimeLapsed=lapsed, Hyperparameters=modelTrain$bestTune, ConfusionMatrix=conf.m,Probabilities=Probs)
+    return(output)
+}
+
+
+ensemble.mean <- function(a,b){
+    ## Ensemble Methods
+    ## calculates RMSE of joint predictions
+    ## Weighted averaging of 2 base learners
+    E.pred1 <- (a[[2]]+b[[2]])/2
+    E.pred2 <- (a[[2]]*2+b[[2]])/3
+    E.pred3 <- (a[[2]]+b[[2]]*2)/3
+    M1 <- mean((E.pred1 - y[test])^2)		## Test set MSE for regression
+    M2 <- mean((E.pred2 - y[test])^2)		## Test set MSE for regression
+    M3 <- mean((E.pred3 - y[test])^2)		## Test set MSE for regression
+    ploted <- plot(y=c(M1,M2,M3),x=1:3, lty=5,cex=1,pch=21:23,type="b",bg="red")
+    output <- list(ploted,model1.ab=M1,model2.2ab=M2,model3.a2b=M3)
+    return(output)
+}
+
+
+
+
+############################
+## TESTING THE CLASSIFIER ##
+############################
 ## Choosing the right Hyper-parameters. GRID ANALYSIS
-require(caret)
 dat <- data.frame(y=y, lasso.select); dim(dat)
-#ctl=expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))	## nnet
+
+ctl=expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))	## nnet
 #ctl=expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-3,length=40),.coefImp=10^seq(-1,-2,length=40))## Regularized Random forest (RRF)
 #ctl=expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))	## svmRadial
 #ctl=expand.grid(.ncomp=seq(1:15))	# PCR
 #ctl=expand.grid(.mstop=seq(10:1000,length=20),.prune=no)	## glmboost
 #ctl=expand.grid(.lambda=10^seq(10,-2,length=100))	## Ridge
-set.seed(1445612321)
+
 model.reg(dat,training,-training,method="RRF",folds=10,r=5,tune=10)
-nnet0 <- modelTune.reg(dat,training,-training,method="nnet",folds=10,r=5,tune=10,ctl)	# Tune hyper-parameters
-## Regression
-model.clas(dat,training,-training,method="pls",folds=10,r=5,tune=10)
-modelTune.clas(dat,training,-training,method="pls",folds=10,r=5,tune=10,ctl)
-## Classification
-## Hyper-parameters tuning and model optimization
+
+# Tune hyper-parameters
+nnet0 <- modelTune.reg(dat,training,-training,method="nnet",folds=10,r=5,tune=10,ctl)
+
+nnet0 <- modelTune.clas(dat,training,-training,method="nnet",folds=10,r=5,tune, grid=ctl)
+
 
 modelsRMSE <- read.table("clipboard", sep="\t", header=T);modelsRMSE
 library(lattice)
