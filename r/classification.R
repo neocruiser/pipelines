@@ -7,6 +7,10 @@ lapply(pkgs, require, character.only = TRUE)
 classfication=TRUE
 regression=FALSE
 
+## define feature structure
+grouped=TRUE
+binomial=FALSE
+
 ## load expression data
 # optimized for t-statistics microarray expressions
 # rows=genes
@@ -50,40 +54,50 @@ metadata$Nodes <- as.factor(metadata$Nodes)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 
 
-## choose samples strutcture
-y <- metadata$Groups
-
 ## prepare testing dataset
 # Split the dataset into 80% training data
 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
 
-# create dummy variables
-dat <- data.frame(y=y, adj.x)
-y <- as.vector(model.matrix( ~ 1 + y ))
-
-
-
+## choose samples strutcture
 y <- metadata$Groups
+
+# create dummy variables
 strategy <- model.matrix(~0 + y)
+colnames(strategy) <- levels(y)
 
 ########################
 ## FEATURE EXTRACTION ##
 ########################
-
 ## LASSO as alpha 1
 # fit a generalized linear model via penalized maximum likelihood
-# fitting a symmetric multinomial model,
-grid <- 10^seq(5, -5, length=200)
-lasso.trained <- glmnet(adj.x[training,],y[training], alpha=1, lambda=grid, family = "multinomial", standardize=F, type.multinomial="grouped")
-#lasso.mod <- glmnet(adj.x[training,],y[testing], alpha=1, lambda=grid, family = "multinomial", standardize=F, type.gaussian = "naive")
 
-pdf("regularization.lambda.grid.testing.pdf")
-par(mfrow = c(2,2))
-plot(lasso.trained, xvar="lambda", label=T)
-plot(lasso.trained, xvar="dev", label=T) 	## fraction deviance explained =R2
-dev.off()
 
-cv.out <- cv.glmnet(adj.x[training,], y[training], alpha=1, family="multinomial", standardize=F, nfolds = 10, type.multinomial="grouped")
+if ( grouped == TRUE ){
+    # fitting a symmetric multinomial model,
+    grid <- 10^seq(5, -5, length=200)
+    lasso.trained <- glmnet(adj.x[training,],
+                            y[training],
+                            alpha=1,
+                            lambda=grid,
+                            family = "multinomial",
+                            standardize=F,
+                            type.multinomial="grouped")
+
+    pdf("regularization.lambda.grid.testing.pdf")
+    par(mfrow = c(2,2))
+    plot(lasso.trained, xvar="lambda", label=T)
+    plot(lasso.trained, xvar="dev", label=T) 	## fraction deviance explained =R2
+    dev.off()
+}
+
+cv.out <- cv.glmnet(adj.x[training,],
+                    y[training],
+                    alpha=1,
+                    family="multinomial",
+                    standardize=F,
+                    nfolds = 10,
+                    type.multinomial="grouped")
+
 
 ## Cross validation for hyperparameter tuning.
 # Optimization of model selection to avoid overfitting
@@ -94,6 +108,7 @@ bestlam <- cv.out$lambda.min
 bestlam
 #lasso.bestlam <- coef(lasso.mod, s=bestlam)
 #bestlam <- cv.out$lambda.1se; bestlam
+
 
 ## Select the best hyperparameter
 lasso.pred <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="nonzero")
