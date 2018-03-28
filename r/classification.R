@@ -1,6 +1,6 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
           'dplyr', 'mRMRe', 'glmnet', 'caret', 'foreach',
-          'doSNOW', 'lattice')
+          'doSNOW', 'lattice', 'ROCR')
 lapply(pkgs, require, character.only = TRUE)
 
 ### DEFINE DATA FITTING MODEL
@@ -12,9 +12,6 @@ grouped=TRUE
 binomial=FALSE
 
 
-
-ed <- floor(abs(rnorm(1) * 10000000))
-set.seed(ed)
 
 ## load expression data
 # optimized for t-statistics microarray expressions
@@ -60,11 +57,27 @@ metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 
 
 ## prepare testing dataset
-# Split the dataset into 80% training data
-training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
-tr <- length(training)
 
-## choose samples strutcture
+
+# make sure all sample categories are included
+# in the training and testing sets
+while (
+(length(unique(y[training])) != nlevels(y))
+&
+(length(unique(y[-training])) != nlevels(y))
+) {
+
+    # set seed for reproducibility
+    ed <- floor(abs(rnorm(1) * 10000000))
+    set.seed(ed)
+
+    # Split the dataset into 80% training data
+    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+    tr <- length(training)
+}
+
+
+## choose samples strutcture from metadata
 y <- metadata$Groups
 
 if ( nlevels(y) > 2 ){
@@ -75,6 +88,9 @@ if ( nlevels(y) > 2 ){
     response="mgaussian"
 }
 
+
+
+## EXPERIMENTAL
 # create dummy variables or multi level contrasts
 # first level (the baseline) is rolled into the intercept
 # all other levels have a coefficient that differ from the baseline
@@ -82,10 +98,12 @@ if ( nlevels(y) > 2 ){
 # first coefficient is the mean of the first two levels minus the first level
 # second coefficient is the mean of all three levels minus the mean of the first two levels
 
+associations=y
+contrasts(associations) <- "contr.helmert"
+contrasts(associations)
+
 associations <- model.matrix(~0 + y)
 colnames(associations) <- levels(y)
-
-
 
 ########################
 ## FEATURE EXTRACTION ##
@@ -134,6 +152,11 @@ if ( grouped == TRUE ){
                ".regularization",setalpha,".",index,".features.",ed,".pdf"))
     plot(cv.out)
     dev.off()
+
+} else {
+
+    stop("Alternative feature indexes are not yet implemented")
+
 }
 
 
@@ -141,7 +164,56 @@ if ( grouped == TRUE ){
 lasso.link <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="link")
 lasso.response <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
 lp <- data.frame(y[-training], lasso.link, lasso.response)
-colnames(lp) <- c("labels", colnames(lasso.link), colnames(lasso.response))
+colnames(lp) <- c("labels",
+                  paste0(colnames(lasso.link), "-link"),
+                  paste0(colnames(lasso.response), "-response"))
+
+
+
+
+# plot multiclass ROC curves
+pdf("ROC.pdf")
+for ( i in 1:nlevels(y) ) {
+    
+    couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
+
+    # get scores
+    probability.scores <- lp[, c(5+i)]
+    dummy.labels <- as.vector(model.matrix(~0 + y[-training])[, i])
+
+    # create list for average ROC
+    if ( i == 1 ) {
+        listofprobs <- list(probability.scores)
+        listofdummies <- list(dummy.labels)        
+    } else {
+        listofprobs <- c(listofprobs, list(probability.scores))
+        listofdummies <- c(listofdummies, list(dummy.labels))    
+    }
+
+    # rename iterations
+    names(listofprobs)[i]=paste0(levels(y)[i],"-",i)
+    names(listofdummies)[i]=paste0(levels(y)[i],"-",i)
+
+    # get accuracy
+    pred <- prediction(probability.scores, dummy.labels)
+    perf <- performance(pred, 'tpr', 'fpr')
+
+    plot(perf, lwd=1.5, col=couleurs[i],
+         xlab="False positive rate (1-Specificity)",
+         ylab="True positive rate (Sensitivity)"
+         )
+    par(new=TRUE)
+}
+# create average
+# error bars for variation around the average curve
+pred <- prediction(listofprobs, listofdummies)
+perf <- performance(pred, 'tpr', 'fpr')
+plot(perf,lty=3,lwd=2.5,avg="vertical",spread.estimate="stderror",add=TRUE)
+legend("bottomright", levels(y), lty=1, lwd=5, col = couleurs[1:nlevels(y)])
+dev.off()
+
+
+
 
 # get sample labels
 lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
@@ -160,7 +232,10 @@ len <- length(selected.genes)
 if ( length(selected.final) == length(selected.genes) ) {
     lasso.select <- adj.x[, selected.final ]
     dim(lasso.select)
-    write.table(lasso.select,"expression.regularized.standardized",
+    write.table(lasso.select, paste0("expressions.cv",ncv,
+                                    ".lambda",sprintf("%.5f", bestlam),
+                                    ".",response,".regularization",
+                                    setalpha,".",index,".features.",ed,".txt"),
                 quote=F,sep="\t")
 } else {
     stop("Number of selected genes do not match the original dataset")
