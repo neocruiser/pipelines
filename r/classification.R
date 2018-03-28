@@ -4,12 +4,17 @@ pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
 lapply(pkgs, require, character.only = TRUE)
 
 ### DEFINE DATA FITTING MODEL
-classfication=TRUE
+classification=TRUE
 regression=FALSE
 
 ## define feature structure
 grouped=TRUE
 binomial=FALSE
+
+
+
+ed <- floor(abs(rnorm(1) * 10000000))
+set.seed(ed)
 
 ## load expression data
 # optimized for t-statistics microarray expressions
@@ -57,89 +62,101 @@ metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 ## prepare testing dataset
 # Split the dataset into 80% training data
 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+tr <- length(training)
 
 ## choose samples strutcture
 y <- metadata$Groups
 
-# create dummy variables
-strategy <- model.matrix(~0 + y)
-colnames(strategy) <- levels(y)
+if ( nlevels(y) > 2 ){
+    response="multinomial"
+} else if ( nlevels(y) == 2 ){
+    response="bionomial"
+} else {
+    response="mgaussian"
+}
+
+# create dummy variables or multi level contrasts
+# first level (the baseline) is rolled into the intercept
+# all other levels have a coefficient that differ from the baseline
+# Helmert regressors compare each level with the average of the preceding ones
+# first coefficient is the mean of the first two levels minus the first level
+# second coefficient is the mean of all three levels minus the mean of the first two levels
+
+associations <- model.matrix(~0 + y)
+colnames(associations) <- levels(y)
+
+
 
 ########################
 ## FEATURE EXTRACTION ##
 ########################
-## LASSO as alpha 1
 # fit a generalized linear model via penalized maximum likelihood
-
-
+# if alpha 1 then lasso L1 penality and discard genes
+# if alpha 0 then ridge regression then L2 and rank genes
 if ( grouped == TRUE ){
+
+    index="grouped"
+    ncv=10
+    setalpha=1
+    
     # fitting a symmetric multinomial model,
     grid <- 10^seq(5, -5, length=200)
     lasso.trained <- glmnet(adj.x[training,],
                             y[training],
-                            alpha=1,
+                            alpha=setalpha,
                             lambda=grid,
-                            family = "multinomial",
+                            family = response,
                             standardize=F,
-                            type.multinomial="grouped")
+                            type.multinomial=index)
 
-    pdf("regularization.lambda.grid.testing.pdf")
+    pdf(paste0("grid.lambda.",response,".regularization",setalpha,".",index,".features.",ed,".pdf"))
     par(mfrow = c(2,2))
     plot(lasso.trained, xvar="lambda", label=T)
-    plot(lasso.trained, xvar="dev", label=T) 	## fraction deviance explained =R2
+    ## fraction deviance explained =R2
+    plot(lasso.trained, xvar="dev", label=T)
+    dev.off()
+
+
+    cv.out <- cv.glmnet(adj.x[training,],
+                        y[training],
+                        alpha=setalpha,
+                        family = response,
+                        standardize=F,
+                        nfolds = ncv,
+                        type.multinomial=index)
+
+
+    ## Cross validation for hyperparameter tuning.
+    # Optimization of model selection to avoid overfitting
+    bestlam <- cv.out$lambda.min
+    bestlam
+    pdf(paste0("cv",ncv,".lambda",sprintf("%.5f", bestlam),".",response,
+               ".regularization",setalpha,".",index,".features.",ed,".pdf"))
+    plot(cv.out)
     dev.off()
 }
 
-cv.out <- cv.glmnet(adj.x[training,],
-                    y[training],
-                    alpha=1,
-                    family="multinomial",
-                    standardize=F,
-                    nfolds = 10,
-                    type.multinomial="grouped")
 
+# get genes probabilities to predict sample cases
+lasso.link <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="link")
+lasso.response <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
+lp <- data.frame(y[-training], lasso.link, lasso.response)
+colnames(lp) <- c("labels", colnames(lasso.link), colnames(lasso.response))
 
-## Cross validation for hyperparameter tuning.
-# Optimization of model selection to avoid overfitting
-pdf("regularization.lambda.crossvalidation.pdf")
-plot(cv.out)
-dev.off()
-bestlam <- cv.out$lambda.min
-bestlam
-#lasso.bestlam <- coef(lasso.mod, s=bestlam)
-#bestlam <- cv.out$lambda.1se; bestlam
+# get sample labels
+lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
 
-
-## Select the best hyperparameter
-lasso.pred <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="nonzero")
-length(lasso.pred)
-
-lasso.pred <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
-length(lasso.pred)
-
-lasso.pred <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
-
-if ( classification == TRUE ) {
-    ## build classification confusion matrix
-    table(lasso.pred, y[-training])
-} else if ( regression == TRUE ) {
-    ## Test set MSE only for regression-type analysis
-    mean((lasso.pred - y[test])^2)
-} else {
-    stop("Data must be fit as either a calssification or regression model")
-}
-
+# get gene coefficients at selected lambda
 lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
 str(lasso.coef)
 
-
-
-## get regularized non-zero genes
+## get non-zero genes
 selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
 original.genes <- colnames(adj.x)
 selected.final <- original.genes[selected.genes]
+len <- length(selected.genes)
 
-
+## extract expression of regularized genes
 if ( length(selected.final) == length(selected.genes) ) {
     lasso.select <- adj.x[, selected.final ]
     dim(lasso.select)
@@ -147,6 +164,46 @@ if ( length(selected.final) == length(selected.genes) ) {
                 quote=F,sep="\t")
 } else {
     stop("Number of selected genes do not match the original dataset")
+}
+
+
+## create a summary table
+if ( classification == TRUE ) {
+    ## build classification confusion matrix
+    tab <- table(lasso.labels, y[-training])
+    tab
+    freq <- as.data.frame.matrix(tab)
+
+    df=NULL
+    for ( i in 1:nrow(freq) ) {
+        ## prepare a table summary
+        ## of regularization accuracy
+        n=names(rowSums(freq)[i])
+        f <- freq[n,n] / rowSums(freq)[[i]] * 100
+
+        if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
+        if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
+
+        df <- rbind(df, data.frame(group=n,
+                                   accuracy=f,
+                                   seed=ed,
+                                   classification=response,
+                                   cv=ncv,
+                                   method= me,
+                                   grouped=ind,
+                                   lambda=bestlam,
+                                   totalNgenes=dim(means)[1],
+                                   regNgenes=len,
+                                   trainingPercent=c(tr/ncol(means)*100)))
+        
+    }
+    
+
+} else if ( regression == TRUE ) {
+    ## Test set MSE only for regression-type analysis
+    mean((lasso.labels - y[test])^2)
+} else {
+    stop("Data must be fit as either a classification or regression model")
 }
 
 
@@ -242,7 +299,7 @@ ensemble.mean <- function(a,b){
 ## TESTING THE CLASSIFIER ##
 ############################
 ## Choosing the right Hyper-parameters. GRID ANALYSIS
-dat <- data.frame(y=y, lasso.select); dim(dat)
+dat <- data.frame(y=associations, lasso.select); dim(dat)
 
 ctl=expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))	## nnet
 #ctl=expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-3,length=40),.coefImp=10^seq(-1,-2,length=40))## Regularized Random forest (RRF)
