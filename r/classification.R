@@ -172,7 +172,7 @@ while (success == FALSE) {
                 setalpha=1
                 
                 # fitting a symmetric multinomial model,
-                grid <- 10^seq(5, -5, length=200)
+                grid <- 10^seq(10, -10, length=200)
                 lasso.trained <- glmnet(adj.x[training,],
                                         y[training],
                                         alpha=setalpha,
@@ -235,25 +235,111 @@ while (success == FALSE) {
 
         }
 
+        # create summary
+        dm=NULL
+        dm <- rbind(df, data.frame(iteration=e,
+                                   class=levels(y)[i],
+                                   seed=ed,
+                                   lambda=bestlam,
+                                   probeClass=ps[[e]][1],
+                                   ))
+
         ## plot the lot of iterations
         pred <- prediction(ps, dl)
         perf <- performance(pred, 'tpr', 'fpr')
 
+        par(new=TRUE)
         plot(perf, lty=3, col=couleurs[i],
              xlab="Specificity (1-False positive rate)",
              ylab="Sensitivity (True positive rate)")
         par(new=TRUE)
-        plot(perf,lty=1,lwd=1.5,avg="vertical",spread.estimate="stderror")
-        legend("bottomright", levels(y), lty=1, lwd=5, col = couleurs[1:nlevels(y)])
-        par(new=TRUE)
+        plot(perf,col=couleurs[i],lty=1,lwd=1.5,avg="vertical",spread.estimate="stderror",add=TRUE)
         
     }    
     
+    legend("bottomright", levels(y), lty=1, lwd=5, col = couleurs[1:nlevels(y)])
     dev.off()
 }
 
 
+# plug the best matches
+ed
+training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+bestlam
+lasso.trained <- glmnet(adj.x[training,],
+                        y[training],
+                        alpha=setalpha,
+                        lambda=bestlam,
+                        family = response,
+                        standardize=F,
+                        type.multinomial=index)
+  
 
+
+## compile accuracies into summary file
+# get sample labels
+lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
+
+# get gene coefficients at selected lambda
+lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
+str(lasso.coef)
+
+## get non-zero genes
+selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
+original.genes <- colnames(adj.x)
+selected.final <- original.genes[selected.genes]
+len <- length(selected.genes)
+
+## extract expression of regularized genes
+if ( length(selected.final) == length(selected.genes) ) {
+    lasso.select <- adj.x[, selected.final ]
+    dim(lasso.select)
+    write.table(lasso.select, paste0("expressions.cv",ncv,
+                                    ".lambda",sprintf("%.5f", bestlam),
+                                    ".",response,".regularization",
+                                    setalpha,".",index,".features.",ed,".txt"),
+                quote=F,sep="\t")
+} else {
+    stop("Number of selected genes do not match the original dataset")
+}
+
+
+if ( classification == TRUE ) {
+    ## build classification confusion-rate matrix
+    tab <- table(lasso.labels, y[-training])
+    tab
+    freq <- as.data.frame.matrix(tab)
+
+    df=NULL
+    for ( i in 1:nrow(freq) ) {
+        ## prepare a table summary
+        ## of regularization accuracy
+        n=names(rowSums(freq)[i])
+        f <- freq[n,n] / rowSums(freq)[[i]] * 100
+
+        if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
+        if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
+
+        df <- rbind(df, data.frame(group=n,
+                                   accuracy=f,
+                                   seed=ed,
+                                   classification=response,
+                                   cv=ncv,
+                                   method= me,
+                                   grouped=ind,
+                                   lambda=bestlam,
+                                   totalNgenes=dim(means)[1],
+                                   regNgenes=len,
+                                   trainingPercent=c(tr/ncol(means)*100)))
+        
+    }
+
+} else if ( regression == TRUE ) {
+    ## Test set MSE only for regression-type analysis
+    mean((lasso.labels - y[test])^2)
+} else {
+    stop("Data must be fit as either a classification or regression model")
+}
 
 
 
@@ -337,71 +423,6 @@ dev.off()
 
 
 
-
-## compile accuracies into summary file
-# get sample labels
-lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
-
-# get gene coefficients at selected lambda
-lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
-str(lasso.coef)
-
-## get non-zero genes
-selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
-original.genes <- colnames(adj.x)
-selected.final <- original.genes[selected.genes]
-len <- length(selected.genes)
-
-## extract expression of regularized genes
-if ( length(selected.final) == length(selected.genes) ) {
-    lasso.select <- adj.x[, selected.final ]
-    dim(lasso.select)
-    write.table(lasso.select, paste0("expressions.cv",ncv,
-                                    ".lambda",sprintf("%.5f", bestlam),
-                                    ".",response,".regularization",
-                                    setalpha,".",index,".features.",ed,".txt"),
-                quote=F,sep="\t")
-} else {
-    stop("Number of selected genes do not match the original dataset")
-}
-
-
-if ( classification == TRUE ) {
-    ## build classification confusion-rate matrix
-    tab <- table(lasso.labels, y[-training])
-    tab
-    freq <- as.data.frame.matrix(tab)
-
-    df=NULL
-    for ( i in 1:nrow(freq) ) {
-        ## prepare a table summary
-        ## of regularization accuracy
-        n=names(rowSums(freq)[i])
-        f <- freq[n,n] / rowSums(freq)[[i]] * 100
-
-        if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
-        if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
-
-        df <- rbind(df, data.frame(group=n,
-                                   accuracy=f,
-                                   seed=ed,
-                                   classification=response,
-                                   cv=ncv,
-                                   method= me,
-                                   grouped=ind,
-                                   lambda=bestlam,
-                                   totalNgenes=dim(means)[1],
-                                   regNgenes=len,
-                                   trainingPercent=c(tr/ncol(means)*100)))
-        
-    }
-
-} else if ( regression == TRUE ) {
-    ## Test set MSE only for regression-type analysis
-    mean((lasso.labels - y[test])^2)
-} else {
-    stop("Data must be fit as either a classification or regression model")
-}
 
 
 
