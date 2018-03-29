@@ -136,10 +136,14 @@ while (success == FALSE) {
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
     dm=NULL
 
-#    for (i in 1:nlevels(y)) {
-    for (i in 1:2) {
+    ## The control class is throwing an error
+    # prediction cannot be done on small sample size
+    # remove CTRL class
+    nl <- c(1:nlevels(y))[levels(y)!="CTRL"]
 
-        iterations=10
+    for (i in nl) {
+
+        iterations=20
         for (e in 1:iterations) {
 
             # set seed for reproducibility
@@ -260,9 +264,13 @@ while (success == FALSE) {
         
     }    
     
-    legend("bottomright", levels(y), lty=1, lwd=5, col = couleurs[1:nlevels(y)])
-    dev.off()
+legend("bottomright", levels(y)[nl], lty=1, lwd=5, col = couleurs[nl])
+dev.off()
+
 }
+
+
+
 
 
 # plug the best matches
