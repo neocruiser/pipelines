@@ -134,13 +134,21 @@ success=FALSE
 while (success == FALSE) {
     pdf("cvROC.pdf")
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
+    dm=NULL
 
 #    for (i in 1:nlevels(y)) {
     for (i in 1:2) {
 
-        iterations=30
+        iterations=10
         for (e in 1:iterations) {
 
+            # set seed for reproducibility
+            ed <- floor(abs(rnorm(1) * 10000000))
+            set.seed(ed)
+
+            # Split the dataset into 80% training data
+            training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+            tr <- length(training)
 
             # make sure all sample categories are included
             # in the training and testing sets
@@ -151,12 +159,8 @@ while (success == FALSE) {
             &
             (length(unique(y[-training])) != nlevels(y))
             ) {
-
-                # set seed for reproducibility
                 ed <- floor(abs(rnorm(1) * 10000000))
                 set.seed(ed)
-
-                # Split the dataset into 80% training data
                 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
                 tr <- length(training)
             }
@@ -172,7 +176,7 @@ while (success == FALSE) {
                 setalpha=1
                 
                 # fitting a symmetric multinomial model,
-                grid <- 10^seq(10, -10, length=200)
+                grid <- 10^seq(5, -5, length=100)
                 lasso.trained <- glmnet(adj.x[training,],
                                         y[training],
                                         alpha=setalpha,
@@ -233,16 +237,15 @@ while (success == FALSE) {
             names(ps)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
             names(dl)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
 
-        }
 
-        # create summary
-        dm=NULL
-        dm <- rbind(df, data.frame(iteration=e,
-                                   class=levels(y)[i],
-                                   seed=ed,
-                                   lambda=bestlam,
-                                   probeClass=ps[[e]][1],
-                                   ))
+            # create summary
+            dm <- rbind(dm, data.frame(iteration=e,
+                                       class=levels(y)[i],
+                                       seed=ed,
+                                       lambda=bestlam,
+                                       probeClass=ps[[e]][1]
+                                       ))
+        }
 
         ## plot the lot of iterations
         pred <- prediction(ps, dl)
