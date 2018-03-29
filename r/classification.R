@@ -56,28 +56,7 @@ metadata$Nodes <- as.factor(metadata$Nodes)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 
 
-## prepare testing dataset
-
-
-# make sure all sample categories are included
-# in the training and testing sets
-while (
-(length(unique(y[training])) != nlevels(y))
-&
-(length(unique(y[-training])) != nlevels(y))
-) {
-
-    # set seed for reproducibility
-    ed <- floor(abs(rnorm(1) * 10000000))
-    set.seed(ed)
-
-    # Split the dataset into 80% training data
-    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
-    tr <- length(training)
-}
-
-
-## choose samples strutcture from metadata
+# choose samples strutcture from metadata
 y <- metadata$Groups
 
 if ( nlevels(y) > 2 ){
@@ -88,6 +67,15 @@ if ( nlevels(y) > 2 ){
     response="mgaussian"
 }
 
+
+## prepare testing dataset
+# set seed for reproducibility
+ed <- floor(abs(rnorm(1) * 10000000))
+set.seed(ed)
+
+# Split the dataset into 80% training data
+training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+tr <- length(training)
 
 
 ## EXPERIMENTAL
@@ -105,61 +93,197 @@ contrasts(associations)
 associations <- model.matrix(~0 + y)
 colnames(associations) <- levels(y)
 
+
+
+
 ########################
 ## FEATURE EXTRACTION ##
 ########################
-# fit a generalized linear model via penalized maximum likelihood
-# if alpha 1 then lasso L1 penality and discard genes
-# if alpha 0 then ridge regression then L2 and rank genes
-if ( grouped == TRUE ){
 
-    index="grouped"
-    ncv=10
-    setalpha=1
+# feature extraction
+# |-- randomize seed
+# |   |-- iterate multiple seeds
+# |
+# |-- parameter tuning
+# |   |-- grid tuning
+# |   |-- nested cross validation
+# |
+# |-- fit linear model
+# |   |-- first on training set 
+# |   |-- second on testing set
+# |   |-- iterate multiple model fitting
+# |
+# |-- get prediction scores for each iteration
+# |-- plot accuracy scores
+# |   |-- iterate multiple accuracy tests
+# |   |-- ROC curves for Cross validation test
+# |   |-- ROC curves for prediction/validation set
+# |
+# |-- create summary of all iterations
+# |
+# |-- get the best lambda
+# |   |-- best accuracy has the best lambda
+# |   |-- use this lambda for subsequent analyses
+# |   |-- plot final accuracy at this lambda cutoff
+
+# WARNING: sometimes LOGNET throws an error of 0 or 1 observations
+# this is due to the unbalanced nature of cross validation
+# SOLUTION: the while condition will repeat the test until success
+success=FALSE
+
+while (success == FALSE) {
+    pdf("cvROC.pdf")
+    couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
+
+#    for (i in 1:nlevels(y)) {
+    for (i in 1:2) {
+
+        iterations=30
+        for (e in 1:iterations) {
+
+
+            # make sure all sample categories are included
+            # in the training and testing sets
+            # if not, errors occur during training 
+            # for missing observations in certain classes
+            while (
+            (length(unique(y[training])) != nlevels(y))
+            &
+            (length(unique(y[-training])) != nlevels(y))
+            ) {
+
+                # set seed for reproducibility
+                ed <- floor(abs(rnorm(1) * 10000000))
+                set.seed(ed)
+
+                # Split the dataset into 80% training data
+                training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+                tr <- length(training)
+            }
+
+
+            # fit a generalized linear model via penalized maximum likelihood
+            # if alpha 1 then lasso L1 penality and discard genes
+            # if alpha 0 then ridge regression then L2 and rank genes
+            if ( grouped == TRUE ){
+
+                index="grouped"
+                ncv=10
+                setalpha=1
+                
+                # fitting a symmetric multinomial model,
+                grid <- 10^seq(5, -5, length=200)
+                lasso.trained <- glmnet(adj.x[training,],
+                                        y[training],
+                                        alpha=setalpha,
+                                        lambda=grid,
+                                        family = response,
+                                        standardize=F,
+                                        type.multinomial=index)
+            } else {
+                stop("Alternative feature indexes are not yet implemented")
+            }
+
+
+            # Cross validation for hyperparameter tuning.
+            # Optimization of model selection to avoid overfitting
+            # also, silence errors due to unbalanced observations
+            # GLMNET CVs are so concervative, they might generate
+            # identical Best Lambdas
+            cv.out <- try(cv.glmnet(adj.x[training,],
+                                y[training],
+                                alpha=setalpha,
+                                family = response,
+                                standardize=F,
+                                nfolds = ncv,
+                                type.multinomial=index),
+                          silent = TRUE)
+
+            # make sure CV did not encounter unbalanced observations
+            # if unbalanced obs exist, the whole iteration will repeat
+            if (class(cv.out) != "cv.glmnet") {
+                success=FALSE
+                break
+            } else {
+                success=TRUE
+            }
+
+
+            # get best lambda
+            # lowest probability to overfit
+            bestlam <- cv.out$lambda.min
+
+            # get probabilities
+            lasso.response <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
+
+            ## create list of iteration scores for each class
+            probability.scores <- as.data.frame(lasso.response)[, i]
+            dummy.labels <- as.vector(model.matrix(~0 + y[-training])[, i])
+
+            # create multi dimensional lists
+            if ( e == 1 ){
+                ps <- list(probability.scores)
+                dl <- list(dummy.labels)
+            } else {
+                ps <- c(ps, list(probability.scores))
+                dl <- c(dl, list(dummy.labels))
+            }
+
+            # rename iterations
+            names(ps)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
+            names(dl)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
+
+        }
+
+        ## plot the lot of iterations
+        pred <- prediction(ps, dl)
+        perf <- performance(pred, 'tpr', 'fpr')
+
+        plot(perf, lty=3, col=couleurs[i],
+             xlab="Specificity (1-False positive rate)",
+             ylab="Sensitivity (True positive rate)")
+        par(new=TRUE)
+        plot(perf,lty=1,lwd=1.5,avg="vertical",spread.estimate="stderror")
+        legend("bottomright", levels(y), lty=1, lwd=5, col = couleurs[1:nlevels(y)])
+        par(new=TRUE)
+        
+    }    
     
-    # fitting a symmetric multinomial model,
-    grid <- 10^seq(5, -5, length=200)
-    lasso.trained <- glmnet(adj.x[training,],
-                            y[training],
-                            alpha=setalpha,
-                            lambda=grid,
-                            family = response,
-                            standardize=F,
-                            type.multinomial=index)
-
-    pdf(paste0("grid.lambda.",response,".regularization",setalpha,".",index,".features.",ed,".pdf"))
-    par(mfrow = c(2,2))
-    plot(lasso.trained, xvar="lambda", label=T)
-    ## fraction deviance explained =R2
-    plot(lasso.trained, xvar="dev", label=T)
     dev.off()
-
-
-    cv.out <- cv.glmnet(adj.x[training,],
-                        y[training],
-                        alpha=setalpha,
-                        family = response,
-                        standardize=F,
-                        nfolds = ncv,
-                        type.multinomial=index)
-
-
-    ## Cross validation for hyperparameter tuning.
-    # Optimization of model selection to avoid overfitting
-    bestlam <- cv.out$lambda.min
-    bestlam
-    pdf(paste0("cv",ncv,".lambda",sprintf("%.5f", bestlam),".",response,
-               ".regularization",setalpha,".",index,".features.",ed,".pdf"))
-    plot(cv.out)
-    dev.off()
-
-} else {
-
-    stop("Alternative feature indexes are not yet implemented")
-
 }
 
 
+
+
+
+
+
+
+    
+# plot lambda iterations
+pdf(paste0("grid.lambda.",response,".regularization",setalpha,".",index,".features.",ed,".pdf"))
+par(mfrow = c(2,2))
+plot(lasso.trained, xvar="lambda", label=T)
+## fraction deviance explained =R2
+plot(lasso.trained, xvar="dev", label=T)
+dev.off()
+
+# plot cross validation to get best lambda
+pdf(paste0("cv",ncv,".lambda",sprintf("%.5f", bestlam),".",response,
+           ".regularization",setalpha,".",index,".features.",ed,".pdf"))
+plot(cv.out)
+dev.off()
+
+
+
+
+
+
+
+
+
+
+# plot multiclass ROC curves to assess classification accuracies
 # get genes probabilities to predict sample cases
 lasso.link <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="link")
 lasso.response <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
@@ -168,10 +292,6 @@ colnames(lp) <- c("labels",
                   paste0(colnames(lasso.link), "-link"),
                   paste0(colnames(lasso.response), "-response"))
 
-
-
-
-# plot multiclass ROC curves
 pdf("ROC.pdf")
 for ( i in 1:nlevels(y) ) {
     
@@ -199,8 +319,8 @@ for ( i in 1:nlevels(y) ) {
     perf <- performance(pred, 'tpr', 'fpr')
 
     plot(perf, lwd=1.5, col=couleurs[i],
-         xlab="False positive rate (1-Specificity)",
-         ylab="True positive rate (Sensitivity)"
+         xlab="Specificity (1-False positive rate)",
+         ylab="Sensitivity (True positive rate)"
          )
     par(new=TRUE)
 }
@@ -208,13 +328,17 @@ for ( i in 1:nlevels(y) ) {
 # error bars for variation around the average curve
 pred <- prediction(listofprobs, listofdummies)
 perf <- performance(pred, 'tpr', 'fpr')
-plot(perf,lty=3,lwd=2.5,avg="vertical",spread.estimate="stderror",add=TRUE)
+plot(perf,lty=1,lwd=2.5,avg="vertical",spread.estimate="stderror",add=TRUE)
 legend("bottomright", levels(y), lty=1, lwd=5, col = couleurs[1:nlevels(y)])
 dev.off()
 
 
 
 
+
+
+
+## compile accuracies into summary file
 # get sample labels
 lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
 
@@ -242,9 +366,8 @@ if ( length(selected.final) == length(selected.genes) ) {
 }
 
 
-## create a summary table
 if ( classification == TRUE ) {
-    ## build classification confusion matrix
+    ## build classification confusion-rate matrix
     tab <- table(lasso.labels, y[-training])
     tab
     freq <- as.data.frame.matrix(tab)
@@ -272,7 +395,6 @@ if ( classification == TRUE ) {
                                    trainingPercent=c(tr/ncol(means)*100)))
         
     }
-    
 
 } else if ( regression == TRUE ) {
     ## Test set MSE only for regression-type analysis
