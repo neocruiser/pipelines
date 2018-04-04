@@ -126,6 +126,7 @@ colnames(associations) <- levels(y)
 # |   |-- use this lambda for subsequent analyses
 # |   |-- plot final accuracy at this lambda cutoff
 
+
 # WARNING: sometimes LOGNET throws an error of 0 or 1 observations
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
@@ -135,17 +136,15 @@ while (success == FALSE) {
     pdf("cvROC.pdf")
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
     dm=NULL
-
+    df=NULL
     ## The control class is throwing an error
     # prediction cannot be done on small sample size
     # remove CTRL class
     nl <- c(1:nlevels(y))[levels(y)!="CTRL"]
 
     for (i in nl) {
-
-        iterations=20
+        iterations=30
         for (e in 1:iterations) {
-
             # set seed for reproducibility
             ed <- floor(abs(rnorm(1) * 10000000))
             set.seed(ed)
@@ -169,16 +168,13 @@ while (success == FALSE) {
                 tr <- length(training)
             }
 
-
             # fit a generalized linear model via penalized maximum likelihood
             # if alpha 1 then lasso L1 penality and discard genes
             # if alpha 0 then ridge regression then L2 and rank genes
             if ( grouped == TRUE ){
-
                 index="grouped"
                 ncv=10
                 setalpha=1
-                
                 # fitting a symmetric multinomial model,
                 grid <- 10^seq(5, -5, length=100)
                 lasso.trained <- glmnet(adj.x[training,],
@@ -192,12 +188,9 @@ while (success == FALSE) {
                 stop("Alternative feature indexes are not yet implemented")
             }
 
-
             # Cross validation for hyperparameter tuning.
             # Optimization of model selection to avoid overfitting
             # also, silence errors due to unbalanced observations
-            # GLMNET CVs are so concervative, they might generate
-            # identical Best Lambdas
             cv.out <- try(cv.glmnet(adj.x[training,],
                                 y[training],
                                 alpha=setalpha,
@@ -215,7 +208,6 @@ while (success == FALSE) {
             } else {
                 success=TRUE
             }
-
 
             # get best lambda
             # lowest probability to overfit
@@ -241,26 +233,70 @@ while (success == FALSE) {
             names(ps)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
             names(dl)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
 
-
             # create summary
             dm <- rbind(dm, data.frame(iteration=e,
                                        class=levels(y)[i],
                                        seed=ed,
                                        lambda=bestlam,
-                                       probeClass=ps[[e]][1]
-                                       ))
-        }
+                                       probabilityScore=ps[[e]][1] ))
 
+            ## compile accuracies into summary file
+            # get sample labels
+            lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
+
+            # get gene coefficients at selected lambda
+            lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
+
+            ## get non-zero genes
+            selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
+            original.genes <- colnames(adj.x)
+            selected.final <- original.genes[selected.genes]
+            len <- length(selected.genes)
+            
+            ## build classification confusion-rate matrix
+            if ( classification == TRUE ) {
+                tab <- table(lasso.labels, y[-training])
+                freq <- as.data.frame.matrix(tab)
+
+                for ( q in 1:nrow(freq) ) {
+                    ## prepare a table summary
+                    ## of regularization accuracy
+                    n=names(rowSums(freq)[q])
+                    f <- freq[n,n] / rowSums(freq)[[q]] * 100
+
+                    if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
+                    if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
+
+                    df <- rbind(df, data.frame(iterations=i,
+                                               class=levels(y)[i],
+                                               group=n,
+                                               accuracy=f,
+                                               seed=ed,
+                                               classification=response,
+                                               cv=ncv,
+                                               method= me,
+                                               grouped=ind,
+                                               lambda=bestlam,
+                                               totalNgenes=dim(means)[1],
+                                               regNgenes=len,
+                                               trainingPercent=c(tr/ncol(means)*100)))
+                }
+            } else if ( regression == TRUE ) {
+                ## Test set MSE only for regression-type analysis
+                mean((lasso.labels - y[test])^2)
+            } else {
+                stop("Data must be fit as either a classification or regression model")
+            }
+        }
         ## plot the lot of iterations
         pred <- prediction(ps, dl)
         perf <- performance(pred, 'tpr', 'fpr')
-
         par(new=TRUE)
         plot(perf, lty=3, col=couleurs[i],
              xlab="Specificity (1-False positive rate)",
              ylab="Sensitivity (True positive rate)")
         par(new=TRUE)
-        plot(perf,col=couleurs[i],lty=1,lwd=1.5,avg="vertical",spread.estimate="stderror",add=TRUE)
+        plot(perf,col=couleurs[i],lty=1,lwd=2,avg="vertical",spread.estimate="stderror",add=TRUE)
         
     }    
     
@@ -268,6 +304,7 @@ legend("bottomright", levels(y)[nl], lty=1, lwd=5, col = couleurs[nl])
 dev.off()
 
 }
+
 
 
 
@@ -287,20 +324,6 @@ lasso.trained <- glmnet(adj.x[training,],
   
 
 
-## compile accuracies into summary file
-# get sample labels
-lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
-
-# get gene coefficients at selected lambda
-lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
-str(lasso.coef)
-
-## get non-zero genes
-selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
-original.genes <- colnames(adj.x)
-selected.final <- original.genes[selected.genes]
-len <- length(selected.genes)
-
 ## extract expression of regularized genes
 if ( length(selected.final) == length(selected.genes) ) {
     lasso.select <- adj.x[, selected.final ]
@@ -313,45 +336,6 @@ if ( length(selected.final) == length(selected.genes) ) {
 } else {
     stop("Number of selected genes do not match the original dataset")
 }
-
-
-if ( classification == TRUE ) {
-    ## build classification confusion-rate matrix
-    tab <- table(lasso.labels, y[-training])
-    tab
-    freq <- as.data.frame.matrix(tab)
-
-    df=NULL
-    for ( i in 1:nrow(freq) ) {
-        ## prepare a table summary
-        ## of regularization accuracy
-        n=names(rowSums(freq)[i])
-        f <- freq[n,n] / rowSums(freq)[[i]] * 100
-
-        if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
-        if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
-
-        df <- rbind(df, data.frame(group=n,
-                                   accuracy=f,
-                                   seed=ed,
-                                   classification=response,
-                                   cv=ncv,
-                                   method= me,
-                                   grouped=ind,
-                                   lambda=bestlam,
-                                   totalNgenes=dim(means)[1],
-                                   regNgenes=len,
-                                   trainingPercent=c(tr/ncol(means)*100)))
-        
-    }
-
-} else if ( regression == TRUE ) {
-    ## Test set MSE only for regression-type analysis
-    mean((lasso.labels - y[test])^2)
-} else {
-    stop("Data must be fit as either a classification or regression model")
-}
-
 
 
 
