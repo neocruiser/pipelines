@@ -143,7 +143,7 @@ while (success == FALSE) {
     nl <- c(1:nlevels(y))[levels(y)!="CTRL"]
 
     for (i in nl) {
-        iterations=30
+        iterations=100
         for (e in 1:iterations) {
             # set seed for reproducibility
             ed <- floor(abs(rnorm(1) * 10000000))
@@ -234,7 +234,7 @@ while (success == FALSE) {
             names(dl)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
 
             # create summary
-            dm <- rbind(dm, data.frame(iteration=e,
+            dm <- rbind(dm, data.frame(iterations=e,
                                        class=levels(y)[i],
                                        seed=ed,
                                        lambda=bestlam,
@@ -267,7 +267,7 @@ while (success == FALSE) {
                     if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
                     if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
 
-                    df <- rbind(df, data.frame(iterations=i,
+                    df <- rbind(df, data.frame(iterations=e,
                                                class=levels(y)[i],
                                                group=n,
                                                accuracy=f,
