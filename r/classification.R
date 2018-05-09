@@ -131,9 +131,10 @@ colnames(associations) <- levels(y)
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
+iterations=5
 
 while (success == FALSE) {
-    pdf("cvROC.pdf")
+    pdf(paste0("cvROC.iterations",iterations,response,".pdf"))
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
     dm=NULL
     df=NULL
@@ -147,7 +148,6 @@ while (success == FALSE) {
     }
 
     for (i in nl) {
-        iterations=100
         for (e in 1:iterations) {
             # set seed for reproducibility
             ed <- floor(abs(rnorm(1) * 10000000))
@@ -377,7 +377,7 @@ colnames(lp) <- c("labels",
                   paste0(colnames(lasso.link), "-link"),
                   paste0(colnames(lasso.response), "-response"))
 
-pdf("ROC.pdf")
+pdf(paste0("ROC.iterations",iterations,response,".pdf"))
 for ( i in 1:nlevels(y) ) {
 
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
