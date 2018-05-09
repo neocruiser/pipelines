@@ -109,7 +109,7 @@ colnames(associations) <- levels(y)
 # |   |-- nested cross validation
 # |
 # |-- fit linear model
-# |   |-- first on training set 
+# |   |-- first on training set
 # |   |-- second on testing set
 # |   |-- iterate multiple model fitting
 # |
@@ -142,6 +142,10 @@ while (success == FALSE) {
     # remove CTRL class
     nl <- c(1:nlevels(y))[levels(y)!="CTRL"]
 
+    if (!require(ROCR)) {
+        stop("Can't continue can't load ROCR")
+    }
+
     for (i in nl) {
         iterations=100
         for (e in 1:iterations) {
@@ -155,7 +159,7 @@ while (success == FALSE) {
 
             # make sure all sample categories are included
             # in the training and testing sets
-            # if not, errors occur during training 
+            # if not, errors occur during training
             # for missing observations in certain classes
             while (
             (length(unique(y[training])) != nlevels(y))
@@ -252,7 +256,7 @@ while (success == FALSE) {
             original.genes <- colnames(adj.x)
             selected.final <- original.genes[selected.genes]
             len <- length(selected.genes)
-            
+
             ## build classification confusion-rate matrix
             if ( classification == TRUE ) {
                 tab <- table(lasso.labels, y[-training])
@@ -297,9 +301,9 @@ while (success == FALSE) {
              ylab="Sensitivity (True positive rate)")
         par(new=TRUE)
         plot(perf,col=couleurs[i],lty=1,lwd=2,avg="vertical",spread.estimate="stderror",add=TRUE)
-        
-    }    
-    
+
+    }
+
 legend("bottomright", levels(y)[nl], lty=1, lwd=5, col = couleurs[nl])
 dev.off()
 
@@ -321,7 +325,7 @@ lasso.trained <- glmnet(adj.x[training,],
                         family = response,
                         standardize=F,
                         type.multinomial=index)
-  
+
 
 
 ## extract expression of regularized genes
@@ -340,7 +344,7 @@ if ( length(selected.final) == length(selected.genes) ) {
 
 
 
-    
+
 # plot lambda iterations
 pdf(paste0("grid.lambda.",response,".regularization",setalpha,".",index,".features.",ed,".pdf"))
 par(mfrow = c(2,2))
@@ -375,7 +379,7 @@ colnames(lp) <- c("labels",
 
 pdf("ROC.pdf")
 for ( i in 1:nlevels(y) ) {
-    
+
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
 
     # get scores
@@ -385,10 +389,10 @@ for ( i in 1:nlevels(y) ) {
     # create list for average ROC
     if ( i == 1 ) {
         listofprobs <- list(probability.scores)
-        listofdummies <- list(dummy.labels)        
+        listofdummies <- list(dummy.labels)
     } else {
         listofprobs <- c(listofprobs, list(probability.scores))
-        listofdummies <- c(listofdummies, list(dummy.labels))    
+        listofdummies <- c(listofdummies, list(dummy.labels))
     }
 
     # rename iterations
@@ -440,7 +444,7 @@ model.reg <- function(dat,train,test,method,folds=10,rep=5,tune){
     ploted <- plot(modelTrain)
     Predd <- predict(modelTrain, newdata=dat[test,], type="raw")
     ## Test set MSE for regression
-    rmse <- mean((Predd - y[test])^2)		
+    rmse <- mean((Predd - y[test])^2)
     output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd,Hyperparameters=modelTrain$bestTune, RMSE=rmse)
     return(output)
 }
