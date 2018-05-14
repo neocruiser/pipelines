@@ -131,10 +131,10 @@ colnames(associations) <- levels(y)
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=5
+iterations=40
 
 while (success == FALSE) {
-    pdf(paste0("cvROC.iterations",iterations,response,".pdf"))
+    pdf(paste0("cvROC.iterations",iterations,".",response,".pdf"))
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
     dm=NULL
     df=NULL
@@ -208,6 +208,8 @@ while (success == FALSE) {
             # if unbalanced obs exist, the whole iteration will repeat
             if (class(cv.out) != "cv.glmnet") {
                 success=FALSE
+                ## initiate iteration
+                if ( e > 1 ) { e = e - 1 } 
                 break
             } else {
                 success=TRUE
@@ -311,10 +313,11 @@ dev.off()
 
 
 
+## extract regularization metrics for all iterations
+write.table(dm, paste0("summary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
+write.table(df, paste0("summary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
 
-
-
-# plug the best matches
+## get the best parameters
 ed
 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
 bestlam
@@ -377,7 +380,7 @@ colnames(lp) <- c("labels",
                   paste0(colnames(lasso.link), "-link"),
                   paste0(colnames(lasso.response), "-response"))
 
-pdf(paste0("ROC.iterations",iterations,response,".pdf"))
+pdf(paste0("ROC.iterations",iterations,".",response,".pdf"))
 for ( i in 1:nlevels(y) ) {
 
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
