@@ -131,7 +131,7 @@ colnames(associations) <- levels(y)
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=40
+iterations=30
 
 while (success == FALSE) {
     pdf(paste0("cvROC.iterations",iterations,".",response,".pdf"))
@@ -209,7 +209,8 @@ while (success == FALSE) {
             if (class(cv.out) != "cv.glmnet") {
                 success=FALSE
                 ## initiate iteration
-                if ( e > 1 ) { e = e - 1 } 
+                # not working, must be set early
+                #if ( e > 1 ) { e = e - 1 } 
                 break
             } else {
                 success=TRUE
@@ -226,7 +227,7 @@ while (success == FALSE) {
             probability.scores <- as.data.frame(lasso.response)[, i]
             dummy.labels <- as.vector(model.matrix(~0 + y[-training])[, i])
 
-            # create multi dimensional lists
+            # create multi dimensional list across all iterations
             if ( e == 1 ){
                 ps <- list(probability.scores)
                 dl <- list(dummy.labels)
@@ -235,16 +236,18 @@ while (success == FALSE) {
                 dl <- c(dl, list(dummy.labels))
             }
 
-            # rename iterations
+            # rename listing headers
             names(ps)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
             names(dl)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
-
-            # create summary
+            
+            # create summary of probabilities
+            # from a list of genes that have a mean probability to classify
+            # all cases into correct patient diagnosis
             dm <- rbind(dm, data.frame(iterations=e,
                                        class=levels(y)[i],
                                        seed=ed,
                                        lambda=bestlam,
-                                       probabilityScore=ps[[e]][1] ))
+                                       probabilityScore=mean(ps[[e]]) ))
 
             ## compile accuracies into summary file
             # get sample labels
@@ -274,7 +277,6 @@ while (success == FALSE) {
                     if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
 
                     df <- rbind(df, data.frame(iterations=e,
-                                               class=levels(y)[i],
                                                group=n,
                                                accuracy=f,
                                                seed=ed,
@@ -303,12 +305,9 @@ while (success == FALSE) {
              ylab="Sensitivity (True positive rate)")
         par(new=TRUE)
         plot(perf,col=couleurs[i],lty=1,lwd=2,avg="vertical",spread.estimate="stderror",add=TRUE)
-
     }
-
 legend("bottomright", levels(y)[nl], lty=1, lwd=5, col = couleurs[nl])
 dev.off()
-
 }
 
 
