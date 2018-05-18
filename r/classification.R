@@ -99,7 +99,7 @@ colnames(associations) <- levels(y)
 ########################
 ## FEATURE EXTRACTION ##
 ########################
-
+## Result: Lambda for Lasso feature selection with highest accuracy outcome
 # feature extraction
 # |-- randomize seed
 # |   |-- iterate multiple seeds
@@ -131,7 +131,7 @@ colnames(associations) <- levels(y)
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=30
+iterations=20
 
 while (success == FALSE) {
     pdf(paste0("cvROC.iterations",iterations,".",response,".pdf"))
@@ -311,120 +311,80 @@ dev.off()
 }
 
 
-
 ## extract regularization metrics for all iterations
 write.table(dm, paste0("summary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
 write.table(df, paste0("summary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
 
-## get the best parameters
-ed
-training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
-bestlam
-lasso.trained <- glmnet(adj.x[training,],
-                        y[training],
-                        alpha=setalpha,
-                        lambda=bestlam,
-                        family = response,
-                        standardize=F,
-                        type.multinomial=index)
 
 
 
-## extract expression of regularized genes
-if ( length(selected.final) == length(selected.genes) ) {
-    lasso.select <- adj.x[, selected.final ]
-    dim(lasso.select)
-    write.table(lasso.select, paste0("expressions.cv",ncv,
-                                    ".lambda",sprintf("%.5f", bestlam),
-                                    ".",response,".regularization",
-                                    setalpha,".",index,".features.",ed,".txt"),
-                quote=F,sep="\t")
-} else {
-    stop("Number of selected genes do not match the original dataset")
+#########################
+## Get best parameters ##
+#########################
+# iterate across sample labels
+nl <- c(1:nlevels(y))[levels(y)!="CTRL"]
+results=NULL
+for ( z in nl ) {
+    ## get lambda and iteration seed based on maximum accuracy
+    patient_labels<- levels(y)[z]
+    max_accuracy <- df %>%
+        filter(group == patient_labels) %>%
+        filter(accuracy == max(accuracy)) %>%
+        filter(regNgenes == max(regNgenes))
+
+    results <- rbind(results, max_accuracy)
 }
 
+ 
+# get non-zero genes for best parameters
+for (l in 1:nrow(results)) {
+    ed <- results$seed[[l]]
+    bestlam <- results$lambda[[l]]
+    set.seed(results$seed[[l]])
+    patient_labels <- results$group[[l]]
 
+    # get lasso coefficients
+    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+    lasso.trained <- glmnet(adj.x[training,],
+                            y[training],
+                            alpha=setalpha,
+                            lambda=bestlam,
+                            family = response,
+                            standardize=F,
+                            type.multinomial=index)
 
+    # get gene coefficients at selected lambda
+    lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
+    selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
+    original.genes <- colnames(adj.x)
+    selected.final <- original.genes[selected.genes]
+    len <- length(selected.genes)
 
+    ## extract expression of regularized genes
+    if ( length(selected.final) == length(selected.genes) ) {
+        lasso.select <- adj.x[, selected.final ]
+        dim(lasso.select)
+        write.table(lasso.select, paste0("expressions.",patient_labels,
+                                         ".iterations",iterations,".cv",ncv,
+                                         ".lambda_",sprintf("%.5f", bestlam),
+                                         "_",response,".regularization",setalpha,
+                                         ".",index,".genes",len,".seed",ed,".txt"),
+                    quote=F,sep="\t")
+    } else {
+        stop("Number of selected genes do not match the original dataset")
+    }
+}
 
 # plot lambda iterations
-pdf(paste0("grid.lambda.",response,".regularization",setalpha,".",index,".features.",ed,".pdf"))
-par(mfrow = c(2,2))
-plot(lasso.trained, xvar="lambda", label=T)
+#par(mfrow = c(3,4))
+#pdf(paste0("grid.lambda.",patient_labels,response,
+#           ".regularization",setalpha,".",index,
+#           ".genes",len,".seed",ed,".pdf"))
+#plot(lasso.trained, xvar="lambda", label=T)
 ## fraction deviance explained =R2
-plot(lasso.trained, xvar="dev", label=T)
-dev.off()
-
-# plot cross validation to get best lambda
-pdf(paste0("cv",ncv,".lambda",sprintf("%.5f", bestlam),".",response,
-           ".regularization",setalpha,".",index,".features.",ed,".pdf"))
-plot(cv.out)
-dev.off()
-
-
-
-
-
-
-
-
-
-
-# plot multiclass ROC curves to assess classification accuracies
-# get genes probabilities to predict sample cases
-lasso.link <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="link")
-lasso.response <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
-lp <- data.frame(y[-training], lasso.link, lasso.response)
-colnames(lp) <- c("labels",
-                  paste0(colnames(lasso.link), "-link"),
-                  paste0(colnames(lasso.response), "-response"))
-
-pdf(paste0("ROC.iterations",iterations,".",response,".pdf"))
-for ( i in 1:nlevels(y) ) {
-
-    couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
-
-    # get scores
-    probability.scores <- lp[, c(5+i)]
-    dummy.labels <- as.vector(model.matrix(~0 + y[-training])[, i])
-
-    # create list for average ROC
-    if ( i == 1 ) {
-        listofprobs <- list(probability.scores)
-        listofdummies <- list(dummy.labels)
-    } else {
-        listofprobs <- c(listofprobs, list(probability.scores))
-        listofdummies <- c(listofdummies, list(dummy.labels))
-    }
-
-    # rename iterations
-    names(listofprobs)[i]=paste0(levels(y)[i],"-",i)
-    names(listofdummies)[i]=paste0(levels(y)[i],"-",i)
-
-    # get accuracy
-    pred <- prediction(probability.scores, dummy.labels)
-    perf <- performance(pred, 'tpr', 'fpr')
-
-    plot(perf, lwd=1.5, col=couleurs[i],
-         xlab="Specificity (1-False positive rate)",
-         ylab="Sensitivity (True positive rate)"
-         )
-    par(new=TRUE)
-}
-# create average
-# error bars for variation around the average curve
-pred <- prediction(listofprobs, listofdummies)
-perf <- performance(pred, 'tpr', 'fpr')
-plot(perf,lty=1,lwd=2.5,avg="vertical",spread.estimate="stderror",add=TRUE)
-legend("bottomright", levels(y), lty=1, lwd=5, col = couleurs[1:nlevels(y)])
-dev.off()
-
-
-
-
-
-
-
+#plot(lasso.trained, xvar="dev", label=T)
+#plot(cv.out)
+#dev.off()
 
 
 
