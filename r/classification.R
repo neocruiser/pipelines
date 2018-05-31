@@ -1,6 +1,6 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
           'dplyr', 'mRMRe', 'glmnet', 'caret', 'foreach',
-          'doSNOW', 'lattice', 'ROCR')
+          'doSNOW', 'lattice', 'ROCR', 'earth')
 lapply(pkgs, require, character.only = TRUE)
 
 ### DEFINE DATA FITTING MODEL
@@ -12,8 +12,144 @@ grouped=TRUE
 binomial=FALSE
 
 
+##########################
+## Define new functions ##
+##########################
+## Classification
+modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TRUE){
+    ## requires caret
+    ## GRID search HYPERPARAMETERS tuning
+    ## Train model and test on independant dataset
+    ## returns a classification error
+    trainCtrl <- trainControl(method="repeatedcv",
+                              number=folds,
+                              repeats=rep,
+                              classProbs=T,
+                              summaryFunction=defaultSummary)
+    
+    ## Choosing the right Hyper-parameters. GRID ANALYSIS
+    if ( grid == TRUE ) {
+        
+        # Tune hyper-parameters
+        if ( method == "nnet" ) {
+            ## neural nets
+            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
+        } else if ( method == "RRF" ) {
+            ## Regularized Random forest (RRF)
+            grid_models <- expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-3,length=40),.coefImp=10^seq(-1,-2,length=40))
+        } else if ( method == "rf" ) {
+            ## random forest
+            grid_models <- expand.grid(.mtry=seq(1:15))
+        } else if ( method == "svmRadial") {
+            ## svmRadial
+            grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))
+        } else if ( method == "PCR") {
+            ## principal componenent regression
+            grid_models <- expand.grid(.ncomp=seq(1:15))
+        } else if ( method == "glmboost" ) {
+            ## boosted generalized lineal regression 
+            grid_models <- expand.grid(.mstop=seq(10:1000,length=20),.prune=no)
+        } else if ( method == "ridge" ) {
+            ## ridge regression
+            grid_models <- expand.grid(.lambda=10^seq(10,-2,length=100))
+        }
 
-## load expression data
+        # train the model
+        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                                  method=method,
+                                                  trControl= trainCtrl,
+                                                  preProc=c("center","scale"),
+                                                  tuneGrid=grid_models,
+                                                  tuneLength=tune))
+
+    } else if ( grid == FALSE ) {
+        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                                  method=method,
+                                                  trControl= trainCtrl,
+                                                  preProc=c("center","scale")))
+    }
+
+    pdf("model.train.pdf")
+    plot(modelTrain)
+    dev.off()
+
+    # get R squared/kappa from out of bag observations after resampling w/ repetition
+    rsquared <- modelTrain$finalModel
+    results <- modelTrain$results
+
+    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+    ## confusion matrix for classification
+    conf.m <- confusionMatrix(data=Predd, dat[-train,1])
+    Probs <- predict(modelTrain, newdata=dat[-train,], type="prob")
+    output <- list(TimeLapsed=lapsed, Results=results,
+                   R_squared=rsquared,
+                   Hyperparameters=modelTrain$bestTune,
+                   ConfusionMatrix=conf.m,Probabilities=Probs)
+    return(output)
+}
+
+## Regression without model tuning
+model.reg <- function(dat,train,method,folds=10,rep=5,tune){
+    ## requires caret
+    ## Train model and test on independant dataset
+    ## returns RMSE
+    trainCtrl <- trainControl(method="repeatedcv",
+                              number=folds,
+                              repeats=rep)
+    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                              method=method,
+                                              trControl= trainCtrl,
+                                              preProc=c("center","scale"),
+                                              tuneLength=tune ))
+    ploted <- plot(modelTrain)
+    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+    ## Test set MSE for regression
+    rmse <- mean((Predd - y[-train])^2)
+    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd,Hyperparameters=modelTrain$bestTune, RMSE=rmse)
+    return(output)
+}
+
+## Regression
+modelTune.reg <- function(dat,train,method,folds=10,rep=5,tune,ctl){
+    ## requires caret
+    ## Uses GRID for HYPERPARAMETER tuning
+    ## Train model and test on independant dataset
+    ## returns RMSE
+    trainCtrl <- trainControl(method="repeatedcv",number=folds, repeats=rep)	## Regression
+    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                              method=method,
+                                              trControl= trainCtrl,
+                                              preProc=c("center","scale"),
+                                              tuneGrid=ctl,
+                                              tuneLength=tune ))
+    ploted <- plot(modelTrain)
+    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+    ## Test set MSE for regression
+    rmse <- mean((Predd - y[-train])^2)
+    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd, Hyperparameters=modelTrain$bestTune, RMSE=rmse)
+    return(output)
+}
+
+ensemble.mean <- function(a,b){
+    ## Ensemble Methods
+    ## calculates RMSE of joint predictions
+    ## Weighted averaging of 2 base learners
+    E.pred1 <- (a[[2]]+b[[2]])/2
+    E.pred2 <- (a[[2]]*2+b[[2]])/3
+    E.pred3 <- (a[[2]]+b[[2]]*2)/3
+    M1 <- mean((E.pred1 - y[test])^2)		## Test set MSE for regression
+    M2 <- mean((E.pred2 - y[test])^2)		## Test set MSE for regression
+    M3 <- mean((E.pred3 - y[test])^2)		## Test set MSE for regression
+    ploted <- plot(y=c(M1,M2,M3),x=1:3, lty=5,cex=1,pch=21:23,type="b",bg="red")
+    output <- list(ploted,model1.ab=M1,model2.2ab=M2,model3.a2b=M3)
+    return(output)
+}
+
+
+
+##########################
+## Load expression data ##
+##########################
 # optimized for t-statistics microarray expressions
 # rows=genes
 # col=samples
@@ -150,8 +286,8 @@ while (success == FALSE) {
     for (i in nl) {
         for (e in 1:iterations) {
             # set seed for reproducibility
-            ed <- floor(abs(rnorm(1) * 10000000))
-            set.seed(ed)
+            ede <- floor(abs(rnorm(1) * 10000000))
+            set.seed(ede)
 
             # Split the dataset into 80% training data
             training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
@@ -166,9 +302,12 @@ while (success == FALSE) {
             &
             (length(unique(y[-training])) != nlevels(y))
             ) {
-                ed <- floor(abs(rnorm(1) * 10000000))
-                set.seed(ed)
-                training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+                ede <- floor(abs(rnorm(1) * 10000000))
+                set.seed(ede)
+                # split 70% of the data
+                randomize <- sample(nrow(adj.x))
+                training <- sample(randomize, nrow(adj.x)/1.429)
+                #table(y[-training])
                 tr <- length(training)
             }
 
@@ -245,7 +384,7 @@ while (success == FALSE) {
             # all cases into correct patient diagnosis
             dm <- rbind(dm, data.frame(iterations=e,
                                        class=levels(y)[i],
-                                       seed=ed,
+                                       seed=ede,
                                        lambda=bestlam,
                                        probabilityScore=mean(ps[[e]]) ))
 
@@ -279,7 +418,7 @@ while (success == FALSE) {
                     df <- rbind(df, data.frame(iterations=e,
                                                group=n,
                                                accuracy=f,
-                                               seed=ed,
+                                               seed=ede,
                                                classification=response,
                                                cv=ncv,
                                                method= me,
@@ -322,6 +461,7 @@ write.table(df, paste0("summary.lambda.iterations",iterations,".",response,".acc
 ## Get best parameters ##
 #########################
 # iterate across sample labels
+set.seed(ed)
 nl <- c(1:nlevels(y))[levels(y)!="CTRL"]
 results=NULL
 for ( z in nl ) {
@@ -340,6 +480,7 @@ for ( z in nl ) {
 # each sample group has a different lambda
 # each lambda was generated from a different seed
 # each lambda generates a different yet somewhat redundant gene subset
+lasso.selected.genes = NULL
 for (l in 1:nrow(results)) {
     ed <- results$seed[[l]]
     bestlam <- results$lambda[[l]]
@@ -376,6 +517,9 @@ for (l in 1:nrow(results)) {
     } else {
         stop("Number of selected genes do not match the original dataset")
     }
+
+    # get all genes selected from each grouping
+    lasso.selected.genes <- rbind(lasso.selected.genes, t(lasso.select))
 }
 
 # plot lambda iterations
@@ -390,158 +534,83 @@ for (l in 1:nrow(results)) {
 #dev.off()
 
 
-
-##########################
-## Define new functions ##
-##########################
-
-model.reg <- function(dat,train,method,folds=10,rep=5,tune){
-    ## requires caret
-    ## Regression
-    ## Train model and test on independant dataset
-    ## returns RMSE
-    trainCtrl <- trainControl(method="repeatedcv",
-                              number=folds,
-                              repeats=rep)
-    lapsed <- train(y~., data=dat[train,],
-                    method=method,
-                    trControl= trainCtrl,
-                    preProc=c("center","scale"),
-                    tuneLength=tune )
-    ploted <- plot(modelTrain)
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
-    ## Test set MSE for regression
-    rmse <- mean((Predd - y[-train])^2)
-    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd,Hyperparameters=modelTrain$bestTune, RMSE=rmse)
-    return(output)
-}
-
-modelTune.reg <- function(dat,train,method,folds=10,rep=5,tune,ctl){
-    ## requires caret
-    ## Regression
-    ## Uses GRID for HYPERPARAMETER tuning
-    ## Train model and test on independant dataset
-    ## returns RMSE
-    trainCtrl <- trainControl(method="repeatedcv",number=folds, repeats=rep)	## Regression
-    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
-                                              method=method,
-                                              trControl= trainCtrl,
-                                              preProc=c("center","scale"),
-                                              tuneGrid=ctl,
-                                              tuneLength=tune ))
-    ploted <- plot(modelTrain)
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
-    ## Test set MSE for regression
-    rmse <- mean((Predd - y[-train])^2)
-    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd, Hyperparameters=modelTrain$bestTune, RMSE=rmse)
-    return(output)
-}
-
-modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TRUE){
-    ## requires caret
-    ## Classification
-    ## GRID search HYPERPARAMETERS tuning
-    ## Train model and test on independant dataset
-    ## returns a classification error
-    trainCtrl <- trainControl(method="repeatedcv",
-                              number=folds,
-                              repeats=rep,
-                              classProbs=T,
-                              summaryFunction=defaultSummary)
-    
-    ## Choosing the right Hyper-parameters. GRID ANALYSIS
-    if ( grid == TRUE ) {
-        
-        # Tune hyper-parameters
-        if ( method == "nnet" ) {
-            ## neural nets
-            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
-        } else if ( method == "RRF" ) {
-            ## Regularized Random forest (RRF)
-            grid_models <- expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-3,length=40),.coefImp=10^seq(-1,-2,length=40))
-        } else if ( method == "rf" ) {
-            ## random forest
-            grid_models <- expand.grid(.mtry=seq(1:15))
-        } else if ( method == "svmRadial") {
-            ## svmRadial
-            grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))
-        } else if ( method == "PCR") {
-            ## principal componenent regression
-            grid_models <- expand.grid(.ncomp=seq(1:15))
-        } else if ( method == "glmboost" ) {
-            ## boosted generalized lineal regression 
-            grid_models <- expand.grid(.mstop=seq(10:1000,length=20),.prune=no)
-        } else if ( method == "ridge" ) {
-            ## ridge regression
-            grid_models <- expand.grid(.lambda=10^seq(10,-2,length=100))
-        }
-
-        # train the model
-        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
-                                                  method=method,
-                                                  trControl= trainCtrl,
-                                                  preProc=c("center","scale"),
-                                                  tuneGrid=grid_models,
-                                                  tuneLength=tune))
-
-    } else if ( grid == FALSE ) {
-        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
-                                                  method=method,
-                                                  trControl= trainCtrl,
-                                                  preProc=c("center","scale")))
-    }
-
-    pdf("model.train.pdf")
-    plot(modelTrain)
-    dev.off()
-
-    # get R squared/kappa from out of bag observations after resampling w/ repetition
-    rsquared <- modelTrain$finalModel
-    results <- modelTrain$results
-
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
-    ## confusion matrix for classification
-    conf.m <- confusionMatrix(data=Predd, dat[-train,1])
-    Probs <- predict(modelTrain, newdata=dat[-train,], type="prob")
-    output <- list(TimeLapsed=lapsed, Results=results,
-                   R_squared=rsquared,
-                   Hyperparameters=modelTrain$bestTune,
-                   ConfusionMatrix=conf.m,Probabilities=Probs)
-    return(output)
-}
-
-
-ensemble.mean <- function(a,b){
-    ## Ensemble Methods
-    ## calculates RMSE of joint predictions
-    ## Weighted averaging of 2 base learners
-    E.pred1 <- (a[[2]]+b[[2]])/2
-    E.pred2 <- (a[[2]]*2+b[[2]])/3
-    E.pred3 <- (a[[2]]+b[[2]]*2)/3
-    M1 <- mean((E.pred1 - y[test])^2)		## Test set MSE for regression
-    M2 <- mean((E.pred2 - y[test])^2)		## Test set MSE for regression
-    M3 <- mean((E.pred3 - y[test])^2)		## Test set MSE for regression
-    ploted <- plot(y=c(M1,M2,M3),x=1:3, lty=5,cex=1,pch=21:23,type="b",bg="red")
-    output <- list(ploted,model1.ab=M1,model2.2ab=M2,model3.a2b=M3)
-    return(output)
-}
-
-
-
-
 ############################
 ## Validating classifiers ##
 ############################
 # combine TRUE sample grouping (observed) with predicted
-dat <- data.frame(y=y, lasso.select)
+# lasso.select contains the genes that were selected for their
+# high probability to assign samples to their correct group
+lasso.selected.genes.nodup <- unique(lasso.selected.genes[, ])
+dat <- data.frame(y=y, t(lasso.selected.genes.nodup))
 dim(dat)
+set.seed(ed)
 
-model.reg(dat,training,method="RRF",folds=10,r=5,tune=10)
+
+if ( classification == TRUE & grouped == TRUE ) {
+    output_summary <- modelTune.clas(dat,training,method="rf",folds=10,r=10,tune=30, grid=TRUE)
+} else if ( classification == TRUE & binomial == TRUE ) {
+    output_summary <- modelTune.clas(dat,training,method="rf",folds=10,r=10,tune=30, grid=FALSE)
+} else if ( regression == TRUE & bionomial == TRUE ) {
+    output_summary <- modelTune.reg(dat,training,method="nnet",folds=10,r=10,tune=30,ctl)
+}
 
 
-summary_output <- modelTune.reg(dat,training,method="nnet",folds=10,r=5,tune=10,ctl)
 
-summary_output<- modelTune.clas(dat,training,method="rf",folds=10,r=5,tune, grid=FALSE)
+model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
+
+model_types <- c("rf", "RRF", "treebag",
+                 "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
+                 "nnet", "monmlp", "dnn",
+                 "gbm",
+                 "C5.0", "LogitBoost", "regLogistic",
+                 "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
+                 "kernelpls", "multinom", "pls", 
+                 "kknn", "naive_bayes")
+
+# create an index for the iteration holder below
+icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
+modet=ite=NULL
+ite=icc()
+models=icc()
+
+for ( iterations in c(1:10) ) {
+    ## as much iterations will be executed for each model
+    ## iterations are done in addition to 25 resampling for each model
+    ie=ite()
+
+    for ( mods in model_types ) {
+
+        ## models are trained in succession
+        ## output is saved
+        cat("\nStarted iteration:", ie, "on model:", mods)
+        modnam=models()
+        model.name <- paste0(mods,"_",ie)
+        trained.model <- train( y ~ .,
+                               data = dat,
+                               method = mods )
+
+        # aggregate all performance metrics
+        if ( modnam == 1 ){
+            performance_summary <- list(trained.model)
+            names(performance_summary)[modnam] <- model.name
+        } else if ( modnam > 1 ) {
+            performance_summary <- c(performance_summary, list(trained.model))
+            names(performance_summary)[modnam] <- model.name        
+        }
+
+        cat("... Iteration:", ie, "executed successfully on model:", mods)
+    }
+
+}
+
+## all metrics are then compared
+performance_summary %>% resamples %>% summary %>%
+    write.table("performance.metrics.multianalysis.ml.txt", sep = "\t", quote = F)
+
+train(y~., data = dat, method = "naive_bayes")
+
+
+compare_models(nnet0,rf1)
 
 
 
