@@ -75,6 +75,7 @@ _metrics=$output/performance.metrics.multianalysis.ml.txt
 for m in Accuracy Kappa; do
     cat $_metrics  | sed -n "/${m}/,/NA/p" |\
 	sed -e '1d' -e '$ d' -e 's/--/\t/g' -e 's/^.*Min./model\titeration\tMin/g' \
+	    -e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
 	    > $output/$m.metrics."${pbs}".txt
 done
 

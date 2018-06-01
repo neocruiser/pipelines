@@ -558,14 +558,14 @@ if ( classification == TRUE & grouped == TRUE ) {
 
 model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
 
-model_types <- c("rf", "RRF", "treebag",
-                 "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
-                 "nnet", "monmlp", "dnn",
-                 "gbm",
-                 "C5.0", "LogitBoost", "regLogistic",
+model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
+                 "C5.0", "LogitBoost", "regLogistic",
                  "kernelpls", "multinom", "pls", 
-                 "kknn", "naive_bayes")
+                 "nnet", "monmlp", "dnn",
+                 "rf", "RRF", "treebag",
+                 "kknn", "naive_bayes",
+                 "gbm")
 
 # create an index for the iteration holder below
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
@@ -573,8 +573,8 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( iterations in c(1:10) ) {
-    ## as much iterations will be executed for each model
+for ( iterations in c(1:2) ) {
+    ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
 
@@ -582,9 +582,10 @@ for ( iterations in c(1:10) ) {
 
         ## models are trained in succession
         ## output is saved
-        cat("\nStarted iteration:", ie, "on model:", mods)
+        start <- format(Sys.time(), "%X")
+        cat("\nIteration", ie, "on model", mods, "started at", start)
         modnam=models()
-        model.name <- paste0(mods,"_",ie)
+        model.name <- paste0(mods,"--",ie)
         trained.model <- train( y ~ .,
                                data = dat,
                                method = mods )
@@ -597,15 +598,16 @@ for ( iterations in c(1:10) ) {
             performance_summary <- c(performance_summary, list(trained.model))
             names(performance_summary)[modnam] <- model.name        
         }
-
-        cat("... Iteration:", ie, "executed successfully on model:", mods)
+        end <- format(Sys.time(), "%X")
+        cat(". Execution was successful at", end)
     }
 
 }
 
 ## all metrics are then compared
-performance_summary %>% resamples %>% summary %>%
-    write.table("performance.metrics.multianalysis.ml.txt", sep = "\t", quote = F)
+sink("performance.metrics.multianalysis.ml.txt")
+performance_summary %>% resamples %>% summary
+sink()
 
 train(y~., data = dat, method = "naive_bayes")
 
