@@ -1,0 +1,89 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=4,walltime=200:00:00,vmem=30g,mem=220g
+#PBS -N networks
+#PBS -q long
+#PBS -V
+#PBS -j oe
+#PBS -m abe
+#PBS -M slei.bass@gmail.com
+
+set -x
+
+module load R
+
+##################
+## DO NOT TOUCH ##
+##################
+# cluster directories
+# server characteristics and files indexing
+scratch=/cluster/projects/kridelgroup
+home=/cluster/home/sbassim
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+project=$scratch/relapse
+output=$project/networks/$pbs
+time=$home/time
+jobid=$pbs.R.networks
+start=$(date); echo "Job started at: $start" > $time/$jobid.time
+
+
+
+#################
+## USER DEFINE ##
+#################
+## MUST DEFINE BEFORE EXECUTION
+_contrast=systemicRelapse
+_workingDir=$project/expression/149518
+_affymetrix=$_workingDir/summary/normalized.subset.*txt
+
+## execute pipeline: clusters, networks, all
+run_pipe=all
+
+
+## total, up or clusters
+_strategy=total
+
+## if strategy is clusters
+power=8
+modulelength=26
+standardize=hellinger
+clustering=complete
+correlation=spearman
+_networkDir=$project/networks/104859
+_bstatistics=1.5
+
+############
+## PART I ##
+############
+mkdir -p $output
+cd $output
+
+
+
+
+
+
+
+R CMD BATCH $home/script*/r/classification.R
+
+
+
+
+_metrics=$output/performance.metrics.multianalysis.ml.txt
+# get accuracy and kappa values for all iterations
+# typically 10 iteractions, each resampled 25 times with the same seed
+# and for all 25 models
+for m in Accuracy Kappa; do
+    cat $_metrics  | sed -n "/${m}/,/NA/p" |\
+	sed -e '1d' -e '$ d' -e 's/--/\t/g' -e 's/^.*Min./model\titeration\tMin/g' \
+	    > $output/$m.metrics."${pbs}".txt
+done
+
+
+
+
+
+
+
+
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
+
