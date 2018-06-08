@@ -3,6 +3,9 @@ pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
           'doSNOW', 'lattice', 'ROCR', 'earth')
 lapply(pkgs, require, character.only = TRUE)
 
+## logging
+source("./script/lsos.R")
+
 ### DEFINE DATA FITTING MODEL
 classification=TRUE
 regression=FALSE
@@ -24,36 +27,87 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
     trainCtrl <- trainControl(method="repeatedcv",
                               number=folds,
                               repeats=rep,
-                              classProbs=T,
+#                              classProbs=T,
                               summaryFunction=defaultSummary)
     
     ## Choosing the right Hyper-parameters. GRID ANALYSIS
     if ( grid == TRUE ) {
         
         # Tune hyper-parameters
-        if ( method == "nnet" ) {
-            ## neural nets
-            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
-        } else if ( method == "RRF" ) {
-            ## Regularized Random forest (RRF)
-            grid_models <- expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-3,length=40),.coefImp=10^seq(-1,-2,length=40))
+        if ( method == "svmLinear" ) {
+            ## support vector machines with linear kernel
+            grid_models <- expand.grid(.C=seq(1, 20, length=40))
+        } else if ( method == "svmPoly") {
+            ## svmRadial
+            grid_models <- expand.grid(.degree=seq(0,20,.5),.scale=10^seq(-1,-3,length=15),.C=seq(1:5))
+        } else if ( method == "svmRadialSigma") {
+            ## svm with radial basis function kernel
+            grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))
+        } else if ( method == "svmLinear3") {
+            ## l2 regularized support vector machine (dual) with linear kernel
+            grid_models <- expand.grid(.cost=seq(0.1,1,0.01), .Loss=seq(0:7))
+        } else if ( method == "lda2" ) {
+            ## Linear discriminant analysis
+            grid_models <- expand.grid(.dimen=seq(1,15,.25))
+        } else if ( method == "bagFDA" || method == "fda" ) {
+            ## bagged flexible discriminant analysis
+            grid_models <- expand.grid(.degree=seq(.1,2,length=10), .nprune=seq(1,50,length=15))
+        } else if ( method == "pda" ) {
+            ## penalized discriminant analysis
+            grid_models <- expand.grid(.lambda=10^seq(-0.05,-4,length=35))
+        } else if ( method == "loclda" ) {
+            ## localized linear discriminant analysis
+            grid_models <- expand.grid(.k=seq(1,400,length=40))
+        } else if ( method == "bagFDAGCV" ) {
+            ## bagged FDA using gCV pruning
+            grid_models <- expand.grid(.degree=seq(.1,2,length=40))
+        } else if ( method == "C5.0" ) {
+            ## c5 decision trees
+            grid_models <- expand.grid(.trials=seq(1,100,5), .model=c("rules","tree"), .winnow=c(TRUE,FALSE))
+        } else if ( method == "LogitBoost" ) {
+            ## Boosted logistic regression
+            grid_models <- expand.grid(.nIter=seq(1,100,length=40))
+        } else if ( method == "regLogistic" ) {
+            ## regularized logistic regression
+            grid_models <- expand.grid(.cost=seq(.1,5,length=10),.loss=c(0:7),.epsilon=seq(-.5,-3,length=10))
+        } else if ( method == "kernelpls" ) {
+            ## partial least squares
+            grid_models <- expand.grid(.ncomp=seq(0.1,20,length=40))
+        } else if ( method == "multinom" ) {
+            ## penalized multinomial regression
+            grid_models <- expand.grid(.decay=10^seq(-.5,-5,length=40))
+        } else if ( method == "nnet" ) {
+            ## neural networks
+            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-.5,-5,length=40))
+        } else if ( method == "monmlp" ) {
+            ## monotone multi-layer perceptron neural network
+            grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(10))
+        } else if ( method == "dnn" ) {
+            ## stacked autoencoder deep neural network
+            grid_models <- expand.grid(.layer1=seq(1:10),.layer2=seq(1:5),.layer3=seq(1:2),
+                                       .hidden_dropout=seq(.1,2,length=5),
+                                       .visible_dropout=seq(.1,2,length=2))
         } else if ( method == "rf" ) {
             ## random forest
             grid_models <- expand.grid(.mtry=seq(1:15))
-        } else if ( method == "svmRadial") {
-            ## svmRadial
-            grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))
-        } else if ( method == "PCR") {
-            ## principal componenent regression
-            grid_models <- expand.grid(.ncomp=seq(1:15))
-        } else if ( method == "glmboost" ) {
-            ## boosted generalized lineal regression 
-            grid_models <- expand.grid(.mstop=seq(10:1000,length=20),.prune=no)
-        } else if ( method == "ridge" ) {
-            ## ridge regression
-            grid_models <- expand.grid(.lambda=10^seq(10,-2,length=100))
+        } else if ( method == "RRF" ) {
+            ## regularized random forest
+            grid_models <- expand.grid(.mtry=seq(1:10),.coefreg=10^seq(-1,-3,length=10),.coefimp=10^seq(-1,-2,length=5))
+        } else if ( method == "kknn" ) {
+            ## weighted k nearest neighbors
+            grid_models <- expand.grid(.kmax=seq(1:15),.distance=seq(1:5),.kernel=c("optimal","rank","gaussian",
+                                                                                    "inv","cos","rectangular",
+                                                                                    "triangular","biweight",
+                                                                                    "triweight"))
+        } else if ( method == "naive_bayes" ) {
+            ## naive bayes
+            grid_models <- expand.grid(.laplace=seq(0,2,length=5),.usekernel=c(FALSE,TRUE),.adjust=c(0,1,2))
+        } else if ( method == "gbm" ) {
+            ## stochastic gradient boosting
+            grid_models <- expand.grid(.n.trees=seq(5,300,length=20),.interaction.depth=seq(1,5,length=10),
+                                       .shrinkage=10^seq(-.1,-2,length=10),.n.minobsinnode=seq(1:10))
         }
-
+        
         # train the model
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,
@@ -63,6 +117,8 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                                   tuneLength=tune))
 
     } else if ( grid == FALSE ) {
+        ## do not tune the hyperparameters
+        ## just use the default options for each model
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,
                                                   trControl= trainCtrl,
@@ -73,20 +129,28 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
     plot(modelTrain)
     dev.off()
 
-    # get R squared/kappa from out of bag observations after resampling w/ repetition
-    rsquared <- modelTrain$finalModel
+    ## get performance scores from out-of-bag observations
+    ## after cross validation during hyperparameter tuning
     results <- modelTrain$results
 
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+    ## get prediction accuracy
     ## confusion matrix for classification
+    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
     conf.m <- confusionMatrix(data=Predd, dat[-train,1])
-    Probs <- predict(modelTrain, newdata=dat[-train,], type="prob")
-    output <- list(TimeLapsed=lapsed, Results=results,
-                   R_squared=rsquared,
+
+    ## Compile everything for later accessibility
+    ## time, best model based on training performance metrics
+    ## tuning accuracy per parameter
+    output <- list(timeLapsed=lapsed,
+                   bestModel=modelTrain,
+                   Results=results,
                    Hyperparameters=modelTrain$bestTune,
-                   ConfusionMatrix=conf.m,Probabilities=Probs)
+                   ConfusionMatrix=conf.m)
     return(output)
 }
+
+
+
 
 ## Regression without model tuning
 model.reg <- function(dat,train,method,folds=10,rep=5,tune){
@@ -154,7 +218,7 @@ ensemble.mean <- function(a,b){
 # rows=genes
 # col=samples
 cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n")
-means <- read.table("expressions.149444", sep="\t", header=T, row.names=1)
+means <- read.table("expressions", sep="\t", header=T, row.names=1)
 dim(means)
 cat("\n\nStandardized transformed scores: Genes are columns and samples are rows\n")
 adj.x <- t(decostand(means, "standardize"))
@@ -451,8 +515,8 @@ dev.off()
 
 
 ## extract regularization metrics for all iterations
-write.table(dm, paste0("summary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
-write.table(df, paste0("summary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
+write.table(dm, paste0("logSummary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
+write.table(df, paste0("logSummary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
 
 
 
@@ -546,27 +610,28 @@ dim(dat)
 set.seed(ed)
 
 
-if ( classification == TRUE & grouped == TRUE ) {
-    output_summary <- modelTune.clas(dat,training,method="rf",folds=10,r=10,tune=30, grid=TRUE)
-} else if ( classification == TRUE & binomial == TRUE ) {
-    output_summary <- modelTune.clas(dat,training,method="rf",folds=10,r=10,tune=30, grid=FALSE)
-} else if ( regression == TRUE & bionomial == TRUE ) {
-    output_summary <- modelTune.reg(dat,training,method="nnet",folds=10,r=10,tune=30,ctl)
-}
-
-
-
-model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
-
+# machine learning models used
 model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
                  "C5.0", "LogitBoost", "regLogistic",
-                 "kernelpls", "multinom", "pls", 
+                 "kernelpls", "multinom",
                  "nnet", "monmlp", "dnn",
-                 "rf", "RRF", "treebag",
-                 "kknn", "naive_bayes",
-                 "gbm")
+                 "rf", "RRF",
+                 "kknn", "naive_bayes", "gbm")
 
+# number of parameters per model
+# the deep network used in this step is an automated model
+# hence the low number of parameters to adjust
+parameter_counts <- c(1,3,2,2,
+                      1,2,2,1,1,1,
+                      3,1,3,
+                      1,1,
+                      2,2,5,
+                      1,3,
+                      3,3,4)
+
+######## STEP I ##########
+## performance metrics for best model without hyperparameter optimization
 # create an index for the iteration holder below
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
 modet=ite=NULL
@@ -578,16 +643,24 @@ for ( iterations in c(1:2) ) {
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
 
-    for ( mods in model_types ) {
+    for ( m in 1:length(model_types) ) {
+        
+        mods=model_types[[m]]
+        param=parameter_counts[[m]]
 
         ## models are trained in succession
         ## output is saved
         start <- format(Sys.time(), "%X")
         cat("\nIteration", ie, "on model", mods, "started at", start)
         modnam=models()
-        model.name <- paste0(mods,"--",ie)
+        model.name <- paste0(mods,"|",ie,"|",param)
+        
+        trainCtrl <- trainControl(method="cv",
+                                  number=10)
+
         trained.model <- train( y ~ .,
                                data = dat,
+                               trControl= trainCtrl,
                                method = mods )
 
         # aggregate all performance metrics
@@ -604,16 +677,103 @@ for ( iterations in c(1:2) ) {
 
 }
 
-## all metrics are then compared
-sink("performance.metrics.multianalysis.ml.txt")
+## summary 1
+## performance metrics between models with repeated iterations
+sink(paste0("performance1.multianalysis.seed",ed))
 performance_summary %>% resamples %>% summary
 sink()
 
-train(y~., data = dat, method = "naive_bayes")
+## save output
+save(list=ls(pattern="perf*summary"),file="performanceSummaryNoTune.Rdata")
 
 
-compare_models(nnet0,rf1)
+######## STEP II ##########
+## Classification across models with hyperparameter optimization
+## with hyperparameter tuning
+systems.metrics <- NULL
 
+if ( classification == TRUE & grouped == TRUE ) {
+    for ( m in 1:length(model_types) ) {
+        
+        mods=model_types[[m]]
+        param=parameter_counts[[m]]
+
+        ## start logging
+        start <- format(Sys.time(), "%X")
+        cat("\nTraining on model", mods, "started at", start)
+
+        ## models are trained in succession
+        ## predicted output is saved
+        model.name <- paste0(mods,"|",param)
+
+        model.metrics <- modelTune.clas(dat,training,method=mods,folds=10,r=5,tune=30, grid=TRUE)
+
+        ## aggregate all performance metrics
+        ## only for predicted features
+        ## contains results and tuned/selected parameters per model
+        if ( m == 1 ){
+            performance_summaryFull <- list(model.metrics$bestModel)
+            names(performance_summaryFull)[m] <- model.name
+        } else if ( m > 1 ) {
+            performance_summaryFull <- c(performance_summaryFull, list(model.metrics$bestModel))
+            names(performance_summaryFull)[m] <- model.name        
+        }
+
+        ## get iteration speed
+        ## get sensitivity, specificity, precision scores ...
+        systems.metrics <- rbind(systems.metrics,
+                                 data.frame(model=mods,
+                                            durationSeconds=model.metrics$timeLapsed[[3]],
+                                            model.metrics$ConfusionMatrix$byClass,
+                                            accuracy=model.metrics$ConfusionMatrix$overall[[1]],
+                                            kappa=model.metrics$ConfusionMatrix$overall[[2]],
+                                            accuracyPval=model.metrics$ConfusionMatrix$overall[[6]]))
+
+        ## end logging
+        end <- format(Sys.time(), "%X")
+        cat(". Execution was successful at", end)
+    }
+
+} else if ( classification == TRUE & binomial == TRUE ) {
+
+    output_summary <- modelTune.clas(dat,training,method="rf",folds=10,r=10,tune=30, grid=FALSE)
+
+} else if ( regression == TRUE & bionomial == TRUE ) {
+
+    output_summary <- modelTune.reg(dat,training,method="nnet",folds=10,r=10,tune=30,ctl)
+
+}
+
+## summary 2
+## performance metrics for best model while hyperparameters tuning
+sink(paste0("performance2.hyperTuning.seed",ed))
+performance_summaryFull %>% resamples %>% summary
+sink()
+
+## summary 3
+## performance metrics for best classifier
+write.table(systems.metrics,
+            paste0("performance3.full.hyperTuning.seed",ed),
+            sep = "\t", quote = FALSE)
+
+## save classification output
+save(list=ls(pattern="systems.metrics"),file="systemsMetrics.Rdata")
+save(list=ls(pattern="perf*Full"),file="performanceSummaryFull.Rdata")
+
+
+
+
+##### debugging #####
+#model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
+#train(y~., data = dat, method = "naive_bayes")
+
+
+###### experimental ######
+#compare_models(nnet0,rf1)
+
+
+## print full view of variables, data frames, matrices, funcitons...
+lsos()
 
 
 
@@ -690,101 +850,11 @@ plot(pve, type="o", ylab = "PVE",xlab = "Principal Component", col="blue")
 plot(cumsum(pve), type="o",ylab = "Cumultive PVE", xlab = "Principal Component", col="brown3")
 ## (Unsupervised) Principal Componenent analysis (reduced dimension) (paper3)
 
-##############################
-# ANOVA for 29 genes
-##############################
-
-dat <- t(mmcDat[,-c(1,2)])
-diet <- gl(3,9,27, label=c("No","Co","Ti"));diet <- diet[-c(7:9,26:27)];diet
-stages <- gl(5,3,28, label=c("E", "T", "V", "P", "J")); stages <- stages[-c(16:21)]; stages
-## prepare variables
-resDat <- NULL
-for(i in 1:ncol(dat)){
-test <- data.frame(gene=dat[,i],diet,stages)
-resDat <- rbind(resDat, coefficients(aov(gene~diet+stages+diet*stages,test)))
-}
-## compute residuals for manova
-rownames(resDat) <- colnames(dat)
-asetwd("C:/Workshop2014/Paper3")
-write.csv(resDat, "29residuals.csv",quote=F)
-## extract and save
-
-##############################
-# Circos
-##############################
-setwd("C:/workshop2014/Paper3")
-#save(list=ls(pattern="locus|opt|setup|mmc"),file="circos_MS3.Rdata")	## save
-load("circos_MS3.Rdata", .GlobalEnv)
-lsos(pat="locus|opt|setup|mmc")
-
-require(circlize)
-circos.test(mmcCorr,5)
-## plot correlations for 5 genes
-
-## old
-circos.test(optS3,5)
-## optS3= all correlations of setup III from the MMC output file
-## 5= number of genes to be ploted
 
 ##############################
 # Tryouts
 ##############################
 
-rats <- data.frame(id = paste0("rat",1:10),
-  sex = factor(rep(c("female","male"),each=5)),
-  weight = c(2,4,1,11,18,12,7,12,19,20),
-  length = c(100,105,115,130,95,150,165,180,190,175))
-
-## working
-mat <- t(optall[1:3,1:5,drop=F])
-#rownames(mat) = letters[1:3]
-#colnames(mat) = LETTERS[1:6]
-rn = rownames(mat)
-cn = colnames(mat)
-mat
-factors = c(rn,cn)
-factors = factor(factors, levels = factors)
-col_sum = apply(mat, 2, sum)
-row_sum = apply(mat, 1, sum)
-xlim = cbind(rep(0, ncol(mat)+nrow(mat)), c(row_sum, col_sum))
-par(mar = c(1, 1, 1, 1))
-circos.par(cell.padding = c(0, 0, 0, 0), clock.wise = FALSE,gap.degree = c(ncol(mat)+nrow(mat)), start.degree = 5)
-circos.initialize(factors = factors, xlim = xlim,sector.width = 2)
-#circos.clear()
-circos.trackPlotRegion(factors = factors, ylim = c(0, 1), bg.border = NA,
-bg.col = c("red", "green", "blue", rep("grey", 6)), track.height = 0.05,
-panel.fun = function(x, y) {
-sector.name = get.cell.meta.data("sector.index")
-xlim = get.cell.meta.data("xlim")
-circos.text(mean(xlim), 1.5, sector.name, adj = c(0.5, 0))
-if(sector.name %in% rn) {
-for(i in seq_len(ncol(mat))) {
-circos.lines(rep(sum(mat[sector.name, seq_len(i)]), 2), c(0, 1),
-col = "white")
-}
-} else if(sector.name %in% cn) {
-for(i in seq_len(nrow(mat))) {
-circos.lines(rep(sum(mat[ seq_len(i), sector.name]), 2), c(0, 1),
-col = "white")}}})
-col = c("#FF000020", "#00FF0020", "#0000FF20")
-for(i in seq_len(nrow(mat))) {
-for(j in seq_len(ncol(mat))) {
-circos.link(rn[i], c(sum(mat[i, seq_len(j-1)]), sum(mat[i, seq_len(j)])),
-cn[j], c(sum(mat[seq_len(i-1), j]), sum(mat[seq_len(i), j])),
-col = col[i], border = "white")}}
-circos.clear()
-## Build Circos
-
-
-
-require(ggmap)
-require(rworldmap)
-par(mar=c(2,2,2,.5))
-newWorld <- getMap(resolution="high")
-plot(newWorld)
-geocode("magdalen islands")
-plot(newWorld, xlim=c(5,53), ylim=c(17.6,23),asp=1)
-## world map
 
 
 require(qmap)
@@ -829,13 +899,9 @@ table(pred.te, dat.te$y)
 cat("\nMisclassification Error rate",(4/22)*100,"\n")
 ## support vector regression
 
-##############################
-# SAVE
-##############################
 
-setwd("C:/Dropbox/Workshop2013/Work/R/ANN")
+
+####### Save ########
 lsos(pat="locus.select|mRMR|grid|bag")
 save(list=ls(pattern="mRMR|grid|bag"),file="EnsembleMethods.Rdata")	## save
-save(list=ls(pattern="*.mRMR"),file="lassoSelected.Rdata")	## save
-save(list=ls(pattern="locus.select"),file="mRMRselected.Rdata")	## save
 load("EnsembleMethods.Rdata", .GlobalEnv)
