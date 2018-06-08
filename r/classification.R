@@ -39,7 +39,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.C=seq(1, 20, length=40))
         } else if ( method == "svmPoly") {
             ## svmRadial
-            grid_models <- expand.grid(.degree=seq(0,20,.5),.scale=10^seq(-1,-3,length=15),.C=seq(1:5))
+            grid_models <- expand.grid(.degree=seq(0,20,.5),.scale=10^seq(-1,-3,length=5),.C=seq(1:5))
         } else if ( method == "svmRadialSigma") {
             ## svm with radial basis function kernel
             grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))
@@ -57,7 +57,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.lambda=10^seq(-0.05,-4,length=35))
         } else if ( method == "loclda" ) {
             ## localized linear discriminant analysis
-            grid_models <- expand.grid(.k=seq(1,400,length=40))
+            grid_models <- expand.grid(.k=seq(1,400,length=20))
         } else if ( method == "bagFDAGCV" ) {
             ## bagged FDA using gCV pruning
             grid_models <- expand.grid(.degree=seq(.1,2,length=40))
@@ -149,65 +149,6 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
     return(output)
 }
 
-
-
-
-## Regression without model tuning
-model.reg <- function(dat,train,method,folds=10,rep=5,tune){
-    ## requires caret
-    ## Train model and test on independant dataset
-    ## returns RMSE
-    trainCtrl <- trainControl(method="repeatedcv",
-                              number=folds,
-                              repeats=rep)
-    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
-                                              method=method,
-                                              trControl= trainCtrl,
-                                              preProc=c("center","scale"),
-                                              tuneLength=tune ))
-    ploted <- plot(modelTrain)
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
-    ## Test set MSE for regression
-    rmse <- mean((Predd - y[-train])^2)
-    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd,Hyperparameters=modelTrain$bestTune, RMSE=rmse)
-    return(output)
-}
-
-## Regression
-modelTune.reg <- function(dat,train,method,folds=10,rep=5,tune,ctl){
-    ## requires caret
-    ## Uses GRID for HYPERPARAMETER tuning
-    ## Train model and test on independant dataset
-    ## returns RMSE
-    trainCtrl <- trainControl(method="repeatedcv",number=folds, repeats=rep)	## Regression
-    lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
-                                              method=method,
-                                              trControl= trainCtrl,
-                                              preProc=c("center","scale"),
-                                              tuneGrid=ctl,
-                                              tuneLength=tune ))
-    ploted <- plot(modelTrain)
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
-    ## Test set MSE for regression
-    rmse <- mean((Predd - y[-train])^2)
-    output <- list(ploted,TimeLapsed=lapsed,Prediction.Estimates=Predd, Hyperparameters=modelTrain$bestTune, RMSE=rmse)
-    return(output)
-}
-
-ensemble.mean <- function(a,b){
-    ## Ensemble Methods
-    ## calculates RMSE of joint predictions
-    ## Weighted averaging of 2 base learners
-    E.pred1 <- (a[[2]]+b[[2]])/2
-    E.pred2 <- (a[[2]]*2+b[[2]])/3
-    E.pred3 <- (a[[2]]+b[[2]]*2)/3
-    M1 <- mean((E.pred1 - y[test])^2)		## Test set MSE for regression
-    M2 <- mean((E.pred2 - y[test])^2)		## Test set MSE for regression
-    M3 <- mean((E.pred3 - y[test])^2)		## Test set MSE for regression
-    ploted <- plot(y=c(M1,M2,M3),x=1:3, lty=5,cex=1,pch=21:23,type="b",bg="red")
-    output <- list(ploted,model1.ab=M1,model2.2ab=M2,model3.a2b=M3)
-    return(output)
-}
 
 
 
@@ -721,9 +662,10 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## get iteration speed
         ## get sensitivity, specificity, precision scores ...
+        durationMinutes <- model.metrics$timeLapsed[[3]]/60
         systems.metrics <- rbind(systems.metrics,
                                  data.frame(model=mods,
-                                            durationSeconds=model.metrics$timeLapsed[[3]],
+                                            durationMinutes=durationMinutes,
                                             model.metrics$ConfusionMatrix$byClass,
                                             accuracy=model.metrics$ConfusionMatrix$overall[[1]],
                                             kappa=model.metrics$ConfusionMatrix$overall[[2]],
@@ -731,7 +673,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## end logging
         end <- format(Sys.time(), "%X")
-        cat(". Execution was successful at", end)
+        cat(". Execution was successful at", end, ". Duration: ", durationMinutes, " min")
     }
 
 } else if ( classification == TRUE & binomial == TRUE ) {
@@ -772,136 +714,11 @@ save(list=ls(pattern="perf*Full"),file="performanceSummaryFull.Rdata")
 #compare_models(nnet0,rf1)
 
 
-## print full view of variables, data frames, matrices, funcitons...
-lsos()
 
-
-
-##############################
-# Ensemble Learning (bagging)
-##############################
-require(foreach)
-require(doSNOW)
-cl <- makeCluster(3)
-registerDoSNOW(cl)
-#ctl=expand.grid(.size=17, .decay=0)	## nnet
-ctl=expand.grid(.mtry=0,.coefReg=0.89,.coefImp=0.5556)## Regularized Random forest (RRF)
-#ctl=expand.grid(.C=8, .sigma=0.5556)	## svmRadial
-#ctl=expand.grid(.ncomp=1)	# PCR
-#ctl=expand.grid(.C=1)	## svmLinear
-#ctl=expand.grid(.mstop=500,.prune="no")	## glmboost
-#ctl=expand.grid(.lambda=0.007499)	## Ridge
-dat <- data.frame(y=y, lasso.select); dim(dat)
-set.seed(1445612321)
-RFF_bag500<- baggingTune(dat[training,],dat[-training,],m=1.1,ite=500,methods="RRF",tune=10,gridZ=ctl)## For tuning the hyper-parameters
-test100 <- bagging(dat[training,],dat[-training,],m=1.1,ite=100,methods="ridge",tune=10)## for testing
-bagging.clas(dat[training,],dat[-training,],m=1.1,ite=100,methods="nnet",tune=10)## For Classification
-## END RUN
-stopCluster(cl)		## close cluster only after finishing w all modelse
-
-## COMPUTE Ensemble RMSE
-## (1) load ensembleMethods.Rdata
-## (2) re-run y[test]
-ensemble.mean(svmLinear_bag2K,ridge_bag200)
-
-require(lattice)
-ensRMSE <- read.table("clipboard",sep="\t",header=T); ensRMSE
-xyplot(Method1+Method2+Method3~Model2|Model1,data=ensRMSE,type=c("p","a","g"),auto.key = list(columns=3,points=F,lines=T,title="Ensemble methods averaging"), ylab="Root-mean-square error (RMSE)",xlab="Tested learners",pch=21,cex=1)
-## Bagging
-
-##############################
-# Unsupervised PCR and Clustering
-##############################
-## START PCR
-pr.out <- prcomp(lasso.select, scale=T)
-y <- c(rep("E",3), rep("T",3), rep("VC",3),rep("PC",3),rep("JC",3),rep("VT",3),rep("PT",3), rep("JT",1))
-y <- c(rep("E",3), rep("L",9), rep("PL",3), rep("L",6),rep("PL",1))
-y <- c(rep("E",3), rep("L",9), rep("PL",3), rep("LT",6),rep("PLT",1))
-y <- c(rep("Healthy", 15), rep("Deficient",7))
-y <- c(rep("None", 6), rep("Cocktail", 9), rep("Tiso",7))
-y <- c(rep("L",9), rep("PL",6), rep("L",3),rep("PL",4))
-par(mfrow = c(3,2))
-plot(pr.out$x[,1:2],col=Cols(y),pch=19)
-plot(pr.out$x[,c(1,3)],col=Cols(y),pch=19)
-## 2D scatterplots
-require(scatterplot3d)
-scatterplot3d(pr.out$x[,1:3], pch=21, color=Cols(y), type="h", lty.hplot = "dashed", angle = 55, scale.y = .7)
-## Plot 1 in 3D
-require(rgl)
-plot3d(pr.out$x[,1:3], size=15, col=Cols(y), type = "p", box=T, axes=T,top=F)
-par3d(zoom = 1.1) # larger values make the image smaller
-par3d(windowRect = c(50, 50, 500, 500)) # make the window large
-text3d(pr.out$x[,1:3], text=y, font=1, cex=0.8, adj=c(1,1.5))
-setwd("~/Downloads");rgl.postscript("PCR.eps",fmt="eps")
-## plot 2 in 3D
-## START recording
-M <- par3d("userMatrix") # save your settings to pass to the movie
-movie3d(par3dinterp(userMatrix=list(M,rotate3d(M, pi, 1, 0, 0), rotate3d(M, pi, 0, 1, 0) ) ), duration = 5, fps = 50, movie = "MyMovie", dir = ("~/Downloads/PCA3D"))
-## extract multiple frames for GIF implementation
-#movie3d(spin3d(axis = c(0, 0, 1), rpm = 4), duration=15, movie="TestMovie", type="gif", dir = ("~/Downloads/PCA3D"))
-#rgl.snapshot('PCA3D.png', fmt="png")
-## extract 2
-## END
-## 3D scatterplot
-summary(pr.out)
-pve <- 100*pr.out$sdev^2/sum(pr.out$sdev^2)
-plot(pr.out)
-plot(pve, type="o", ylab = "PVE",xlab = "Principal Component", col="blue")
-plot(cumsum(pve), type="o",ylab = "Cumultive PVE", xlab = "Principal Component", col="brown3")
-## (Unsupervised) Principal Componenent analysis (reduced dimension) (paper3)
-
-
-##############################
-# Tryouts
-##############################
-
-
-
-require(qmap)
-qmap("Magdalen Islands", zoom=14)
-## specific place map
-
-sd.data <- scale(lasso.select)
-par(mfrow = c(1,1))
-data.dist <- dist(sd.data)
-plot(hclust(data.dist), labels=y, main="Complete Linkage")
-plot(hclust(data.dist, method="single"), labels=y, main="Complete Linkage")
-plot(hclust(data.dist, method="average"), labels=y, main="Average Linkage")
-abline(h=18, col="red")
-## Hierarchicla clustering
-hc.out <- hclust(data.dist)
-hc.clusters <- cutree(hc.out, 4)
-table(hc.clusters, y)
-hc.out
-## cut the dendrogram at the height that yield a particular number
-set.seed(1)
-km.out <- kmeans(sd.data, 4, nstart = 20)
-km.clusters <- km.out$cluster
-table(km.clusters, hc.clusters)
-## K means clustering
-hc.out <- hclust(dist(pr.out$x[,1:6]))
-plot(hc.out, labels=y, main="Hier. Clust., on First Six Score Vectors")
-table(cutree(hc.out, 4), y)
-## perform clustering on the first 6 rpincipal components
-
-set.seed(2)
-train <- sample(1:nrow(x), 2*nrow(x)/2.5)
-test <- -train
-dat <- data.frame(x[train,1:5000], y=as.factor(y[train]))
-require(e1071)
-out <- svm(y~., data=dat, kernel = "radial",cost=10, gamma=1)
-summary(out)
-table(out$fitted, dat$y)
-## Training observations
-dat.te <- data.frame(x[test,1:5000], y=as.factor(y[test]))
-pred.te <- predict(out, newdata=dat.te)
-table(pred.te, dat.te$y)
-cat("\nMisclassification Error rate",(4/22)*100,"\n")
-## support vector regression
 
 
 
 ####### Save ########
-lsos(pat="locus.select|mRMR|grid|bag")
-save(list=ls(pattern="mRMR|grid|bag"),file="EnsembleMethods.Rdata")	## save
-load("EnsembleMethods.Rdata", .GlobalEnv)
+## print full view of variables, data frames, matrices, funcitons...
+lsos()
+#load("EnsembleMethods.Rdata", .GlobalEnv)
