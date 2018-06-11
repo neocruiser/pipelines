@@ -36,10 +36,10 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
         # Tune hyper-parameters
         if ( method == "svmLinear" ) {
             ## support vector machines with linear kernel
-            grid_models <- expand.grid(.C=seq(1, 20, length=40))
+            grid_models <- expand.grid(.C=seq(.5,40, length=70))
         } else if ( method == "svmPoly") {
             ## svmRadial
-            grid_models <- expand.grid(.degree=seq(0,20,.5),.scale=10^seq(-1,-3,length=5),.C=seq(1:5))
+            grid_models <- expand.grid(.degree=seq(0,10,.5),.scale=10^seq(-1,-3,length=10),.C=seq(1:5))
         } else if ( method == "svmRadialSigma") {
             ## svm with radial basis function kernel
             grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))
@@ -48,28 +48,25 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.cost=seq(0.1,1,0.01), .Loss=seq(0:7))
         } else if ( method == "lda2" ) {
             ## Linear discriminant analysis
-            grid_models <- expand.grid(.dimen=seq(1,15,.25))
+            grid_models <- expand.grid(.dimen=seq(1,40,.2))
         } else if ( method == "bagFDA" || method == "fda" ) {
             ## bagged flexible discriminant analysis
-            grid_models <- expand.grid(.degree=seq(.1,2,length=10), .nprune=seq(1,50,length=15))
+            grid_models <- expand.grid(.degree=seq(.1,2,length=20), .nprune=seq(1,60,length=30))
         } else if ( method == "pda" ) {
             ## penalized discriminant analysis
-            grid_models <- expand.grid(.lambda=10^seq(-0.05,-4,length=35))
+            grid_models <- expand.grid(.lambda=10^seq(-0.05,-5,length=50))
         } else if ( method == "loclda" ) {
             ## localized linear discriminant analysis
             grid_models <- expand.grid(.k=seq(1,400,length=20))
         } else if ( method == "bagFDAGCV" ) {
             ## bagged FDA using gCV pruning
-            grid_models <- expand.grid(.degree=seq(.1,2,length=40))
+            grid_models <- expand.grid(.degree=seq(.01,5,length=100))
         } else if ( method == "C5.0" ) {
             ## c5 decision trees
-            grid_models <- expand.grid(.trials=seq(1,100,5), .model=c("rules","tree"), .winnow=c(TRUE,FALSE))
+            grid_models <- expand.grid(.trials=seq(1,100,1), .model=c("rules","tree"), .winnow=c(TRUE,FALSE))
         } else if ( method == "LogitBoost" ) {
             ## Boosted logistic regression
-            grid_models <- expand.grid(.nIter=seq(1,100,length=40))
-        } else if ( method == "regLogistic" ) {
-            ## regularized logistic regression
-            grid_models <- expand.grid(.cost=seq(.1,5,length=10),.loss=c(0:7),.epsilon=seq(-.5,-3,length=10))
+            grid_models <- expand.grid(.nIter=seq(1,100,length=200))
         } else if ( method == "kernelpls" ) {
             ## partial least squares
             grid_models <- expand.grid(.ncomp=seq(0.1,20,length=40))
@@ -89,10 +86,10 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .visible_dropout=seq(.1,2,length=2))
         } else if ( method == "rf" ) {
             ## random forest
-            grid_models <- expand.grid(.mtry=seq(1:15))
+            grid_models <- expand.grid(.mtry=seq(1:40,0.25))
         } else if ( method == "RRF" ) {
             ## regularized random forest
-            grid_models <- expand.grid(.mtry=seq(1:10),.coefreg=10^seq(-1,-3,length=10),.coefimp=10^seq(-1,-2,length=5))
+            grid_models <- expand.grid(.mtry=seq(1:10),.coefReg=10^seq(-1,-3,length=10),.coefImp=10^seq(-1,-2,length=5))
         } else if ( method == "kknn" ) {
             ## weighted k nearest neighbors
             grid_models <- expand.grid(.kmax=seq(1:15),.distance=seq(1:5),.kernel=c("optimal","rank","gaussian",
@@ -125,7 +122,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                                   preProc=c("center","scale")))
     }
 
-    pdf("model.train.pdf")
+    pdf(paste0(method,".seed",ed,".metrics.pdf"))
     plot(modelTrain)
     dev.off()
 
@@ -554,9 +551,11 @@ set.seed(ed)
 # machine learning models used
 model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
-                 "C5.0", "LogitBoost", "regLogistic",
+                 "C5.0", "LogitBoost",
+
                  "kernelpls", "multinom",
                  "nnet", "monmlp", "dnn",
+
                  "rf", "RRF",
                  "kknn", "naive_bayes", "gbm")
 
@@ -565,7 +564,7 @@ model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
 # hence the low number of parameters to adjust
 parameter_counts <- c(1,3,2,2,
                       1,2,2,1,1,1,
-                      3,1,3,
+                      3,1,
                       1,1,
                       2,2,5,
                       1,3,
@@ -673,7 +672,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## end logging
         end <- format(Sys.time(), "%X")
-        cat(". Execution was successful at", end, ". Duration: ", durationMinutes, " min")
+        cat(". Execution was successful at", end, "- Duration:", durationMinutes, "min")
     }
 
 } else if ( classification == TRUE & binomial == TRUE ) {
