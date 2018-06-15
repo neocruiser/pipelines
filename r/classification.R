@@ -4,7 +4,7 @@ pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging
-source("./script/lsos.R")
+source("./scripts/lsos.R")
 
 ### DEFINE DATA FITTING MODEL
 classification=TRUE
@@ -13,7 +13,6 @@ regression=FALSE
 ## define feature structure
 grouped=TRUE
 binomial=FALSE
-
 
 ##########################
 ## Define new functions ##
@@ -27,85 +26,117 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
     trainCtrl <- trainControl(method="repeatedcv",
                               number=folds,
                               repeats=rep,
-#                              classProbs=T,
                               summaryFunction=defaultSummary)
     
     ## Choosing the right Hyper-parameters. GRID ANALYSIS
     if ( grid == TRUE ) {
-        
-        # Tune hyper-parameters
+
+        ## Tune hyper-parameters
         if ( method == "svmLinear" ) {
             ## support vector machines with linear kernel
-            grid_models <- expand.grid(.C=seq(.5,40, length=70))
+            grid_models <- expand.grid(.C=seq(.001,25, length=100))
         } else if ( method == "svmPoly") {
             ## svmRadial
             grid_models <- expand.grid(.degree=seq(0,10,.5),.scale=10^seq(-1,-3,length=10),.C=seq(1:5))
         } else if ( method == "svmRadialSigma") {
             ## svm with radial basis function kernel
-            grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-3,length=40))
+            grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-5,length=60))
         } else if ( method == "svmLinear3") {
             ## l2 regularized support vector machine (dual) with linear kernel
-            grid_models <- expand.grid(.cost=seq(0.1,1,0.01), .Loss=seq(0:7))
+            grid_models <- expand.grid(.cost=10^seq(-1,2,30), .Loss=seq(0:7))
         } else if ( method == "lda2" ) {
             ## Linear discriminant analysis
-            grid_models <- expand.grid(.dimen=seq(1,40,.2))
+            grid_models <- expand.grid(.dimen=seq(10^-2,40,length=70))
         } else if ( method == "bagFDA" || method == "fda" ) {
             ## bagged flexible discriminant analysis
             grid_models <- expand.grid(.degree=seq(.1,2,length=20), .nprune=seq(1,60,length=30))
         } else if ( method == "pda" ) {
             ## penalized discriminant analysis
-            grid_models <- expand.grid(.lambda=10^seq(-0.05,-5,length=50))
+            grid_models <- expand.grid(.lambda=10^seq(-1,-5,length=50))
         } else if ( method == "loclda" ) {
             ## localized linear discriminant analysis
             grid_models <- expand.grid(.k=seq(1,400,length=20))
         } else if ( method == "bagFDAGCV" ) {
             ## bagged FDA using gCV pruning
-            grid_models <- expand.grid(.degree=seq(.01,5,length=100))
+            grid_models <- expand.grid(.degree=seq(10^-3,5,length=100))
         } else if ( method == "C5.0" ) {
             ## c5 decision trees
-            grid_models <- expand.grid(.trials=seq(1,100,1), .model=c("rules","tree"), .winnow=c(TRUE,FALSE))
+            grid_models <- expand.grid(.trials=seq(1:200), .model=c("rules","tree"), .winnow=c(TRUE,FALSE))
         } else if ( method == "LogitBoost" ) {
             ## Boosted logistic regression
             grid_models <- expand.grid(.nIter=seq(1,100,length=200))
         } else if ( method == "kernelpls" ) {
             ## partial least squares
-            grid_models <- expand.grid(.ncomp=seq(0.1,20,length=40))
+            grid_models <- expand.grid(.ncomp=seq(10^-3,20,length=70))
         } else if ( method == "multinom" ) {
             ## penalized multinomial regression
-            grid_models <- expand.grid(.decay=10^seq(-.5,-5,length=40))
-        } else if ( method == "nnet" ) {
-            ## neural networks
-            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-.5,-5,length=40))
-        } else if ( method == "monmlp" ) {
-            ## monotone multi-layer perceptron neural network
-            grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(10))
-        } else if ( method == "dnn" ) {
-            ## stacked autoencoder deep neural network
-            grid_models <- expand.grid(.layer1=seq(1:10),.layer2=seq(1:5),.layer3=seq(1:2),
-                                       .hidden_dropout=seq(.1,2,length=5),
-                                       .visible_dropout=seq(.1,2,length=2))
+            grid_models <- expand.grid(.decay=10^seq(-1,-5,length=200))
         } else if ( method == "rf" ) {
             ## random forest
-            grid_models <- expand.grid(.mtry=seq(1:40,0.25))
+            grid_models <- expand.grid(.mtry=seq(1:40,length=100))
         } else if ( method == "RRF" ) {
             ## regularized random forest
-            grid_models <- expand.grid(.mtry=seq(1:10),.coefReg=10^seq(-1,-3,length=10),.coefImp=10^seq(-1,-2,length=5))
+            grid_models <- expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-5,length=15),.coefImp=10^seq(-1,-5,length=10))
         } else if ( method == "kknn" ) {
             ## weighted k nearest neighbors
-            grid_models <- expand.grid(.kmax=seq(1:15),.distance=seq(1:5),.kernel=c("optimal","rank","gaussian",
-                                                                                    "inv","cos","rectangular",
-                                                                                    "triangular","biweight",
-                                                                                    "triweight"))
+            grid_models <- expand.grid(.kmax=seq(1,15,length=20),.distance=seq(1,5,length=10),
+                                       .kernel=c("optimal","rank","gaussian",
+                                                 "inv","cos","rectangular",
+                                                 "triangular","biweight",
+                                                 "triweight"))
         } else if ( method == "naive_bayes" ) {
             ## naive bayes
-            grid_models <- expand.grid(.laplace=seq(0,2,length=5),.usekernel=c(FALSE,TRUE),.adjust=c(0,1,2))
+            grid_models <- expand.grid(.laplace=seq(10^-2,2,length=10),.usekernel=c(FALSE,TRUE),
+                                       .adjust=c(10^-2,2,length=10))
         } else if ( method == "gbm" ) {
             ## stochastic gradient boosting
             grid_models <- expand.grid(.n.trees=seq(5,300,length=20),.interaction.depth=seq(1,5,length=10),
-                                       .shrinkage=10^seq(-.1,-2,length=10),.n.minobsinnode=seq(1:10))
+                                       .shrinkage=10^seq(-1,-5,length=30),.n.minobsinnode=seq(1:10))
+        } else if ( method == "nnet" ) {
+            ## neural networks
+            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
+        } else if ( method == "pcaNNet" ) {
+            ## neural networks with inclusive feature extraction
+            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
+        } else if ( method == "monmlp" ) {
+            ## monotone multi-layer perceptron neural network
+            grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(10))
+        } else if ( method == "mxnet" ) {
+            ## deep neural network with GPU computing
+            ## relu (rectified linear units) faster than sigmoid function
+            ## because relu converge faster (faster learning)
+            ## also, a reduced likelihood of vanishing gradient (weights and biases)
+            ## and adds sparcity resulting in less dense network representation
+            grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
+                                       .learning.rate=10^seq(0,-7,length=6),
+                                       .momentum=10^seq(0,-1,length=6),
+                                       .dropout=10^seq(0,-5,length=6),
+                                       .activation=c("relu"))
+        } else if ( method == "mxnetAdam" ) {
+            ## deep neural network
+            num.round=10
+            grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
+                                       .dropout=10^seq(-1,-5,length=3),
+                                       .beta1=seq(0,1,length=3),
+                                       .beta2=seq(0,1,length=3),                                       
+                                       .learningrate=10^seq(-2,-7,length=6),
+                                       .activation=c("relu"))
+        } else if ( method == "dnn" ) {
+            ## stacked autoencoder deep neural network
+            grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
+                                       .hidden_dropout=10^seq(-1,-7,length=10),
+                                       .visible_dropout=10^seq(-1,-7,length=10))
+        } else if ( method == "mlpSGD" ) {
+            ## multilayer perceptron network by stochastic gradient descent
+            grid_models <- expand.grid(.size=seq(1:3),.l2reg=10^seq(-3,-5,length=2),.lambda=0,
+                                       .learn_rate=10^seq(0,-7,length=3),
+                                       .gamma=10^seq(0,-1,length=3),
+                                       .momentum=10^seq(0,-1,length=3),
+                                       .minibatchsz=seq(1,120,length=50),    
+                                       .repeats=1)
         }
         
-        # train the model
+        ## train the model
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,
                                                   trControl= trainCtrl,
@@ -232,7 +263,8 @@ associations <- model.matrix(~0 + y)
 colnames(associations) <- levels(y)
 
 
-
+sink("expression.data.loaded.ok")
+sink()
 
 ########################
 ## FEATURE EXTRACTION ##
@@ -269,7 +301,7 @@ colnames(associations) <- levels(y)
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=5
+iterations=2
 
 while (success == FALSE) {
     pdf(paste0("cvROC.iterations",iterations,".",response,".pdf"))
@@ -452,11 +484,15 @@ dev.off()
 }
 
 
-## extract regularization metrics for all iterations
-write.table(dm, paste0("logSummary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
-write.table(df, paste0("logSummary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
+if ( exists('dm') && exists('df') ) {
 
+    ## extract regularization metrics for all iterations
+    write.table(dm, paste0("logSummary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
+    write.table(df, paste0("logSummary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
 
+    sink("feature.extraction.ok")
+    sink()
+}
 
 
 #########################
@@ -516,6 +552,17 @@ for (l in 1:nrow(results)) {
                                          "_",response,".regularization",setalpha,
                                          ".",index,".genes",len,".seed",ed,".txt"),
                     quote=F,sep="\t")
+
+
+        ## create multi dimensional list of genes selected by class
+        if ( l == 1 ){
+            selgenes <- list(rownames(t(lasso.select)))
+            names(selgenes)[l] <- as.character(results$group[[l]])
+        } else {
+            selgenes <- c(selgenes, list(rownames(t(lasso.select))))
+            names(selgenes)[l] <- as.character(results$group[[l]])
+        }
+
     } else {
         stop("Number of selected genes do not match the original dataset")
     }
@@ -523,6 +570,13 @@ for (l in 1:nrow(results)) {
     # get all genes selected from each grouping
     lasso.selected.genes <- rbind(lasso.selected.genes, t(lasso.select))
 }
+
+
+## Venn diagram showing redundancy between genes assigned to different subsets
+## each specifically designed (categorized) to predict a class
+pdf(paste0("vennDiagram.bestLassoLambda.seed",ed,".pdf"))
+venn(selgenes)
+dev.off()
 
 # plot lambda iterations
 #par(mfrow = c(3,4))
@@ -552,10 +606,10 @@ set.seed(ed)
 model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
                  "C5.0", "LogitBoost",
-
                  "kernelpls", "multinom",
-                 "nnet", "monmlp", "dnn",
-
+                 "nnet", "pcaNNet",
+                 "dnn", "mxnet", "mxnetAdam",
+                 "monmlp", "mlpSGD",
                  "rf", "RRF",
                  "kknn", "naive_bayes", "gbm")
 
@@ -566,9 +620,20 @@ parameter_counts <- c(1,3,2,2,
                       1,2,2,1,1,1,
                       3,1,
                       1,1,
-                      2,2,5,
+                      2,2,
+                      5,7,8,
+                      2,8,
                       1,3,
                       3,3,4)
+
+
+
+######### debugging ##########
+#model_types="svmLinear"
+#parameter_counts=1
+
+
+
 
 ######## STEP I ##########
 ## performance metrics for best model without hyperparameter optimization
@@ -578,7 +643,7 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( iterations in c(1:2) ) {
+for ( iterations in c(1:10) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
@@ -612,7 +677,7 @@ for ( iterations in c(1:2) ) {
             names(performance_summary)[modnam] <- model.name        
         }
         end <- format(Sys.time(), "%X")
-        cat(". Execution was successful at", end)
+        cat(".", mods, "execution successful at", end)
     }
 
 }
@@ -625,6 +690,13 @@ sink()
 
 ## save output
 save(list=ls(pattern="perf*summary"),file="performanceSummaryNoTune.Rdata")
+
+if ( file.exists(paste0("performance1.multianalysis.seed",ed)) ) {
+    sink("model.training.wo.tuning.ok")
+    sink()
+}
+
+
 
 
 ######## STEP II ##########
@@ -687,9 +759,9 @@ if ( classification == TRUE & grouped == TRUE ) {
 
 ## summary 2
 ## performance metrics for best model while hyperparameters tuning
-sink(paste0("performance2.hyperTuning.seed",ed))
-performance_summaryFull %>% resamples %>% summary
-sink()
+#sink(paste0("performance2.hyperTuning.seed",ed))
+#performance_summaryFull %>% resamples %>% summary
+#sink()
 
 ## summary 3
 ## performance metrics for best classifier
@@ -702,6 +774,10 @@ save(list=ls(pattern="systems.metrics"),file="systemsMetrics.Rdata")
 save(list=ls(pattern="perf*Full"),file="performanceSummaryFull.Rdata")
 
 
+if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
+    sink("model.training.w.tuning.ok")
+    sink()
+}
 
 
 ##### debugging #####

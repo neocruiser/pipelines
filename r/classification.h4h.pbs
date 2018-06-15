@@ -1,13 +1,13 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=4,walltime=200:00:00,vmem=30g,mem=220g
+#PBS -l nodes=1:ppn=4,walltime=72:00:00,vmem=30g,mem=220g
 #PBS -N classification
-#PBS -q long
+#PBS -q all
 #PBS -V
 #PBS -j oe
 #PBS -m abe
 #PBS -M slei.bass@gmail.com
 
-set -x
+set -eux
 
 module load R
 #module load R\3.4.1
@@ -34,24 +34,22 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## MUST DEFINE BEFORE EXECUTION
 _contrast=systemicRelapse
 _expressionJOBID=149518
-_networkJOBID=14944
-_affymetrix=$_workingDir/summary/normalized.subset.*txt
-
+_networkJOBID=149444
 
 ############
 ## PART I ##
 ############
-mkdir -p $output/graph $output/summary $output/script
+mkdir -p $output/graph $output/summary $output/scripts $output/selected
 cd $output
 
 
 ## get R scripts
-cp $home/script*/r/classification.R $output/script
-cp $home/script*/r/lsos.R $output/script
+cp $home/script*/r/classification.R $output/scripts
+cp $home/script*/r/lsos.R $output/scripts
 
 ## get gene epxression
 cp $project/summary/phenodata $output/summary
-cp $project/network/$_networkJOBID/expressions $output/expressions
+cp $project/networks/$_networkJOBID/expressions $output
 
 
 
@@ -63,40 +61,67 @@ R CMD BATCH $output/script*/classification.R
 
 mv $output/expressions $output/expressions.$_networkJOBID
 
+
+
+
+
+
+
+
+
+
+##############
+## PART III ##
+##############
 ## Restructure logs into R readable summaries.
-_metrics=$output/performance1*.txt
-# get accuracy and kappa values for all iterations
-# typically 10 iteractions, each resampled 25 times with the same seed
-# and for all 25 models
-for m in Accuracy Kappa; do
-    cat $_metrics  | sed -n "/${m}/,/NA/p" |\
-	sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\titeration\tparameters\tMin/g' \
-	    -e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
-	    > $output/log$m.$_metrics."${pbs}".txt
-done
-rm $_metrics
+_metrics=$output/performance1*
 
-_metrics=$output/performance2*.txt
-## get model metrics for tuning parameters
-for m in Accuracy Kappa; do
-    cat $_metrics  | sed -n "/${m}/,/NA/p" |\
-	sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\tparameters\tMin/g' \
-	    -e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
-	    > $output/log$m.$_metrics."${pbs}".txt
-done
-rm $_metrics
+if [ ! -f "$_metrics" ]; then
+    ## get accuracy and kappa values for all iterations
+    ## typically 10 iteractions, each resampled 25 times with the same seed
+    ## and for all 25 models
+    for m in Accuracy Kappa; do
+	cat $_metrics  | sed -n "/${m}/,/NA/p" |\
+	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\titeration\tparameters\tMin/g' \
+		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
+		> $output/log.$m.$_metrics."${pbs}".txt
+    done
+    rm $_metrics
+else
+    echo -e "\nPerformance analysis without parameter tuning unsuccessful."
+fi
 
-_metrics=$output/performance3*.txt
-## get classifiers accuracy and pvalues with otpimum tuned parameter
-cat $_metrics  | sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
-		     > $output/log.$_metrics."${pbs}".txt
-rm $_metrics
+_metrics=$output/performance2*
+if [ ! -f "$_metrics" ]; then
+    ## get model metrics for tuning parameters
+    for m in Accuracy Kappa; do
+	cat $_metrics  | sed -n "/${m}/,/NA/p" |\
+	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\tparameters\tMin/g' \
+		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
+		> $output/log.$m.$_metrics."${pbs}".txt
+    done
+    rm $_metrics
+else
+    echo -e "\nTuning parameters unsuccessful"
+fi
+
+
+_metrics=$output/performance3*
+if [ ! -f "$_metrics" ]; then
+    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    cat $_metrics  | sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
+			 > $output/log.$_metrics."${pbs}".txt
+    rm $_metrics
+else
+    echo -e "\nPerformance analysis with parameter tuning unsuccessful"
+fi
 
 
 ## organize output files
 cd $output
 mv *pdf graph
 mv log* summary
+mv *iterations*lambda* selected
 
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
