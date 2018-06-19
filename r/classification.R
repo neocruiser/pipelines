@@ -618,6 +618,11 @@ ena <- envfit(rda.results ~ ., associations[, nl], perm=2000, dis="lc", scaling=
 ## Akaike information criterion
 ## AIC estimates relative quality of models
 ## quality of each model relative to each other is used to select the best one
+extended <- rda(adj.x ~ ., associations[, nl])
+reduce0 <- rda(adj.x ~ 1, associations[, nl])
+reduce <- step(reduce0, scope=formula(extended), test="perm")
+reduce
+
 
 ## plot
 ## for scaling check ?biplot.rda {vegan}
@@ -641,7 +646,7 @@ for ( sp in nl ) {
 text(rda.results, dis="cn", col="chocolate", font=4)
 
 ## content of the legend from tests of significance
-legend("bottomleft", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
+legend("bottomright", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
 legend("topleft",
        inset=-.01,
        c("+ Variance inflation factor (collinearity)",
@@ -660,6 +665,12 @@ par(fig = c(.7,1,.7,1), new=TRUE, cex = .6)
 ## Venn diagram showing redundancy between genes assigned to different subsets
 ## each specifically designed (categorized) to predict a class
 venn(selgenes)
+
+par(fig = c(.1,.3,0,.3), new=TRUE, cex = .6)
+## AIK on the sample grouping
+plot(reduce$anova[[5]], reduce$anova[[6]],
+     bty = "n", xlab = "Fitted residuals", ylab = "Akaike Information Criterion (AIC)")
+lines(reduce$anova[[5]], reduce$anova[[6]], type="b", lwd=1.5)
 
 dev.off()
 
