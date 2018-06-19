@@ -9,6 +9,7 @@
 
 set -x
 
+#module load R\3.4.1
 module load R
 
 #### DO NOT TOUCH

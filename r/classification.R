@@ -1,5 +1,5 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
-          'dplyr', 'mRMRe', 'glmnet', 'caret', 'foreach',
+          'dplyr', 'glmnet', 'caret', 'foreach',
           'doSNOW', 'lattice', 'ROCR', 'earth')
 lapply(pkgs, require, character.only = TRUE)
 
@@ -101,6 +101,14 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
         } else if ( method == "monmlp" ) {
             ## monotone multi-layer perceptron neural network
             grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(10))
+        } else if ( method == "mlpSGD" ) {
+            ## multilayer perceptron network by stochastic gradient descent
+            grid_models <- expand.grid(.size=seq(1:3),.l2reg=10^seq(-3,-5,length=2),.lambda=0,
+                                       .learn_rate=10^seq(0,-7,length=3),
+                                       .gamma=10^seq(0,-1,length=3),
+                                       .momentum=10^seq(0,-1,length=3),
+                                       .minibatchsz=seq(1,120,length=50),    
+                                       .repeats=1)
         } else if ( method == "mxnet" ) {
             ## deep neural network with GPU computing
             ## relu (rectified linear units) faster than sigmoid function
@@ -114,26 +122,18 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .activation=c("relu"))
         } else if ( method == "mxnetAdam" ) {
             ## deep neural network
-            num.round=10
+            num.round=1
             grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
                                        .dropout=10^seq(-1,-5,length=3),
                                        .beta1=seq(0,1,length=3),
                                        .beta2=seq(0,1,length=3),                                       
-                                       .learningrate=10^seq(-2,-7,length=6),
+                                       .learningrate=10^seq(-2,-7,length=3),
                                        .activation=c("relu"))
         } else if ( method == "dnn" ) {
             ## stacked autoencoder deep neural network
             grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
                                        .hidden_dropout=10^seq(-1,-7,length=10),
                                        .visible_dropout=10^seq(-1,-7,length=10))
-        } else if ( method == "mlpSGD" ) {
-            ## multilayer perceptron network by stochastic gradient descent
-            grid_models <- expand.grid(.size=seq(1:3),.l2reg=10^seq(-3,-5,length=2),.lambda=0,
-                                       .learn_rate=10^seq(0,-7,length=3),
-                                       .gamma=10^seq(0,-1,length=3),
-                                       .momentum=10^seq(0,-1,length=3),
-                                       .minibatchsz=seq(1,120,length=50),    
-                                       .repeats=1)
         }
         
         ## train the model
@@ -246,21 +246,6 @@ set.seed(ed)
 training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
 tr <- length(training)
 
-
-## EXPERIMENTAL
-# create dummy variables or multi level contrasts
-# first level (the baseline) is rolled into the intercept
-# all other levels have a coefficient that differ from the baseline
-# Helmert regressors compare each level with the average of the preceding ones
-# first coefficient is the mean of the first two levels minus the first level
-# second coefficient is the mean of all three levels minus the mean of the first two levels
-
-associations=y
-contrasts(associations) <- "contr.helmert"
-contrasts(associations)
-
-associations <- model.matrix(~0 + y)
-colnames(associations) <- levels(y)
 
 
 sink("expression.data.loaded.ok")
@@ -555,6 +540,7 @@ for (l in 1:nrow(results)) {
 
 
         ## create multi dimensional list of genes selected by class
+        ## used below for venn diagram 
         if ( l == 1 ){
             selgenes <- list(rownames(t(lasso.select)))
             names(selgenes)[l] <- as.character(results$group[[l]])
@@ -590,6 +576,52 @@ dev.off()
 #dev.off()
 
 
+## EXPERIMENTAL
+# create dummy variables or multi level contrasts
+# first level (the baseline) is rolled into the intercept
+# all other levels have a coefficient that differ from the baseline
+# Helmert regressors compare each level with the average of the preceding ones
+# first coefficient is the mean of the first two levels minus the first level
+# second coefficient is the mean of all three levels minus the mean of the first two levels
+
+associations=y
+contrasts(associations) <- "contr.helmert"
+contrasts(associations)
+
+associations <- as.data.frame(model.matrix(~0 + y))
+colnames(associations) <- levels(y)
+
+## redundancy analysis
+rda.results <- rda( adj.x ~ ., associations[, nl] )
+rda.scores <- scores(rda.results)$species
+
+## create color palette
+available.colors <- brewer.pal(6, name = "Paired")
+selected.colors <- colorRampPalette(available.colors)(n = length(nl))
+
+## plot
+pdf(paste0("rda.bestLassoLambda.seed",ed,"pdf"))
+plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=2, type="n")
+
+points(rda.scores, pch=20, col="grey", cex=.5)
+
+legend("topright", inset=.01, title="Stats",
+       c("4","6","8"), horiz=FALSE)
+axis(2, las = 1)
+
+## project genes from network
+points(rda.results, dis="sp", pch=1, col="grey", cex=0.5)
+
+## distinguish genes selected by best lambda by minimizing the least squares
+for ( sp in 1:length(nl) ) {
+    points(rda.scores[rownames(rda.scores) %in% selgenes[[levels(y)[sp]]],],
+           pch = 20,
+           col = selected.colors[[sp]], cex=c(3-(sp/2)))
+}
+
+text(rda.results, dis="cn", col="chocolate", font=4)
+dev.off()
+
 ############################
 ## Validating classifiers ##
 ############################
@@ -605,8 +637,7 @@ set.seed(ed)
 # machine learning models used
 model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
-                 "C5.0", "LogitBoost",
-                 "kernelpls", "multinom",
+                 "LogitBoost", "kernelpls", "multinom",
                  "nnet", "pcaNNet",
                  "dnn", "mxnet", "mxnetAdam",
                  "monmlp", "mlpSGD",
@@ -618,8 +649,7 @@ model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
 # hence the low number of parameters to adjust
 parameter_counts <- c(1,3,2,2,
                       1,2,2,1,1,1,
-                      3,1,
-                      1,1,
+                      1,1,1,
                       2,2,
                       5,7,8,
                       2,8,
@@ -629,7 +659,7 @@ parameter_counts <- c(1,3,2,2,
 
 
 ######### debugging ##########
-#model_types="svmLinear"
+#model_types="mxnetAdam"
 #parameter_counts=1
 
 
@@ -643,7 +673,7 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( iterations in c(1:10) ) {
+for ( iterations in c(1:2) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
@@ -759,9 +789,9 @@ if ( classification == TRUE & grouped == TRUE ) {
 
 ## summary 2
 ## performance metrics for best model while hyperparameters tuning
-#sink(paste0("performance2.hyperTuning.seed",ed))
-#performance_summaryFull %>% resamples %>% summary
-#sink()
+sink(paste0("performance2.hyperTuning.seed",ed))
+performance_summaryFull %>% resamples %>% summary
+sink()
 
 ## summary 3
 ## performance metrics for best classifier
