@@ -1,6 +1,6 @@
-pkgs <- c('RColorBrewer', 'pvclust', 'gplots', 'vegan',
+pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
-          'doSNOW', 'lattice', 'ROCR', 'earth')
+          'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan')
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging
@@ -255,6 +255,8 @@ sink()
 ## FEATURE EXTRACTION ##
 ########################
 ## Result: Lambda for Lasso feature selection with highest accuracy outcome
+## Reduce collinearity or excessive correlation among genes
+## improve identification of optimal set of variables
 # feature extraction
 # |-- randomize seed
 # |   |-- iterate multiple seeds
@@ -558,11 +560,6 @@ for (l in 1:nrow(results)) {
 }
 
 
-## Venn diagram showing redundancy between genes assigned to different subsets
-## each specifically designed (categorized) to predict a class
-pdf(paste0("vennDiagram.bestLassoLambda.seed",ed,".pdf"))
-venn(selgenes)
-dev.off()
 
 # plot lambda iterations
 #par(mfrow = c(3,4))
@@ -575,51 +572,95 @@ dev.off()
 #plot(cv.out)
 #dev.off()
 
+#####################################
+## Visualizaiton of selected genes ##
+#####################################
+## summarize variation between genes (response variables)
+## variation explained by the sample grouping (explanatory variables)
 
-## EXPERIMENTAL
-# create dummy variables or multi level contrasts
-# first level (the baseline) is rolled into the intercept
-# all other levels have a coefficient that differ from the baseline
-# Helmert regressors compare each level with the average of the preceding ones
-# first coefficient is the mean of the first two levels minus the first level
-# second coefficient is the mean of all three levels minus the mean of the first two levels
-
-associations=y
+## create dummy variables or multi level contrasts
+## first level (the baseline) is rolled into the intercept
+## all other levels have a coefficient that differ from the baseline
+## Helmert regressors compare each level with the average of the preceding ones
+## first coefficient is the mean of the first two levels minus the first level
+## coefficient is the mean of all three levels minus the mean of the first two levels
+associations <- y
 contrasts(associations) <- "contr.helmert"
 contrasts(associations)
 
 associations <- as.data.frame(model.matrix(~0 + y))
 colnames(associations) <- levels(y)
 
-## redundancy analysis
-rda.results <- rda( adj.x ~ ., associations[, nl] )
-rda.scores <- scores(rda.results)$species
+## redundancy analysis variant of canonical correspondence analysis
+## implementation based on Legendre & Legendre's (1998) algorithm
+## chi-squared data fitted into unweighted linear regression
+## on constraining variables (sample groups)
+## fitted values are then transformed by singular value decomposition
+rda.results <- vegan::rda( adj.x ~ ., associations[, nl], scale = TRUE )
+rda.scores <- vegan::scores(rda.results)$species
 
 ## create color palette
-available.colors <- brewer.pal(6, name = "Paired")
-selected.colors <- colorRampPalette(available.colors)(n = length(nl))
+available.colors <- brewer.pal(6, name = "RdYlBu")
+selected.colors <- colorRampPalette(available.colors)(n = max(nl))
+
+
+## variance inflation factor to identify collinearity
+## higher the value of the R squared value of the regression between variables, higher the collinearity
+vs <- vif.cca(rda.results)
+
+## Tests of significance
+## Total variance
+tv <- rda.results$CCA$tot.chi / rda.results$tot.chi
+ana <- anova(rda.results, step=2000)
+ena <- envfit(rda.results ~ ., associations[, nl], perm=2000, dis="lc", scaling=2)
+
+
+## Akaike information criterion
+## AIC estimates relative quality of models
+## quality of each model relative to each other is used to select the best one
 
 ## plot
-pdf(paste0("rda.bestLassoLambda.seed",ed,"pdf"))
-plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=2, type="n")
-
-points(rda.scores, pch=20, col="grey", cex=.5)
-
-legend("topright", inset=.01, title="Stats",
-       c("4","6","8"), horiz=FALSE)
-axis(2, las = 1)
+## for scaling check ?biplot.rda {vegan}
+## here the scores are scaled symmetrically by square root of eigenvalues
+##pdf(paste0("rda.bestLassoLambda.seed",ed,".pdf"))
+pdf(paste0("rda.bestLassoLambda.seed.pdf"))
+par(mar=c(1,1,1,1), fig = c(.05,1,.05,1))
+plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=3, type="n")
 
 ## project genes from network
-points(rda.results, dis="sp", pch=1, col="grey", cex=0.5)
+axis(2, las = 1)
+points(rda.scores, pch=1, col="grey", cex=.5)
 
 ## distinguish genes selected by best lambda by minimizing the least squares
-for ( sp in 1:length(nl) ) {
+for ( sp in nl ) {
     points(rda.scores[rownames(rda.scores) %in% selgenes[[levels(y)[sp]]],],
            pch = 20,
-           col = selected.colors[[sp]], cex=c(3-(sp/2)))
+           col = selected.colors[[sp]], cex=c(2-(sp/3.25)))
 }
-
+## add vectors
 text(rda.results, dis="cn", col="chocolate", font=4)
+
+## content of the legend from tests of significance
+legend("bottomleft", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
+legend("topleft",
+       inset=-.01,
+       c("+ Variance inflation factor (collinearity)",
+         paste0(names(vs),": ",round(vs, 2)),
+         paste0("+ Total variance: ", round(tv, 2), "(",round(tv*100,2),"%)"),
+         paste0("+ F-stats: ",round(ana$F[1],2), " Pval: ",ana[[4]][1]),
+         "+ Permutation (n=2000)",
+         paste0(names(ena$vectors$r),": R2 ",round(ena$vectors$r,2), ", pval ", round(ena$vectors$pvals,5)),
+         "+ Eigenvalues for constrained axes",
+         paste0(names(rda.results$CCA$eig),": ",round(rda.results$CCA$eig, 2), "%")),
+       cex=.7,
+       bty = "n",
+       horiz=FALSE)
+
+par(fig = c(.7,1,.7,1), new=TRUE, cex = .6)
+## Venn diagram showing redundancy between genes assigned to different subsets
+## each specifically designed (categorized) to predict a class
+venn(selgenes)
+
 dev.off()
 
 ############################
