@@ -188,18 +188,21 @@ if ( file.exists("./ids.wo.ncrna") ) {
 
 }
 
-# data transformation. Difference between gene expressions
-# has better variance interpretation
-xs <- decostand(x, "standardize")
-
 ######################
 ## FUNCTION CALLING ##
 ######################
-get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE ){
+get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE, remove.hi = 1 ){
     ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
     locus.var <- apply(t(dat), n, var)
-    hi.var <- order(abs(locus.var), decreasing = T)[from:to]
 
+    if ( remove.hi == 1 ) {
+        ## discard high variance genes
+        hi.var <- order(abs(locus.var), decreasing = T)[from:to]
+    } else ( remove.hi == 0 ) {
+        ## discard low variance genes
+        hi.var <- order(abs(locus.var), decreasing = F)[from:to]
+    }
+    
     if ( silent == FALSE ) {
         cat("Number of selected high-variance genes:",length(hi.var),"\n")    
     }
@@ -212,6 +215,10 @@ get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE ){
 ## SUBSET SELECTION ##
 ######################
 set.seed(15879284)
+
+# data transformation. Difference between gene expressions
+# has better variance interpretation
+xs <- decostand(x, "standardize")
 
 ## get number of discarded high variance genes
 ## iterate multiple thresholds, maximum 20 iterations
@@ -261,7 +268,7 @@ for (nset in seq(start_th, end_th, increment_th)) {
 
 write.table(gv, "summary.adjusted.means.subsetting.txt", quote=FALSE, sep="\t", row.names=F)
 
-
+x
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
@@ -272,7 +279,7 @@ from.m=c(means2subset$discarded[[1]] + 1)
 to.m=means2subset$dimension[[1]]
 
 ## dimension minus the discarded high variance genes
-adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, silent = TRUE)
+adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, silent = FALSE, remove.hi = 0)
 
 
 ##   subset and selcet normal variance genes

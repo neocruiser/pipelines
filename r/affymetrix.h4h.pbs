@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=4,walltime=24:00:00,vmem=60g,mem=220g
+#PBS -l nodes=1:ppn=2,walltime=24:00:00,vmem=60g,mem=220g
 #PBS -N affymetrix
 #PBS -q himem
 #PBS -V
@@ -52,7 +52,13 @@ cp $project/summary/phenodata $output/summary
 ## Array (75.523 probes) among which 35.253 annotated ncRNA
 ## sorting and removing duplicated rows corrects for NAs from array construction
 if [ $discard == "yes" ]; then
-    grep -iv "ncrna" $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 | sed '1d' | sort - | uniq -u > $output/ids.wo.ncrna
+
+    ## get list of RNA mentions
+    grep -iwo "\w*rna\w*" $project/summary/annotated.normalized.systemic.expression.array.txt | sort - | uniq -c | sort -k1 -rn > $output/rna.patterns.annotated.array.txt
+
+    ## remove all non coding RNAs
+    ## ncRNAs were manually picked using the previous filtering output
+    grep -Fivf <(cat $output/summary/rna.patterns.selected4removal.v2.txt | awk '{print $2}') $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 | sed '1d' | sort - | uniq -u > $output/ids.wo.ncrna
     touch subsetting.ncrna.OK
 fi
 

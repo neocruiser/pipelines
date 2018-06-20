@@ -573,7 +573,7 @@ for (l in 1:nrow(results)) {
 #dev.off()
 
 #####################################
-## Visualizaiton of selected genes ##
+## Visualization of selected genes ##
 #####################################
 ## summarize variation between genes (response variables)
 ## variation explained by the sample grouping (explanatory variables)
@@ -627,10 +627,9 @@ reduce
 ## plot
 ## for scaling check ?biplot.rda {vegan}
 ## here the scores are scaled symmetrically by square root of eigenvalues
-##pdf(paste0("rda.bestLassoLambda.seed",ed,".pdf"))
-pdf(paste0("rda.bestLassoLambda.seed.pdf"))
+pdf(paste0("rda.bestLassoLambda.seed",ed,".pdf"))
 par(mar=c(1,1,1,1), fig = c(.05,1,.05,1))
-plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=3, type="n")
+plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=3, type="n", bty = "n")
 
 ## project genes from network
 axis(2, las = 1)
@@ -646,17 +645,19 @@ for ( sp in nl ) {
 text(rda.results, dis="cn", col="chocolate", font=4)
 
 ## content of the legend from tests of significance
-legend("bottomright", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
+legend("bottomleft", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
 legend("topleft",
-       inset=-.01,
+       inset = -.01,
+       title = "Sample-wise gene expression statistics",
        c("+ Variance inflation factor (collinearity)",
          paste0(names(vs),": ",round(vs, 2)),
-         paste0("+ Total variance: ", round(tv, 2), "(",round(tv*100,2),"%)"),
-         paste0("+ F-stats: ",round(ana$F[1],2), " Pval: ",ana[[4]][1]),
-         "+ Permutation (n=2000)",
-         paste0(names(ena$vectors$r),": R2 ",round(ena$vectors$r,2), ", pval ", round(ena$vectors$pvals,5)),
+         paste0("+ Total variance: ", round(tv, 2), " (",round(tv*100,2),"%)"),
+         paste0("+ F-stats: ",round(ana$F[1],2), ", pval ",ana[[4]][1]),
+         "+ Akaike information criterion (best AIC): ", paste0(round(max(reduce$anova$AIC),2)),
          "+ Eigenvalues for constrained axes",
-         paste0(names(rda.results$CCA$eig),": ",round(rda.results$CCA$eig, 2), "%")),
+         paste0(names(rda.results$CCA$eig),": ",round(rda.results$CCA$eig, 2), "%"),
+         "+ Permutation over RDA1-2 (n=2000)",
+         paste0(names(ena$vectors$r),": R2 ",round(ena$vectors$r,2), ", pval ", round(ena$vectors$pvals,5))),
        cex=.7,
        bty = "n",
        horiz=FALSE)
@@ -665,12 +666,6 @@ par(fig = c(.7,1,.7,1), new=TRUE, cex = .6)
 ## Venn diagram showing redundancy between genes assigned to different subsets
 ## each specifically designed (categorized) to predict a class
 venn(selgenes)
-
-par(fig = c(.1,.3,0,.3), new=TRUE, cex = .6)
-## AIK on the sample grouping
-plot(reduce$anova[[5]], reduce$anova[[6]],
-     bty = "n", xlab = "Fitted residuals", ylab = "Akaike Information Criterion (AIC)")
-lines(reduce$anova[[5]], reduce$anova[[6]], type="b", lwd=1.5)
 
 dev.off()
 
@@ -689,7 +684,7 @@ set.seed(ed)
 # machine learning models used
 model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
-                 "LogitBoost", "kernelpls", "multinom",
+                 "LogitBoost", "multinom",
                  "nnet", "pcaNNet",
                  "dnn", "mxnet", "mxnetAdam",
                  "monmlp", "mlpSGD",
@@ -701,7 +696,7 @@ model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
 # hence the low number of parameters to adjust
 parameter_counts <- c(1,3,2,2,
                       1,2,2,1,1,1,
-                      1,1,1,
+                      1,1,
                       2,2,
                       5,7,8,
                       2,8,
