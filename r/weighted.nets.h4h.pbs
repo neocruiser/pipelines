@@ -31,6 +31,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## USER DEFINE ##
 #################
 ## MUST DEFINE BEFORE EXECUTION
+## repositories of gene expression analysis already executed
 _contrast=systemicRelapse
 _workingDir=$project/expression/149518
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
@@ -40,9 +41,14 @@ run_pipe=all
 
 
 ## total, up or clusters
+## either run network analysis on all significant dataset (total)
+## analysis on upregulated genes (up)
+## analysis on genes selected by hiereachical clustering (clusters)
 _strategy=total
 
 ## if strategy is clusters
+## setting these parameters will set the correlation method,
+## normalization, thresholds and more.
 power=8
 modulelength=26
 standardize=hellinger
@@ -54,6 +60,9 @@ _bstatistics=1.5
 ############
 ## PART I ##
 ############
+## Data mining the expression datasets based on statistical thresholds
+## the steps are done after limma expression linear fitting
+
 mkdir -p $output
 cd $output
 
@@ -281,6 +290,7 @@ function execute_pipeline ()
 ##############
 ## PART III ##
 ##############
+## Execute the analysis of network inference
 # convert matrix of gene interactions into graphml output
 cd $output
 cp $home/script*/r/convertMatrix2graph.R $output

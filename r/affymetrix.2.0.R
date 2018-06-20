@@ -198,7 +198,7 @@ get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE, re
     if ( remove.hi == 1 ) {
         ## discard high variance genes
         hi.var <- order(abs(locus.var), decreasing = T)[from:to]
-    } else ( remove.hi == 0 ) {
+    } else if ( remove.hi == 0 ) {
         ## discard low variance genes
         hi.var <- order(abs(locus.var), decreasing = F)[from:to]
     }

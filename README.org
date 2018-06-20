@@ -41,12 +41,11 @@ Licence: MIT Licence
    data transformation methods]] in R (Bassim 2018)
 6. [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][Clustering automation with different expression aggregation methods
    and bootstrapping]] in R (Bassim 2018)
-7. [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Machine learning to classify by bagging and ensemble learning for
-   risk factor predictions]] in R (Bassim 2018)
+7. [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Machine learning and deep learning models]] for cancer risk factor predictions in R (Bassim 2018)
 8. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][Separating reads from dual RNA sequencing of host and parasite]] in
    bash (Bassim 2017)
 9. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug4.slurm][Sequence abundance and expression from dual RNA-seq]] in R (Bassim 2017)
-10. [[https://github.com/neocruiser/pipelines/blob/master/expression/filter-bridges.slurm][Reducing transcriptome size and noise by correcting for read
+10. [[https://github.com/neocruiser/pipelines/blob/master/expression/filter-bridges.slurm][Reducing transcriptome size and noise]] by correcting for read
     abundance]] in bash (Bassim 2017)
 11. [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][Aggregating and optimizing data structure for large scale
     annotation of cDNA sequences with over 13 databases, GO-terms,
@@ -71,18 +70,18 @@ Licence: MIT Licence
     more metadata per gene]] in bash (Bassim 2016)
 20. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.cross.species.slurm][Creating genetic cross-talk networks from host and pathogen
     RNA-seq interactions]] in bash (Bassim 2016)
-22. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.cross.species.R][Calculating correlations and network scores from RNA-seq
+21. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.cross.species.R][Calculating correlations and network scores from RNA-seq
     host-pathogen data]] in R (Bassim 2016)
-23. [[https://github.com/neocruiser/pipelines/blob/master/calling/mappingV6.5.sh][Filtering and variant calling with indel correction on sequencing
+22. [[https://github.com/neocruiser/pipelines/blob/master/calling/mappingV6.5.sh][Filtering and variant calling with indel correction on sequencing
     data]] in bash (Bassim 2015)
-24. [[https://github.com/neocruiser/pipelines/blob/master/calling/mapNoCount.sh][Sorting, duplicate removal, and QC on variant calls]] in bash
+23. [[https://github.com/neocruiser/pipelines/blob/master/calling/mapNoCount.sh][Sorting, duplicate removal, and QC on variant calls]] in bash
     (Bassim 2015)
-25. [[https://github.com/neocruiser/thesis2014/blob/master/ebdbn/ebdbn%2520-%2520W2.R][Bayesian network inference from Agilent micrarray timeseries data]]
+24. [[https://github.com/neocruiser/thesis2014/blob/master/ebdbn/ebdbn%2520-%2520W2.R][Bayesian network inference from Agilent micrarray timeseries data]]
     in R (Bassim 2013)
-26. [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Regularization with lasso and ensemble learning build on top ANN,
+25. [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Regularization with lasso and ensemble learning build on top ANN,
     generalized linear model, and bagging]] in R (Bassim 2014)
-27. [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy clustering on Agilent microarray timeseries data for
+26. [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy clustering on Agilent microarray timeseries data for
     biomarker discovery]] in R (Bassim 2013)
-28. [[https://github.com/neocruiser/thesis2014/blob/master/ordination/rda%2520-%2520W2.R][Ordination analyses of timeseries microarray data]] in R (Bassim 2013)
-29. [[https://github.com/neocruiser/thesis2014/blob/master/microarrays/preProcessing_detailed.R][Agilent timeseries data processing and pattern extraction]] in R
+27. [[https://github.com/neocruiser/thesis2014/blob/master/ordination/rda%2520-%2520W2.R][Ordination analyses of timeseries microarray data]] in R (Bassim 2013)
+28. [[https://github.com/neocruiser/thesis2014/blob/master/microarrays/preProcessing_detailed.R][Agilent timeseries data processing and pattern extraction]] in R
     (Bassim 2012)
