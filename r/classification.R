@@ -55,7 +55,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.lambda=10^seq(-1,-5,length=50))
         } else if ( method == "loclda" ) {
             ## localized linear discriminant analysis
-            grid_models <- expand.grid(.k=seq(1,400,length=20))
+            grid_models <- expand.grid(.k=seq(1,350,length=15))
         } else if ( method == "bagFDAGCV" ) {
             ## bagged FDA using gCV pruning
             grid_models <- expand.grid(.degree=seq(10^-3,5,length=100))
@@ -94,13 +94,13 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .shrinkage=10^seq(-1,-5,length=30),.n.minobsinnode=seq(1:10))
         } else if ( method == "nnet" ) {
             ## neural networks
-            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
+            grid_models <- expand.grid(.size=seq(1,20,length=35), .decay=10^seq(-1,-5,length=35))
         } else if ( method == "pcaNNet" ) {
             ## neural networks with inclusive feature extraction
             grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
         } else if ( method == "monmlp" ) {
             ## monotone multi-layer perceptron neural network
-            grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(10))
+            grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(5))
         } else if ( method == "mlpSGD" ) {
             ## multilayer perceptron network by stochastic gradient descent
             grid_models <- expand.grid(.size=seq(1:3),.l2reg=10^seq(-3,-5,length=2),.lambda=0,
@@ -108,7 +108,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .gamma=10^seq(0,-1,length=3),
                                        .momentum=10^seq(0,-1,length=3),
                                        .minibatchsz=seq(1,120,length=50),    
-                                       .repeats=1)
+                                       .repeats=2)
         } else if ( method == "mxnet" ) {
             ## deep neural network with GPU computing
             ## relu (rectified linear units) faster than sigmoid function
@@ -684,24 +684,24 @@ set.seed(ed)
 # machine learning models used
 model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
-                 "LogitBoost", "multinom",
-                 "nnet", "pcaNNet",
+                 "kknn", "naive_bayes", "gbm",
                  "dnn", "mxnet", "mxnetAdam",
                  "monmlp", "mlpSGD",
                  "rf", "RRF",
-                 "kknn", "naive_bayes", "gbm")
+                 "nnet", "pcaNNet",
+                 "LogitBoost", "multinom")
 
 # number of parameters per model
 # the deep network used in this step is an automated model
 # hence the low number of parameters to adjust
 parameter_counts <- c(1,3,2,2,
                       1,2,2,1,1,1,
-                      1,1,
-                      2,2,
+                      3,3,4,
                       5,7,8,
                       2,8,
                       1,3,
-                      3,3,4)
+                      2,2,
+                      1,1)
 
 
 
