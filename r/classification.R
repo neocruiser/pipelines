@@ -37,10 +37,12 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.C=seq(.001,25, length=100))
         } else if ( method == "svmPoly") {
             ## svmRadial
-            grid_models <- expand.grid(.degree=seq(0,10,.5),.scale=10^seq(-1,-3,length=10),.C=seq(1:5))
+            grid_models <- expand.grid(.degree=seq(0,10,.5),
+                                       .scale=10^seq(-1,-3,length=10),
+                                       .C=seq(.1,2, length=20))
         } else if ( method == "svmRadialSigma") {
             ## svm with radial basis function kernel
-            grid_models <- expand.grid(.C=seq(1:20), .sigma=10^seq(-1,-5,length=60))
+            grid_models <- expand.grid(.C=seq(.1,2, length=20), .sigma=10^seq(-1,-5,length=60))
         } else if ( method == "svmLinear3") {
             ## l2 regularized support vector machine (dual) with linear kernel
             grid_models <- expand.grid(.cost=10^seq(-1,2,30), .Loss=seq(0:7))
@@ -65,9 +67,17 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
         } else if ( method == "LogitBoost" ) {
             ## Boosted logistic regression
             grid_models <- expand.grid(.nIter=seq(1,100,length=200))
+        } else if ( method == "regLogistic" ) {
+            ## Regularized logistic regression
+            ## the loss parameter triggers L1 and L2 loss regularizations
+            ## its suggested the difference between primal and dual (through loss)
+            ## has effects on speed of execution and little on accuracy performance
+            grid_models <- expand.grid(.cost=seq(.1, 2, length=20),
+                                       .loss=seq(0:7),
+                                       .epsilon=10^seq(-1,-2,length=10))
         } else if ( method == "kernelpls" ) {
             ## partial least squares
-            grid_models <- expand.grid(.ncomp=seq(10^-3,20,length=70))
+            grid_models <- expand.grid(.ncomp=seq(1,20,length=40))
         } else if ( method == "multinom" ) {
             ## penalized multinomial regression
             grid_models <- expand.grid(.decay=10^seq(-1,-5,length=200))
@@ -107,7 +117,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .learn_rate=10^seq(0,-7,length=3),
                                        .gamma=10^seq(0,-1,length=3),
                                        .momentum=10^seq(0,-1,length=3),
-                                       .minibatchsz=seq(1,120,length=50),    
+                                       .minibatchsz=seq(1,120,length=30),    
                                        .repeats=2)
         } else if ( method == "mxnet" ) {
             ## deep neural network with GPU computing
@@ -152,10 +162,6 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                                   trControl= trainCtrl,
                                                   preProc=c("center","scale")))
     }
-
-    pdf(paste0(method,".seed",ed,".metrics.pdf"))
-    plot(modelTrain)
-    dev.off()
 
     ## get performance scores from out-of-bag observations
     ## after cross validation during hyperparameter tuning
@@ -682,26 +688,26 @@ set.seed(ed)
 
 
 # machine learning models used
-model_types <- c("svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
+model_types <- c("kernelpls", "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
                  "kknn", "naive_bayes", "gbm",
-                 "dnn", "mxnet", "mxnetAdam",
+                 "dnn", "mxnet",
                  "monmlp", "mlpSGD",
                  "rf", "RRF",
                  "nnet", "pcaNNet",
-                 "LogitBoost", "multinom")
+                 "regLogistic", "LogitBoost", "multinom")
 
 # number of parameters per model
 # the deep network used in this step is an automated model
 # hence the low number of parameters to adjust
-parameter_counts <- c(1,3,2,2,
+parameter_counts <- c(1,1,3,2,2,
                       1,2,2,1,1,1,
                       3,3,4,
-                      5,7,8,
+                      5,7,
                       2,8,
                       1,3,
                       2,2,
-                      1,1)
+                      3,1,1)
 
 
 
@@ -733,7 +739,7 @@ for ( iterations in c(1:2) ) {
         ## models are trained in succession
         ## output is saved
         start <- format(Sys.time(), "%X")
-        cat("\nIteration", ie, "on model", mods, "started at", start)
+        cat("\n>> Iteration", ie, "on model", mods, "started at", start)
         modnam=models()
         model.name <- paste0(mods,"|",ie,"|",param)
         
@@ -754,7 +760,7 @@ for ( iterations in c(1:2) ) {
             names(performance_summary)[modnam] <- model.name        
         }
         end <- format(Sys.time(), "%X")
-        cat(".", mods, "execution successful at", end)
+        cat(". >>", mods, "execution successful at", end)
     }
 
 }
@@ -789,7 +795,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## start logging
         start <- format(Sys.time(), "%X")
-        cat("\nTraining on model", mods, "started at", start)
+        cat("\n>> Training on model", mods, "started at", start)
 
         ## models are trained in succession
         ## predicted output is saved
@@ -821,7 +827,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## end logging
         end <- format(Sys.time(), "%X")
-        cat(". Execution was successful at", end, "- Duration:", durationMinutes, "min")
+        cat(". >>", mods, "execution successful at", end, "- Duration:", durationMinutes, "min", "(",durationMinutes/60," H)")
     }
 
 } else if ( classification == TRUE & binomial == TRUE ) {

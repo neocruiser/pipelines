@@ -1,9 +1,3 @@
-## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
-pow <- seq(4, 12, 2)
-th <- seq(.1, .6, .1)
-
-
-th=.5
 #################
 ### RUN CODE ####
 #################
@@ -18,9 +12,20 @@ tbl_df(counts)
 
 dim(counts)
 
-# sampling for heatmaps
 nco <- dim(counts)[1]
 
+## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
+if ( nco >= 500 ) {
+    pow <- seq(4, 12, 2)
+    th <- seq(.1, .6, .1)
+} else if ( nco < 500 ) {
+    pow <- seq(2, 6, 1)
+    th <- seq(.1, .6, .1)
+}
+th=.5
+
+
+# sampling for heatmaps
 if ( nco >= 100 ){
     heatmap.indices.sampling <- sample(nco, c(nco*.1))
     
@@ -92,7 +97,7 @@ for ( s in standardize_df ) {
     }
     sim_matrix <- cordist(counts)
 
-    pdf(paste("similarity.matrix.standardize.SSIZE",nco,".STD",s,".heatmap.pdf",sep = ""))
+    pdf(paste("similarity.matrix.standardize.FeatureSIZE",nco,".STD",s,".heatmap.pdf",sep = ""))
     heatmap_indices = heatmap.indices.sampling
     heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
               col=palette.green,
@@ -122,7 +127,7 @@ for ( s in standardize_df ) {
         rownames(adj_matrix) <- gene_ids
         colnames(adj_matrix) <- gene_ids
 
-        pdf(paste("adjacency.matrix.SSIZE",nco,".STD",s,".heatmap.pdf", sep = ""))
+        pdf(paste("adjacency.matrix.FeatureSIZE",nco,".STD",s,".heatmap.pdf", sep = ""))
         heatmap.2(t(adj_matrix[heatmap_indices, heatmap_indices]),
                   col=palette.green,
                   labRow = NA, labCol=NA,
@@ -161,7 +166,7 @@ for ( s in standardize_df ) {
                 if ( nco >= 100 ) {
                     imax = floor(nco * .1)
                     ival = floor(nco * .01)
-                } else {
+                } else ( nco < 100 ) {
                     imax = nco
                     if ( nco >= 50 ) {
                         ival = floor(nco * .05)           
@@ -171,11 +176,8 @@ for ( s in standardize_df ) {
                 }
 
 
-
-
                 for ( i in seq(5, imax, ival) ) {
                     ## Create a tabulated summary of networks topology
-
                     module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                                        minModuleSize=i,
                                                        deepSplit=TRUE)
@@ -208,15 +210,18 @@ for ( s in standardize_df ) {
                 min.mods
 
                 ## number of genes per module
-                mods_a = c((min.mods[[1]] - c( round(min.mods[[1]]/min.mods[[2]]) * 10 ) ) + 1)
-                mods_b = min.mods[[1]]
-                mods_c = c((min.mods[[1]] + c( round(min.mods[[1]]/min.mods[[2]]) * 12 ) ))
-                
+                if ( nco >= 500 ) {
+                    mods_a = c((min.mods[[1]] - c( round(min.mods[[1]]/min.mods[[2]]) * 10 ) ) + 1)
+                    mods_b = min.mods[[1]]
+                    mods_c = c((min.mods[[1]] + c( round(min.mods[[1]]/min.mods[[2]]) * 12 ) ))
+                } else if ( nco < 500 ) {
+                    mods_a = min(dm[1])
+                    mods_b = min.mods[[1]]
+                    mods_c = c ( imax - ival )
+                }
+
                 # Iterate clustering based on the number of genes per module
                 for ( fm in c(mods_a, mods_b, mods_c) ) {
-                #    for ( f in c(1, 2) ) {
-                #fm <- floor(min.mods[[f]])
-                #fm <- floor(((imax-fm)/2.5) + fm)
 
                     module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                                        minModuleSize=fm,
@@ -224,7 +229,7 @@ for ( s in standardize_df ) {
 
 
 
-                    pdf(paste("minimum.module.SSIZE",nco,".STD",s,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
+                    pdf(paste("minimum.module.FeatureSIZE",nco,".STD",s,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
                     plot(dm, main = paste("Module (cluster) size selected = ", fm, sep=""))
                     abline(lm(dm$NbModules ~ dm$MaxGenesPerModule), col="red")
                     lines(lowess(dm$MaxGenesPerModule,dm$NbModules), col="blue")
@@ -243,12 +248,12 @@ for ( s in standardize_df ) {
                     for (t in th){
                         g <- export_network_to_graphml(adj_matrix,
                                                        filename = paste("network.POW",p,
-                                                                        ".Th",t,
-                                                                        ".GEN",fm,
+                                                                        ".th",t,
+                                                                        ".GENperMOD",fm,
                                                                         ".STD",s,
-                                                                        ".SSIZE",nco,
+                                                                        ".FeatureSIZE",nco,
                                                                         ".CLU",n,
-                                                                        ".var-CORR",cr,
+                                                                        ".varCORR",cr,
                                                                         ".graphml",
                                                                         sep = "" ),
                                                        threshold=t,
@@ -292,8 +297,8 @@ for ( s in standardize_df ) {
                     
                     # increase counter by 1 and amend new methods succesfully executed
                     steps_done=paste0("network.iteration_",ite(),".po",p,
-                                      ".Th",t,".GEN",fm,".STD",s,".SSIZE",nco,
-                                      ".CLU",n,".var-CORR",cr,".tmp")
+                                      ".th",t,".GENperMOD",fm,".STD",s,".FeatureSIZE",nco,
+                                      ".CLU",n,".varCORR",cr,".tmp")
 
 
                     if ( !file.exists(steps_done) )

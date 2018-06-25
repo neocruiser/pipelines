@@ -32,8 +32,10 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 #################
 ## MUST DEFINE BEFORE EXECUTION
 ## repositories of gene expression analysis already executed
+## Standard libraries (relapse project)
+## 149518 only ncRNA mentioned were removed 75k > 29k > 20k > 500
 _contrast=systemicRelapse
-_workingDir=$project/expression/149518
+_workingDir=$project/expression/306289
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all
@@ -62,12 +64,27 @@ _bstatistics=1.5
 ############
 ## Data mining the expression datasets based on statistical thresholds
 ## the steps are done after limma expression linear fitting
+## B-statistics is the major factor in choosing genes
+## equation to get the chance (%) of a gene to be differentially expressed
+## ( exp(1) / ( exp(1) + 1 )) * 100
+##
+## o---Bstats = -2 (12%)
+## o---Bstats = -1 (26%)
+## o---Bstats = -0.5 (37%)
+## |
+## o---Bstats = 0 (50%)
+## |
+## o---Bstats = 0.5 (62%)
+## o---Bstats = 1 (73%)
+## o---Bstats = 1.5 (81%)
+## o---Bstats = 2 (88%)
+
 
 mkdir -p $output
 cd $output
 
 ## already set thresholds based on the $_workingDir output
-_adjPval=0.049
+_adjPval=0.05
 _avgexpression=5
 _foldchange=1
 
@@ -76,7 +93,7 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=0
+    _bstatistics=-1.5
     
     touch $output/ids.total.tmp
     
