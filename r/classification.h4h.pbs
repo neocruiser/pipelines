@@ -39,7 +39,7 @@ _networkJOBID=149444
 ############
 ## PART I ##
 ############
-mkdir -p $output/graph $output/summary $output/scripts $output/selected
+mkdir -p $output/graph $output/summary $output/scripts $output/selected $output/backups
 cd $output
 
 
@@ -122,7 +122,7 @@ cd $output
 mv *pdf graph
 mv log* summary
 mv *iterations*lambda* selected
-
+mv *Rdata backups
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 

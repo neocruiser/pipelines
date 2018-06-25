@@ -1,6 +1,7 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
-          'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan')
+          'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan',
+          'reshape2', 'ggplot2')
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging
@@ -114,7 +115,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
         } else if ( method == "mlpSGD" ) {
             ## multilayer perceptron network by stochastic gradient descent
             grid_models <- expand.grid(.size=seq(1:3),.l2reg=10^seq(-3,-5,length=2),.lambda=0,
-                                       .learn_rate=10^seq(0,-7,length=3),
+                                       .learn_rate=10^seq(-1,-7,length=3),
                                        .gamma=10^seq(0,-1,length=3),
                                        .momentum=10^seq(0,-1,length=3),
                                        .minibatchsz=seq(1,120,length=30),    
@@ -126,7 +127,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             ## also, a reduced likelihood of vanishing gradient (weights and biases)
             ## and adds sparcity resulting in less dense network representation
             grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
-                                       .learning.rate=10^seq(0,-7,length=6),
+                                       .learning.rate=10^seq(-1,-7,length=6),
                                        .momentum=10^seq(0,-1,length=6),
                                        .dropout=10^seq(0,-5,length=6),
                                        .activation=c("relu"))
@@ -672,8 +673,83 @@ par(fig = c(.7,1,.7,1), new=TRUE, cex = .6)
 ## Venn diagram showing redundancy between genes assigned to different subsets
 ## each specifically designed (categorized) to predict a class
 venn(selgenes)
-
 dev.off()
+
+
+## Correlation matrices for each group
+## show correlation for selected genes from Lasso
+## create heatmaps for genes specific for each sample class
+vints <- attr(venn(selgenes), "intersections")
+save(list=ls(pattern="vints"),file="venn.intersections.Rdata")
+
+pdf("correlation.matrices4venn.intersection.pdf", onefile = TRUE)
+for ( lev in 1:length(vints) ) {
+    ## get the genes that intersect
+    df <- adj.x[, vints[[lev]]]
+    cordf <- round(cor(df),2)
+
+    get_upper_tri <- function(da){
+        ## function from the ggplot tutorials
+        ## removes half of the correlation matrix
+        da[lower.tri(da)] <- NA
+        return(da)
+    }
+
+    ## cluster and arrange correlation matrix
+    dd <- as.dist((1-cordf)/2)
+    hc <- hclust(dd)
+    cordf <-cordf[hc$order, hc$order]
+
+    
+    ## plot correlation matrix
+    corplot <- get_upper_tri(cordf) %>%
+        melt(na.rm = TRUE) %>%
+        ggplot(aes(x = Var2,
+                   y = Var1,
+                   fill = value)) +
+        geom_tile() +
+        scale_fill_gradient2(low = "#67a9cf", high = "#ef8a62", mid = "#f7f7f7", 
+                             midpoint = 0, limit = c(-1,1), space = "Lab", 
+                             name="Pearson\nCorrelation") +
+        theme_minimal()+ 
+        coord_fixed() +
+        theme(
+            axis.title.x = element_blank(),
+            axis.title.y = element_blank(),
+            panel.grid.major = element_blank(),
+            panel.border = element_blank(),
+            panel.background = element_blank(),
+            axis.ticks = element_blank(),
+            legend.justification = c(1, 0),
+            legend.position = c(0.6, 0.7),
+            legend.direction = "horizontal") +
+        guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                                     title.position = "top", title.hjust = 0.5)) +
+        theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                         size = 8, hjust = 1)) +
+        ggtitle(paste0("Correlation between ",names(vints)[lev]," genes"))
+
+    print(corplot)
+
+}
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ############################
 ## Validating classifiers ##
@@ -816,7 +892,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## get iteration speed
         ## get sensitivity, specificity, precision scores ...
-        durationMinutes <- model.metrics$timeLapsed[[3]]/60
+        durationMinutes <- round(model.metrics$timeLapsed[[3]]/60, 2)
         systems.metrics <- rbind(systems.metrics,
                                  data.frame(model=mods,
                                             durationMinutes=durationMinutes,
@@ -827,7 +903,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## end logging
         end <- format(Sys.time(), "%X")
-        cat(". >>", mods, "execution successful at", end, "- Duration:", durationMinutes, "min", "(",durationMinutes/60," H)")
+        cat(". >>", mods, "execution successful at", end, "- Duration:", durationMinutes,"min", "(",durationMinutes/60,"H)")
     }
 
 } else if ( classification == TRUE & binomial == TRUE ) {
@@ -865,7 +941,29 @@ if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
 
 ##### debugging #####
 #model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
-#train(y~., data = dat, method = "naive_bayes")
+#train(y~., data = dat, method = "glmnet_h2o")
+
+modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TRUE){
+    trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=rep,summaryFunction=defaultSummary)
+    if ( grid == TRUE ) {
+        if ( method == "gbm_h2o" ) {
+            grid_models <- expand.grid(.ntrees=seq(2,30,length=2),
+                                       .max_depth=5,
+                                       .min_rows=0.7,
+                                       .learn_rate=0.5,
+                                       .col_sample_rate=0.8)
+        }
+
+        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],method=method,trControl= trainCtrl,preProc=c("center","scale"),tuneGrid=grid_models,tuneLength=tune))
+    } else if ( grid == FALSE ) {
+        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],method=method,trControl= trainCtrl,preProc=c("center","scale")))  }
+    results <- modelTrain$results
+    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+    conf.m <- confusionMatrix(data=Predd, dat[-train,1])
+    output <- list(timeLapsed=lapsed,bestModel=modelTrain,Results=results,Hyperparameters=modelTrain$bestTune,ConfusionMatrix=conf.m)
+    return(output)}
+
+model.metrics <- modelTune.clas(dat,training,method="gbm_h2o",folds=3,r=2,tune=2, grid=TRUE)
 
 
 ###### experimental ######

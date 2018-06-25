@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=4,walltime=200:00:00,vmem=30g,mem=220g
+#PBS -l nodes=1:ppn=2,walltime=36:00:00,vmem=30g,mem=220g
 #PBS -N networks
-#PBS -q long
+#PBS -q all
 #PBS -V
 #PBS -j oe
 #PBS -m abe

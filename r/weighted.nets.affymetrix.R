@@ -166,7 +166,7 @@ for ( s in standardize_df ) {
                 if ( nco >= 100 ) {
                     imax = floor(nco * .1)
                     ival = floor(nco * .01)
-                } else ( nco < 100 ) {
+                } else if ( nco < 100 ) {
                     imax = nco
                     if ( nco >= 50 ) {
                         ival = floor(nco * .05)           
