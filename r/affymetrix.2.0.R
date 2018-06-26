@@ -177,13 +177,13 @@ if ( file.exists("./ids.wo.ncrna") ) {
     # REMOVE NCRNAS
     x <- as.matrix(trx.normalized[as.matrix(ids.wo.ncrna), ])
     colnames(x) <- colnames(trx.normalized)
-    dim(x)
+    print(dim(x))
     sink("create.subset.wo.ncRNA.OK"); sink()
     
 } else {
     
     x <- as.matrix(trx.normalized)
-    dim(x)
+    print(dim(x))
     sink("create.subset.w.ncRNA.OK"); sink()
 
 }
@@ -191,22 +191,19 @@ if ( file.exists("./ids.wo.ncrna") ) {
 ######################
 ## FUNCTION CALLING ##
 ######################
-get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, silent = FALSE, remove.hi = 1 ){
+get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 1 ){
     ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
     locus.var <- apply(t(dat), n, var)
 
     if ( remove.hi == 1 ) {
         ## discard high variance genes
         hi.var <- order(abs(locus.var), decreasing = T)[from:to]
+        cat("Number of selected balanced-variance genes:",length(hi.var),"\n")            
     } else if ( remove.hi == 0 ) {
         ## discard low variance genes
         hi.var <- order(abs(locus.var), decreasing = F)[from:to]
-    }
-    
-    if ( silent == FALSE ) {
         cat("Number of selected high-variance genes:",length(hi.var),"\n")    
     }
-    
     return(hi.x <- dat[,hi.var])
 }
 
@@ -267,7 +264,7 @@ for (nset in seq(start_th, end_th, increment_th)) {
 }
 
 write.table(gv, "summary.adjusted.means.subsetting.txt", quote=FALSE, sep="\t", row.names=F)
-
+gv
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
@@ -278,12 +275,14 @@ from.m=c(means2subset$discarded[[1]] + 1)
 to.m=means2subset$dimension[[1]]
 
 ## dimension minus the discarded high variance genes
-adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, silent = FALSE, remove.hi = 0)
+from.m
+to.m
+adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 0)
 
 
 ##   subset and selcet normal variance genes
 trx.normalized <- trx.normalized[colnames(adj.x), ]
-write.exprs(trx.normalized, file=paste0("normalized.subset.",to.m,".systemic.trx.expression.txt"))
+write.exprs(trx.normalized, file=paste0("normalized.subset.",dim(adj.x)[2],".systemic.trx.expression.txt"))
 
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')

@@ -54,12 +54,15 @@ cp $project/summary/phenodata $output/summary
 if [ $discard == "yes" ]; then
 
     ## get list of RNA mentions
-    grep -iwo "\w*rna\w*" $project/summary/annotated.normalized.systemic.expression.array.txt | sort - | uniq -c | sort -k1 -rn > $output/rna.patterns.annotated.array.txt
+    touch  $output/patterns.flagged4removal.txt
+    for pat in rna pseudo uncharac intron; do
+	grep -iwo "\w*${pat}\w*" $project/summary/annotated.normalized.systemic.expression.array.txt | sort - | uniq -c | sort -k1 -rn >> $output/patterns.flagged4removal.txt
+    done
 
-    ## remove all non coding RNAs
-    ## ncRNAs were manually picked using the previous filtering output
+    ## remove all non coding RNAs, pseudogenes, uncharacterized, NAs, and intronic
+    ## ncRNAs were manually flagged for removal using the previous filtering output
     ## keep RNA and mRNA mentions
-    grep -Fivf <(cat $project/summary/rna.patterns.selected4removal.v2.txt | awk '{print $2}' | sed '1,2d') $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 | sort - | uniq -u > $output/ids.wo.ncrna
+    grep -Fivf <(cat $project/summary/patterns.selected4removal.v3.txt | awk '{print $2}' | sed '1,2d') $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 | sort - | uniq -u > $output/ids.wo.ncrna
     touch subsetting.ncrna.OK
 fi
 
