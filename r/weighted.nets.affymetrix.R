@@ -51,11 +51,6 @@ palette.red <- colorRampPalette(palette.rd)(n = nco)
 #traceback()
 
 ## output analyses done for debugging purposes
-## create an iterative counter and initialize it
-icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
-ite <- icc()
-steps_done="tmp"
-                    
 ### END ###
 
     
@@ -66,10 +61,18 @@ standardize_df <- c("hellinger", "standardize", "range")
 networks.summary=NULL
 ## Initialize variable that will contain differnt module/gene iterations
 dm <- NULL
+## create data frame to export module associations per gene across iterations
+gene2module <- data.frame(ids = rownames(counts))
+## create an iterative counter and initialize it
+icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
+ite <- icc()
+steps_done="tmp"
+                    
 
-
+## Create networks
+## iterated across different normalization and correlation methods
+## each technique generates different modules
 for ( s in standardize_df ) {
-
     ## This normalization step will change the scores
     ## based on the sum by Margins
     ## uses ranges, logs, square roots etc.,
@@ -220,14 +223,12 @@ for ( s in standardize_df ) {
                     mods_c = c ( imax - ival )
                 }
 
-                # Iterate clustering based on the number of genes per module
+                # Iterate Clustering Based on the number of genes per module
                 for ( fm in c(mods_a, mods_b, mods_c) ) {
 
                     module_labels <- cutreeDynamicTree(dendro=gene_tree,
                                                        minModuleSize=fm,
                                                        deepSplit=TRUE)
-
-
 
                     pdf(paste("minimum.module.FeatureSIZE",nco,".STD",s,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
                     plot(dm, main = paste("Module (cluster) size selected = ", fm, sep=""))
@@ -283,35 +284,29 @@ for ( s in standardize_df ) {
                                                              MaxGenesPerModule=fm,
                                                              SimilaritySize=nco,
                                                              EdgeThreshold=th,
-                                                             CorrelationPower=p
-                                                             ))
-
+                                                             CorrelationPower=p))
                     }
-
-
 
                     ## output analyses done for debugging purposes
                     if ( file.exists(steps_done) )
                         file.remove(steps_done)
-
                     
-                    # increase counter by 1 and amend new methods succesfully executed
-                    steps_done=paste0("network.iteration_",ite(),".po",p,
+                    ## increase counter by 1 and amend new methods succesfully executed
+                    ii <- ite()
+                    steps_done=paste0("network.iteration_",ii,".po",p,
                                       ".th",t,".GENperMOD",fm,".STD",s,".FeatureSIZE",nco,
                                       ".CLU",n,".varCORR",cr,".tmp")
-
 
                     if ( !file.exists(steps_done) )
                         file.create(steps_done)
 
-                    
+                    ## add modules, one iteration at a time
+                    gene2module <- cbind(gene2module, module_labels)
+                    names(gene2module)[c( 1 + ii)] <- paste0("GMOD",fm,"PO",p,"TH",t,"_STD",s,"CLU",n,"COR",cr)
                 
                 }
             }
-            
         }
-
-        
     }
 }
 
@@ -319,6 +314,7 @@ for ( s in standardize_df ) {
 ## Create a summarized tabulated file about clustering, network organization, and correlation
 write.table(networks.summary, "networks.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
 write.table(dm, "modules.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
+write.table(gene2module, "ids2modules.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
 
 
 

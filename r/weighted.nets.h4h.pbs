@@ -200,7 +200,7 @@ fi
 
 # create correct headers
 paste <(printf "%sids") \
-      <(printf "%s$(sed '2, $d' $_affymetrix)") \
+      <(printf "%s$(sed -e '2, $d' $_affymetrix)") | sed 's/\t\t/\t/g' \
       > $output/expressions
 # get expression of only annotated genes (NAs are discarded)
 cat $_affymetrix | grep -Fwf <(cat $output/ids.$_strategy.tmp | sort - | uniq -) >> $output/expressions

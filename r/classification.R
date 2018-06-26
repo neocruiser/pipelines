@@ -736,6 +736,95 @@ dev.off()
 
 
 
+## box plot all selected genes
+## grouped by module from hierarchical analysis
+## before inferring gene network associations
+
+
+
+
+## clustering by genes/species (rows)
+s <- c("hellinger")
+n <- c("complete")
+cr <- c("spearman")
+cc <- c("pearson")
+gct <- dim(df)[2]
+ctt=1.5
+palette.gr <- brewer.pal(11, name = "PiYG")
+palette.rd <- brewer.pal(9, name = "YlOrRd")
+palette.green <- colorRampPalette(palette.gr)(n = c(gct * .05))
+palette.red <- colorRampPalette(palette.rd)(n = c(gct * .05))
+
+scaledata <- t(df)
+
+## Clustering using dissimilarity analysis
+hra <- hclust(as.dist(1-cor(t(scaledata), method= cr)), method= n)
+hca <- hclust(as.dist(1-cor(scaledata, method= cc)), method= n)
+
+
+## CUT THE TREE
+mycl.row <- cutree(hra, h=max(hra$height)/ctt)
+mycl.col <- cutree(hca, h=max(hca$height)/ctt)
+
+## attribute colors to clusters
+maxClusters.row <- length(unique(mycl.row))
+maxClusters.col <- length(unique(mycl.col))                
+
+if ( maxClusters.row <= 12) {
+    myrowhc <- brewer.pal(maxClusters.row, name = 'Paired')
+} else {
+    myrowhc <- colorRampPalette(brewer.pal(8, name="Dark2"))(maxClusters.row)
+}
+
+## Clustering features
+if ( maxClusters.col <= 12) {
+    mycolhc <- brewer.pal(maxClusters.col, name = 'Paired')
+} else {
+    mycolhc <- colorRampPalette(brewer.pal(9, name="Set1"))(maxClusters.col)
+}
+
+myrowhc <- myrowhc[as.vector(mycl.row)]
+mycolhc <- mycolhc[as.vector(mycl.col)]                
+
+bst=2
+## interval confidence (5% chance wrong clustering)
+a=0.95
+pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
+pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
+
+## RETRIEVE MEMBERS OF SIGNIFICANT CLUSTERS.
+clsig.row <- unlist(pvpick(pvData.row, alpha=a, pv="au", type="geq", max.only=TRUE)$clusters)
+clsig.col <- unlist(pvpick(pvData.col, alpha=a, pv="au", type="geq", max.only=TRUE)$clusters)                
+
+## Function to Color Dendrograms
+dendroCol <- function(dend=dend, keys=keys, xPar="edgePar", bgr="red", fgr="blue", pch=20, lwd=1, ...) {
+    if(is.leaf(dend)) {
+        myattr <- attributes(dend)
+        if(length(which(keys==myattr$label))==1){
+            attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=fgr, col=fgr, pch=pch, lwd=lwd))
+        } else {
+            attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=bgr, col=bgr, pch=pch, lwd=lwd))
+        }
+    }
+    return(dend)
+}
+
+
+## color the edges of the dendrogram based on 5000 bootstrap significance
+dend_colored.row <- dendrapply(as.dendrogram(pvData.row$hclust), dendroCol, keys=clsig.row, xPar="edgePar", bgr="black", fgr="red", pch=20)
+dend_colored.col <- dendrapply(as.dendrogram(pvData.col$hclust), dendroCol, keys=clsig.col, xPar="edgePar", bgr="black", fgr="red", pch=20)                
+
+
+## PLOT HEATMAP
+pdf("test.pdf")
+heatmap.2(scaledata,
+          Rowv=dend_colored.row, Colv=dend_colored.col,
+          col=palette.green,
+          scale="row", trace="none",
+          RowSideColors = myrowhc, ColSideColors=mycolhc,
+          margins=c(5,5), cexRow=.1, cexCol=.1)
+dev.off()
+
 
 
 
