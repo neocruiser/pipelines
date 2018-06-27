@@ -1,7 +1,7 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
           'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan',
-          'reshape2', 'ggplot2')
+          'reshape2', 'ggplot2', 'tidyr')
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging
@@ -629,6 +629,8 @@ extended <- rda(adj.x ~ ., associations[, nl])
 reduce0 <- rda(adj.x ~ 1, associations[, nl])
 reduce <- step(reduce0, scope=formula(extended), test="perm")
 reduce
+max.aic <- round(max(reduce$anova$AIC),2)
+min.aic <- round(min(reduce$anova$AIC),2)
 
 
 ## plot
@@ -658,9 +660,10 @@ legend("topleft",
        title = "Sample-wise gene expression statistics",
        c("+ Variance inflation factor (collinearity)",
          paste0(names(vs),": ",round(vs, 2)),
-         paste0("+ Total variance: ", round(tv, 2), " (",round(tv*100,2),"%)"),
+         paste0("+ Total variance: ", round(tv, 2)),
          paste0("+ F-stats: ",round(ana$F[1],2), ", pval ",ana[[4]][1]),
-         "+ Akaike information criterion (best AIC): ", paste0(round(max(reduce$anova$AIC),2)),
+         "+ Akaike information criterion (best AIC): ",
+         paste0(max.aic," (",round(100-((min.aic/max.aic)*100),2),"% improvement)"),
          "+ Eigenvalues for constrained axes",
          paste0(names(rda.results$CCA$eig),": ",round(rda.results$CCA$eig, 2), "%"),
          "+ Permutation over RDA1-2 (n=2000)",
@@ -739,10 +742,84 @@ dev.off()
 ## box plot all selected genes
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
+## ids2modules is a summary file generated from the weighted nets script
+ids2modules <- read.table("../networks/ids2modules.summary.txt", header = T)
+vints <- attr(venn(selgenes), "intersections")
+#write.table(vints[[3]], "test", quote = FALSE)
+
+pdf("test.pdf", onefile = TRUE)
+for ( lev in 1:length(vints) ) {
+    ## get the genes that intersect
+    ## add module association from hierarchical clustering
+    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, 3)]
+    colnames(genes2modules) <- c("genes", "modules")
+
+    full.list <- as.data.frame((adj.x[, vints[[lev]]])) %>%
+        mutate(groups = y) %>%
+        mutate(samples = rownames(adj.x)) %>%
+        gather("genes", "expressions", 1:length(vints[[lev]])) %>%
+        full_join(genes2modules, by = "genes") %>%
+        ggplot(aes(x = reorder(genes, expressions),
+                   y = expressions,
+                   color = groups)) +
+        geom_jitter(aes(color = factor(groups)),
+                    shape=16,
+                    position=position_jitterdodge(dodge.width=.8),
+                    cex = .5) +
+        geom_boxplot(outlier.colour = NA) +
+        scale_color_brewer(palette="Dark2") +
+        theme_minimal() +
+        theme(legend.position = "top",
+              axis.text.x = element_text(vjust = .5,
+                                         angle = 45,
+                                         size = 6.5)) +
+        ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
+        xlab("") +
+        ylab("Log 2 expression")
+
+    print(full.list)
+}
+dev.off()
 
 
 
+for ( lev in 1:length(vints) ) {
+pdf("test.pdf", onefile = TRUE)
+    ## get the genes that intersect
+    ## add module association from hierarchical clustering
+    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, 3)]
+    colnames(genes2modules) <- c("genes", "modules")
 
+    full.list <- as.data.frame((adj.x[, vints[[lev]]])) %>%
+        mutate(groups = y) %>%
+        mutate(samples = rownames(adj.x)) %>%
+        gather("genes", "expressions", 1:length(vints[[lev]])) %>%
+        full_join(genes2modules, by = "genes") %>%
+        ggplot(aes(x = modules,
+                   y = expressions,
+                   group = groups,
+                   color = groups)) +
+        geom_line(aes(x=as.numeric(modules),
+                      y = expressions)) +
+        geom_point(aes(shape = groups),
+                   size=2, shape=21,
+                   position=position_dodge(.9)) +
+        scale_color_brewer(palette="Dark2") +
+        theme_minimal() +
+        theme(legend.position = "top",
+              axis.text.x = element_text(vjust = .5,
+                                         angle = 45,
+                                         size = 6.5)) +
+        ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
+        xlab("") +
+        ylab("Log 2 expression")
+
+    print(full.list)
+dev.off()
+}
+
+
+## experimental
 ## clustering by genes/species (rows)
 s <- c("hellinger")
 n <- c("complete")
@@ -992,7 +1069,9 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## end logging
         end <- format(Sys.time(), "%X")
-        cat(". >>", mods, "execution successful at", end, "- Duration:", durationMinutes,"min", "(",durationMinutes/60,"H)")
+        cat(paste0(". >> ",mods," execution successful at ", end,
+                   " - Duration: ",durationMinutes,"min",
+                   " (",durationMinutes/60,"H)"))
     }
 
 } else if ( classification == TRUE & binomial == TRUE ) {
