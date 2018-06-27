@@ -161,9 +161,10 @@ sink()
 # RMA normalization
 trx.normalized <- oligo::rma(cel.raw, target='core')
 write.exprs(trx.normalized, file="normalized.systemic.trx.expression.txt")
+dim(trx.normalized)
 
-probe.normalized <- oligo::rma(cel.raw, target='probeset')
-write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
+#probe.normalized <- oligo::rma(cel.raw, target='probeset')
+#write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
 gc()
 
 
@@ -191,7 +192,7 @@ if ( file.exists("./ids.wo.ncrna") ) {
 ######################
 ## FUNCTION CALLING ##
 ######################
-get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 1 ){
+get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0 ){
     ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
     locus.var <- apply(t(dat), n, var)
 
@@ -204,6 +205,7 @@ get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 1 ){
         hi.var <- order(abs(locus.var), decreasing = F)[from:to]
         cat("Number of selected high-variance genes:",length(hi.var),"\n")    
     }
+
     return(hi.x <- dat[,hi.var])
 }
 
@@ -245,7 +247,7 @@ for (nset in seq(start_th, end_th, increment_th)) {
         nrow
 
     # recalculate variance based on adujusted new thresholds
-    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset, silent = TRUE)
+    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset)
     dm_new <- summary(apply(hi.x, 2, var))[[4]]
     dmv_new <- summary(apply(hi.x, 2, var))[[6]]
     dms_new <- summary(apply(hi.x, 2, sd))[[4]]
@@ -268,7 +270,7 @@ gv
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
-    filter(adj.meanVariance > 0.03 & adj.meanVariance <= 0.032) %>%
+    filter(adj.meanVariance > 0.03 & adj.meanVariance <= 0.035) %>%
     select(dimension, discarded)
 
 from.m=c(means2subset$discarded[[1]] + 1)

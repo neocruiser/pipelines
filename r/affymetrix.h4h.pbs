@@ -60,9 +60,13 @@ if [ $discard == "yes" ]; then
     done
 
     ## remove all non coding RNAs, pseudogenes, uncharacterized, NAs, and intronic
-    ## ncRNAs were manually flagged for removal using the previous filtering output
+    ## patterns were "manually" flagged for removal using the previous filtering output
     ## keep RNA and mRNA mentions
-    grep -Fivf <(cat $project/summary/patterns.selected4removal.v3.txt | awk '{print $2}' | sed '1,2d') $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1 | sort - | uniq -u > $output/ids.wo.ncrna
+    ## uniq -u will remove NAs (around 8k from 75k)
+    ## sed '1d' will remove the header of the annoation file (else error matrix generation inside R)
+    ## antisense genes left in data (around 7k)
+    ## novel transcripts left in data (around 12k)
+    grep -Fivf <(cat $project/summary/patterns.flagged4removal_final.txt | awk '{print $2}') $project/summary/annotated.normalized.systemic.expression.array.txt | sed '1d' | cut -f1 | sort - | uniq -u > $output/ids.wo.ncrna
     touch subsetting.ncrna.OK
 fi
 
