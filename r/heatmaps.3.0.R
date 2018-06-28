@@ -98,7 +98,7 @@ for ( s in standardize_df ) {
 
                 ## BOOTSTRAPING to create pvalues
                 # multiscale bootstrap resampling
-                bst=2000
+                bst=500
                 ## interval confidence (5% chance wrong clustering)
                 a=0.95
                 pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
@@ -165,7 +165,7 @@ for ( s in standardize_df ) {
                 pdf(paste("heatmap.green.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
                 heatmap.2(rawdata,
                           Rowv=dend_colored.row, Colv=dend_colored.col,
-                          col=palette.green,
+                          col=rev(palette.green),
                           scale="row", trace="none",
                           RowSideColors = myrowhc, ColSideColors=mycolhc,
                           margins=c(5,5), cexRow=.1, cexCol=.1)
@@ -175,7 +175,7 @@ for ( s in standardize_df ) {
                 pdf(paste("heatmap.red.STD",s,".CLU",n,".VAR-CORR",cr,".FEA-CORR",cc,".BST",bst,".pdf", sep = ""))
                 heatmap.2(rawdata,
                           Rowv=dend_colored.row, Colv=dend_colored.col,
-                          col=palette.red,
+                          col=rev(palette.red),
                           scale="row", trace="none",
                           RowSideColors = myrowhc, ColSideColors=mycolhc,
                           margins=c(5,5), cexRow=.1, cexCol=.1)
