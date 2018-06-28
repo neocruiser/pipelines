@@ -65,7 +65,7 @@ mv $output/expressions $output/expressions.$_networkJOBID
 
 
 ## get gene annotations
-grep -Fwf <(cat $output/test | cut -f2 -d' ' | sed '1d') $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f8 | sort - | uniq -u | sed -e 's/ \/\/ /\t/g' -e 's/ /./g' | cut -f2,3 | sort - | uniq > $output/expressions.annotated
+#grep -Fwf <(cat $output/test | cut -f2 -d' ' | sed '1d') $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f8 | sort - | uniq -u | sed -e 's/ \/\/ /\t/g' -e 's/ /./g' | cut -f2,3 | sort - | uniq > $output/expressions.annotated
 
 
 

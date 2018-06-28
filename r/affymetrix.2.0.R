@@ -5,6 +5,11 @@ pkgs <- c('RColorBrewer', 'genefilter', 'limma',
           'vegan')
 lapply(pkgs, require, character.only = TRUE)
 
+## set boolean variable
+## if TRUE outliers with high or low variance will be discarded
+remove.based.onVariance = FALSE
+
+
 # Multicore processing
 #mp = 8
 #Sys.setenv(R_THREADS = mp)
@@ -192,18 +197,22 @@ if ( file.exists("./ids.wo.ncrna") ) {
 ######################
 ## FUNCTION CALLING ##
 ######################
-get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0 ){
+get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0, silent = TRUE){
     ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
     locus.var <- apply(t(dat), n, var)
 
     if ( remove.hi == 1 ) {
         ## discard high variance genes
         hi.var <- order(abs(locus.var), decreasing = T)[from:to]
-        cat("Number of selected balanced-variance genes:",length(hi.var),"\n")            
+        if ( silent == FALSE ) {
+            cat("Number of selected balanced-variance genes:",length(hi.var),"\n")
+        }
     } else if ( remove.hi == 0 ) {
         ## discard low variance genes
         hi.var <- order(abs(locus.var), decreasing = F)[from:to]
-        cat("Number of selected high-variance genes:",length(hi.var),"\n")    
+        if ( silent == FALSE ) {
+            cat("Number of selected high-variance genes:",length(hi.var),"\n")    
+        }
     }
 
     return(hi.x <- dat[,hi.var])
@@ -270,16 +279,23 @@ gv
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
-    filter(adj.meanVariance > 0.03 & adj.meanVariance <= 0.035) %>%
+    filter(meanVariance > 0.03 & meanVariance <= 0.035) %>%
     select(dimension, discarded)
 
-from.m=c(means2subset$discarded[[1]] + 1)
+
+if ( remove.based.onVariance == TRUE ){
+    ## remove based on variance
+    from.m=c(means2subset$discarded[[1]] + 1)
+} else {
+    ## or dont remove babsed on variance
+    from.m=1
+}
 to.m=means2subset$dimension[[1]]
 
 ## dimension minus the discarded high variance genes
 from.m
 to.m
-adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 0)
+adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 0, silent = FALSE)
 
 
 ##   subset and selcet normal variance genes
@@ -419,21 +435,4 @@ sink("r_session.info")
 sessionInfo()
 sink()
 
-#####################
-##### DEBUGGING #####
-#####################
-# save and load data. Best to set it after RMA
-# save.image("../debug.RData")
-# load("../debug.RData")
-
-# Colomn names of the Annotated Limma TOptable
-#   [1] "transcriptclusterid" "probesetid"          "seqname"            
-#   [4] "strand"              "start"               "stop"               
-#   [7] "totalprobes"         "geneassignment"      "mrnaassignment"     
-#   [10] "swissprot"           "unigene"             "gobiologicalprocess"
-#   [13] "gocellularcomponent" "gomolecularfunction" "pathway"            
-#   [16] "proteindomains"      "category"            "locustype"          
-#   [19] "notes"               "logFC"               "AveExpr"            
-#   [22] "t"                   "P.Value"             "adj.P.Val"          
-#   [25] "B"
 

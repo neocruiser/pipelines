@@ -93,7 +93,7 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=-1.5
+    _bstatistics=-3
     
     touch $output/ids.total.tmp
     
