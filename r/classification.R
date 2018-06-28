@@ -101,8 +101,8 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .adjust=c(10^-2,2,length=10))
         } else if ( method == "gbm" ) {
             ## stochastic gradient boosting
-            grid_models <- expand.grid(.n.trees=seq(5,300,length=20),.interaction.depth=seq(1,5,length=10),
-                                       .shrinkage=10^seq(-1,-5,length=30),.n.minobsinnode=seq(1:10))
+            grid_models <- expand.grid(.n.trees=seq(5,300,length=10),.interaction.depth=seq(1:3),
+                                       .shrinkage=10^seq(-2,-4,length=5),.n.minobsinnode=seq(5,10,length=3))
         } else if ( method == "nnet" ) {
             ## neural networks
             grid_models <- expand.grid(.size=seq(1,20,length=35), .decay=10^seq(-1,-5,length=35))
@@ -312,6 +312,8 @@ while (success == FALSE) {
     }
 
     for (i in nl) {
+        gc()
+        
         for (e in 1:iterations) {
             # set seed for reproducibility
             ede <- floor(abs(rnorm(1) * 10000000))
@@ -567,6 +569,15 @@ for (l in 1:nrow(results)) {
 }
 
 
+# combine TRUE sample grouping (observed) with predicted
+# lasso.select contains the genes that were selected for their
+# high probability to assign samples to their correct group
+lasso.selected.genes.nodup <- unique(lasso.selected.genes[, ])
+dat <- data.frame(y=y, t(lasso.selected.genes.nodup))
+dim(dat)
+set.seed(ed)
+gc()
+
 
 # plot lambda iterations
 #par(mfrow = c(3,4))
@@ -584,6 +595,7 @@ for (l in 1:nrow(results)) {
 #####################################
 ## summarize variation between genes (response variables)
 ## variation explained by the sample grouping (explanatory variables)
+gc()
 
 ## create dummy variables or multi level contrasts
 ## first level (the baseline) is rolled into the intercept
@@ -743,11 +755,11 @@ dev.off()
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
 ## ids2modules is a summary file generated from the weighted nets script
-ids2modules <- read.table("../networks/ids2modules.summary.txt", header = T)
+ids2modules <- read.table("./ids2modules.summary.txt", header = T)
 vints <- attr(venn(selgenes), "intersections")
 #write.table(vints[[3]], "test", quote = FALSE)
 
-pdf("test.pdf", onefile = TRUE)
+pdf("boxplots.modules4venn.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
     ## get the genes that intersect
     ## add module association from hierarchical clustering
@@ -775,7 +787,7 @@ for ( lev in 1:length(vints) ) {
                                          size = 6.5)) +
         ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
         xlab("") +
-        ylab("Log 2 expression")
+        ylab("Log2 fold change estimates")
 
     print(full.list)
 }
@@ -783,134 +795,114 @@ dev.off()
 
 
 
+
+## clustering and bootstrap of lasso selected genes
+## get adjusted pvalues of similar genes
+## analysis will generate heatmaps for each contrast
+cluster.samples <- c("pearson")
+cluster.genes <- c("pearson")
+normalize.genes <- c("standardize")
+dissimilar.genes <- c("ward.D2")
+n.bootstraps=2
+p.alpha=0.95
+tree.cut=1.8
+
+vints <- attr(venn(selgenes), "intersections")
+pdf("heatmaps.modules4venn.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
-pdf("test.pdf", onefile = TRUE)
-    ## get the genes that intersect
-    ## add module association from hierarchical clustering
-    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, 3)]
-    colnames(genes2modules) <- c("genes", "modules")
+    if ( length(vints[[lev]]) >= 10 ) {
+        gc()
+        for ( i in normalize.genes ) {
+            for ( it in dissimilar.genes ) {
+                cat(">> ",names(vints[lev]),"expression normalized with",i,"method &",it,"clustering >> ")
+                
+                df <- adj.x[, vints[[lev]]]
+                scaledata <- t(decostand(df, method = normalize.genes))
+                gct <- dim(df)[2]
 
-    full.list <- as.data.frame((adj.x[, vints[[lev]]])) %>%
-        mutate(groups = y) %>%
-        mutate(samples = rownames(adj.x)) %>%
-        gather("genes", "expressions", 1:length(vints[[lev]])) %>%
-        full_join(genes2modules, by = "genes") %>%
-        ggplot(aes(x = modules,
-                   y = expressions,
-                   group = groups,
-                   color = groups)) +
-        geom_line(aes(x=as.numeric(modules),
-                      y = expressions)) +
-        geom_point(aes(shape = groups),
-                   size=2, shape=21,
-                   position=position_dodge(.9)) +
-        scale_color_brewer(palette="Dark2") +
-        theme_minimal() +
-        theme(legend.position = "top",
-              axis.text.x = element_text(vjust = .5,
-                                         angle = 45,
-                                         size = 6.5)) +
-        ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
-        xlab("") +
-        ylab("Log 2 expression")
+                ## Dissimilarity clustering and tree cutting
+                palette.hc <- brewer.pal(11, name = "RdYlBu")
+                palette.hclust <- colorRampPalette(palette.hc)(n = c(gct * .05))
+                hra <- hclust(as.dist(1-cor(t(scaledata), method= cluster.genes)), method= dissimilar.genes)
+                hca <- hclust(as.dist(1-cor(scaledata, method= cluster.samples)), method= dissimilar.genes)
+                mycl.row <- cutree(hra, h=max(hra$height) / tree.cut)
+                mycl.col <- cutree(hca, h=max(hca$height) / tree.cut)
 
-    print(full.list)
-dev.off()
-}
+                ## Color clusters
+                maxClusters.row <- length(unique(mycl.row))
+                maxClusters.col <- length(unique(mycl.col))                
 
+                if ( maxClusters.row <= 12) {
+                    myrowhc <- brewer.pal(maxClusters.row, name = 'Paired')
+                } else {
+                    myrowhc <- colorRampPalette(brewer.pal(8, name="Dark2"))(maxClusters.row)
+                }
 
-## experimental
-## clustering by genes/species (rows)
-s <- c("hellinger")
-n <- c("complete")
-cr <- c("spearman")
-cc <- c("pearson")
-gct <- dim(df)[2]
-ctt=1.5
-palette.gr <- brewer.pal(11, name = "PiYG")
-palette.rd <- brewer.pal(9, name = "YlOrRd")
-palette.green <- colorRampPalette(palette.gr)(n = c(gct * .05))
-palette.red <- colorRampPalette(palette.rd)(n = c(gct * .05))
+                if ( maxClusters.col <= 12) {
+                    mycolhc <- brewer.pal(maxClusters.col, name = 'Paired')
+                } else {
+                    mycolhc <- colorRampPalette(brewer.pal(9, name="Set1"))(maxClusters.col)
+                }
 
-scaledata <- t(df)
+                myrowhc <- myrowhc[as.vector(mycl.row)]
+                mycolhc <- mycolhc[as.vector(mycl.col)]                
 
-## Clustering using dissimilarity analysis
-hra <- hclust(as.dist(1-cor(t(scaledata), method= cr)), method= n)
-hca <- hclust(as.dist(1-cor(scaledata, method= cc)), method= n)
+                ## bootstraping and pvalues calculation for each branch
+                ## interval confidence (5% chance wrong clustering)
+                ## retrieve members of significant clusters
+                pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= it,
+                                      nboot= n.bootstraps, parallel=TRUE)
+                pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= it,
+                                      nboot= n.bootstraps, parallel=TRUE)
+                clsig.row <- unlist(pvpick(pvData.row, alpha = p.alpha,
+                                           pv="au", type="geq", max.only=TRUE)$clusters)
+                clsig.col <- unlist(pvpick(pvData.col, alpha = p.alpha,
+                                           pv="au", type="geq", max.only=TRUE)$clusters)                
 
+                ## plot heatmap
+                ## color dendrograms
+                dendroCol <- function(dend=dend, keys=keys, xPar="edgePar", bgr="red", fgr="blue", pch=20, lwd=1, ...) {
+                    if(is.leaf(dend)) {
+                        myattr <- attributes(dend)
+                        if(length(which(keys==myattr$label))==1){
+                            attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=fgr, col=fgr, pch=pch, lwd=lwd))
+                        } else {
+                            attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=bgr, col=bgr, pch=pch, lwd=lwd))
+                        }
+                    }
+                    return(dend)
+                }
 
-## CUT THE TREE
-mycl.row <- cutree(hra, h=max(hra$height)/ctt)
-mycl.col <- cutree(hca, h=max(hca$height)/ctt)
+                dend_colored.row <- dendrapply(as.dendrogram(pvData.row$hclust), dendroCol,
+                                               keys=clsig.row, xPar="edgePar", bgr="black", fgr="red", pch=20)
+                dend_colored.col <- dendrapply(as.dendrogram(pvData.col$hclust), dendroCol,
+                                               keys=clsig.col, xPar="edgePar", bgr="black", fgr="red", pch=20)                
 
-## attribute colors to clusters
-maxClusters.row <- length(unique(mycl.row))
-maxClusters.col <- length(unique(mycl.col))                
-
-if ( maxClusters.row <= 12) {
-    myrowhc <- brewer.pal(maxClusters.row, name = 'Paired')
-} else {
-    myrowhc <- colorRampPalette(brewer.pal(8, name="Dark2"))(maxClusters.row)
-}
-
-## Clustering features
-if ( maxClusters.col <= 12) {
-    mycolhc <- brewer.pal(maxClusters.col, name = 'Paired')
-} else {
-    mycolhc <- colorRampPalette(brewer.pal(9, name="Set1"))(maxClusters.col)
-}
-
-myrowhc <- myrowhc[as.vector(mycl.row)]
-mycolhc <- mycolhc[as.vector(mycl.col)]                
-
-bst=2
-## interval confidence (5% chance wrong clustering)
-a=0.95
-pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
-pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
-
-## RETRIEVE MEMBERS OF SIGNIFICANT CLUSTERS.
-clsig.row <- unlist(pvpick(pvData.row, alpha=a, pv="au", type="geq", max.only=TRUE)$clusters)
-clsig.col <- unlist(pvpick(pvData.col, alpha=a, pv="au", type="geq", max.only=TRUE)$clusters)                
-
-## Function to Color Dendrograms
-dendroCol <- function(dend=dend, keys=keys, xPar="edgePar", bgr="red", fgr="blue", pch=20, lwd=1, ...) {
-    if(is.leaf(dend)) {
-        myattr <- attributes(dend)
-        if(length(which(keys==myattr$label))==1){
-            attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=fgr, col=fgr, pch=pch, lwd=lwd))
-        } else {
-            attr(dend, xPar) <- c(myattr$edgePar, list(lab.col=bgr, col=bgr, pch=pch, lwd=lwd))
+                par(cex.main=.8)
+                heatmap.2(scaledata,
+                          Rowv=dend_colored.row, Colv=dend_colored.col,
+                          col=rev(palette.hc),
+                          scale="row", trace="none",
+                          RowSideColors = myrowhc, ColSideColors=mycolhc,
+                          margin=c(5, 20),
+                          cexRow=.5, cexCol=.15,
+                          key.title = c("Log2 fold change estimates"),
+                          key.ylab = NA,
+                          key.xlab = c("Genes Z-scores"),
+                          density.info = "none",
+                          main = paste0(names(vints[lev]),'\n',
+                                        "expression normalized with ",i,'\n',
+                                        "method & ",it," clustering"),
+                          keysize = .9)
+            }
         }
+    } else {
+        print(paste0(names(vints[lev]), " interactions has ", length(vints[[lev]]),
+                     " genes, which is less than the recommended gene counts for clustering."))
     }
-    return(dend)
 }
 
-
-## color the edges of the dendrogram based on 5000 bootstrap significance
-dend_colored.row <- dendrapply(as.dendrogram(pvData.row$hclust), dendroCol, keys=clsig.row, xPar="edgePar", bgr="black", fgr="red", pch=20)
-dend_colored.col <- dendrapply(as.dendrogram(pvData.col$hclust), dendroCol, keys=clsig.col, xPar="edgePar", bgr="black", fgr="red", pch=20)                
-
-
-## PLOT HEATMAP
-pdf("test.pdf")
-heatmap.2(scaledata,
-          Rowv=dend_colored.row, Colv=dend_colored.col,
-          col=palette.green,
-          scale="row", trace="none",
-          RowSideColors = myrowhc, ColSideColors=mycolhc,
-          margins=c(5,5), cexRow=.1, cexCol=.1)
 dev.off()
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -920,15 +912,6 @@ dev.off()
 ############################
 ## Validating classifiers ##
 ############################
-# combine TRUE sample grouping (observed) with predicted
-# lasso.select contains the genes that were selected for their
-# high probability to assign samples to their correct group
-lasso.selected.genes.nodup <- unique(lasso.selected.genes[, ])
-dat <- data.frame(y=y, t(lasso.selected.genes.nodup))
-dim(dat)
-set.seed(ed)
-
-
 # machine learning models used
 model_types <- c("kernelpls", "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
@@ -968,13 +951,15 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( iterations in c(1:2) ) {
+for ( iterations in c(1:3) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
+    gc()
 
     for ( m in 1:length(model_types) ) {
-        
+
+        gc()
         mods=model_types[[m]]
         param=parameter_counts[[m]]
 
@@ -1004,7 +989,6 @@ for ( iterations in c(1:2) ) {
         end <- format(Sys.time(), "%X")
         cat(". >>", mods, "execution successful at", end)
     }
-
 }
 
 ## summary 1
@@ -1031,7 +1015,8 @@ systems.metrics <- NULL
 
 if ( classification == TRUE & grouped == TRUE ) {
     for ( m in 1:length(model_types) ) {
-        
+
+        gc()
         mods=model_types[[m]]
         param=parameter_counts[[m]]
 
@@ -1071,7 +1056,7 @@ if ( classification == TRUE & grouped == TRUE ) {
         end <- format(Sys.time(), "%X")
         cat(paste0(". >> ",mods," execution successful at ", end,
                    " - Duration: ",durationMinutes,"min",
-                   " (",durationMinutes/60,"H)"))
+                   " (",round(durationMinutes/60,2),"H)"))
     }
 
 } else if ( classification == TRUE & binomial == TRUE ) {
