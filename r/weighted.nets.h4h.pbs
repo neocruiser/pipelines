@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=2,walltime=36:00:00,vmem=30g,mem=220g
+#PBS -l nodes=1:ppn=2,walltime=56:00:00,vmem=30g,mem=220g
 #PBS -N networks
 #PBS -q all
 #PBS -V
@@ -35,11 +35,11 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## Standard libraries (relapse project)
 ## 149518 only ncRNA mentioned were removed 75k > 29k > 20k > 500
 _contrast=systemicRelapse
-_workingDir=$project/expression/306289
+_workingDir=$project/expression/317272
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all
-run_pipe=all
+run_pipe=networks
 
 
 ## total, up or clusters
@@ -93,7 +93,7 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=-3
+    _bstatistics=-1.5
     
     touch $output/ids.total.tmp
     
@@ -314,6 +314,7 @@ cp $home/script*/r/convertMatrix2graph.R $output
 
 execute_pipeline $run_pipe
 
+mv $output/*summary*txt summary
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 

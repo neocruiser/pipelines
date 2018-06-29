@@ -595,7 +595,6 @@ gc()
 #####################################
 ## summarize variation between genes (response variables)
 ## variation explained by the sample grouping (explanatory variables)
-gc()
 
 ## create dummy variables or multi level contrasts
 ## first level (the baseline) is rolled into the intercept
@@ -884,7 +883,7 @@ for ( lev in 1:length(vints) ) {
                           col=rev(palette.hc),
                           scale="row", trace="none",
                           RowSideColors = myrowhc, ColSideColors=mycolhc,
-                          margin=c(5, 20),
+                          margin=c(30, 5),
                           cexRow=.5, cexCol=.15,
                           key.title = c("Log2 fold change estimates"),
                           key.ylab = NA,
