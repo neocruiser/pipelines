@@ -68,7 +68,7 @@ for ( s in standardize_df ) {
                 hca <- hclust(as.dist(1-cor(scaledata, method= cc)), method= n)
 
 
-                ## CUT THE TREE
+                ## cut tree
                 mycl.row <- cutree(hra, h=max(hra$height)/ctt)
                 mycl.col <- cutree(hca, h=max(hca$height)/ctt)
 
@@ -76,7 +76,7 @@ for ( s in standardize_df ) {
                 maxClusters.row <- length(unique(mycl.row))
                 maxClusters.col <- length(unique(mycl.col))                
 
-                ## Clustering variables
+                ## color dendro clusters
                 if ( maxClusters.row <= 12) {
                     myrowhc <- brewer.pal(maxClusters.row, name = 'Paired')
                 } else {
@@ -101,8 +101,10 @@ for ( s in standardize_df ) {
                 bst=500
                 ## interval confidence (5% chance wrong clustering)
                 a=0.95
-                pvData.row <- pvclust(t(scaledata), method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)                
-                pvData.col <- pvclust(scaledata, method.dist="correlation", method.hclust= n, nboot= bst, parallel=TRUE)
+                pvData.row <- pvclust(t(scaledata), method.dist="correlation",
+                                      method.hclust= n, nboot= bst, parallel=TRUE)                
+                pvData.col <- pvclust(scaledata, method.dist="correlation",
+                                      method.hclust= n, nboot= bst, parallel=TRUE)
 
                 write.table(print(pvData.row),file=paste0("bootstrap.PVAL",c(a*100),"p.STD",
                                                           s,".CLU",n,".VAR-CORR",cr,

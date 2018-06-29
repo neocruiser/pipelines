@@ -33,9 +33,9 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## MUST DEFINE BEFORE EXECUTION
 ## repositories of gene expression analysis already executed
 ## Standard libraries (relapse project)
-## 149518 only ncRNA mentioned were removed 75k > 29k > 20k > 500
-_contrast=systemicRelapse
-_workingDir=$project/expression/317272
+## choose contrast from: c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
+_contrast=systemicRelapseNodes
+_workingDir=$project/expression/317273
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all
@@ -241,6 +241,7 @@ function execute_sort ()
 
     mkdir -p $output/summary
     mv *iteration* *Rout *tmp $output/summary
+    mv $output/*summary*txt summary
 
     if [ $j == "clusters" ]; then
 
@@ -314,7 +315,6 @@ cp $home/script*/r/convertMatrix2graph.R $output
 
 execute_pipeline $run_pipe
 
-mv $output/*summary*txt summary
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
 

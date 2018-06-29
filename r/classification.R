@@ -756,13 +756,18 @@ dev.off()
 ## ids2modules is a summary file generated from the weighted nets script
 ids2modules <- read.table("./ids2modules.summary.txt", header = T)
 vints <- attr(venn(selgenes), "intersections")
-#write.table(vints[[3]], "test", quote = FALSE)
+
+## which correlation, power, normalization methods used from network analysis
+## 3 is >> Genes per Module = 215 (variable, usually mean network size),
+## Power = 4, TH = 0.5,
+## STD = hellinger, CLU = complete, COR = pearson
+clustering.strategy = 3
 
 pdf("boxplots.modules4venn.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
     ## get the genes that intersect
     ## add module association from hierarchical clustering
-    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, 3)]
+    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, clustering.strategy)]
     colnames(genes2modules) <- c("genes", "modules")
 
     full.list <- as.data.frame((adj.x[, vints[[lev]]])) %>%
