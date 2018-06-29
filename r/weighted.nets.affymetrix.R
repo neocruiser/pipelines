@@ -312,9 +312,9 @@ for ( s in standardize_df ) {
 
 
 ## Create a summarized tabulated file about clustering, network organization, and correlation
-write.table(networks.summary, "summary/networks.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
-write.table(dm, "summary/modules.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
-write.table(gene2module, "summary/ids2modules.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
+write.table(gene2module, "ids2modules.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
+write.table(dm, "modules.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
+write.table(networks.summary, "networks.summary.txt", quote=FALSE, sep="\t", row.names=FALSE)
 
 
 
