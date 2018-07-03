@@ -84,7 +84,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.decay=10^seq(-1,-5,length=200))
         } else if ( method == "rf" ) {
             ## random forest
-            grid_models <- expand.grid(.mtry=seq(1:40,length=100))
+            grid_models <- expand.grid(.mtry=seq(1,40,length=100))
         } else if ( method == "RRF" ) {
             ## regularized random forest
             grid_models <- expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-5,length=15),.coefImp=10^seq(-1,-5,length=10))
@@ -754,7 +754,9 @@ dev.off()
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
 ## ids2modules is a summary file generated from the weighted nets script
-ids2modules <- read.table("./ids2modules.summary.txt", header = T)
+## ids2description is an annotation file of the selected genes
+ids2modules <- read.table("./ids2modules.summary.txt", header = TRUE)
+ids2description <- read.table("./ids2description.summary.txt", header = FALSE, fill = TRUE)
 vints <- attr(venn(selgenes), "intersections")
 
 ## which correlation, power, normalization methods used from network analysis
@@ -763,37 +765,48 @@ vints <- attr(venn(selgenes), "intersections")
 ## STD = hellinger, CLU = complete, COR = pearson
 clustering.strategy = 3
 
+
+## sample grouping based on available labels
+metalabels <- list(groups = metadata$Groups,
+                   nodes = metadata$Nodes,
+                   coo = metadata$Prediction)
+
+
 pdf("boxplots.modules4venn.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
-    ## get the genes that intersect
-    ## add module association from hierarchical clustering
-    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, clustering.strategy)]
-    colnames(genes2modules) <- c("genes", "modules")
+    for ( lab in metalabels ) {
+        ## get the genes that intersect
+        ## add module association from hierarchical clustering
+        ## add gene function to gene ids from annotated files generated from PBS script
+        genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, clustering.strategy)]
+        genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
+        colnames(genes2modules) <- c("genes", "modules")
+        colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site")
 
-    full.list <- as.data.frame((adj.x[, vints[[lev]]])) %>%
-        mutate(groups = y) %>%
-        mutate(samples = rownames(adj.x)) %>%
-        gather("genes", "expressions", 1:length(vints[[lev]])) %>%
-        full_join(genes2modules, by = "genes") %>%
-        ggplot(aes(x = reorder(genes, expressions),
-                   y = expressions,
-                   color = groups)) +
-        geom_jitter(aes(color = factor(groups)),
-                    shape=16,
-                    position=position_jitterdodge(dodge.width=.8),
-                    cex = .5) +
-        geom_boxplot(outlier.colour = NA) +
-        scale_color_brewer(palette="Dark2") +
-        theme_minimal() +
-        theme(legend.position = "top",
-              axis.text.x = element_text(vjust = .5,
-                                         angle = 45,
-                                         size = 6.5)) +
-        ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
-        xlab("") +
-        ylab("Log2 fold change estimates")
+        full.list <- as.data.frame((adj.x[, vints[[lev]]])) %>%
+            mutate(groups = lab) %>%
+            mutate(samples = rownames(adj.x)) %>%
+            gather("genes", "expressions", 1:length(vints[[lev]])) %>%
+            full_join(genes2modules, by = "genes") %>%
+            full_join(genes2description, by = "genes") %>%
+            ggplot(aes(x = reorder(paste0(genes,"-",symbol), expressions),
+                       y = expressions,
+                       color = groups)) +
+            geom_jitter(aes(color = factor(groups)),
+                        shape=16,
+                        position=position_jitterdodge(dodge.width=.8),
+                        cex = .5) +
+            geom_boxplot(outlier.colour = NA) +
+            coord_flip() +
+            scale_color_brewer(palette="Dark2") +
+            theme_minimal() +
+            theme(legend.position = "top") +
+            ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
+            xlab("") +
+            ylab("Log2 fold change estimates")
 
-    print(full.list)
+        print(full.list)
+    }
 }
 dev.off()
 
@@ -821,7 +834,14 @@ for ( lev in 1:length(vints) ) {
                 cat(">> ",names(vints[lev]),"expression normalized with",i,"method &",it,"clustering >> ")
                 
                 df <- adj.x[, vints[[lev]]]
+
+                ## add gene function to gene ids
+                genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
+                colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site")
+
+                ## normalize
                 scaledata <- t(decostand(df, method = normalize.genes))
+                rownames(scaledata) <- paste0(genes2description$genes, "-", genes2description$symbol)
                 gct <- dim(df)[2]
 
                 ## Dissimilarity clustering and tree cutting
@@ -889,7 +909,7 @@ for ( lev in 1:length(vints) ) {
                           scale="row", trace="none",
                           RowSideColors = myrowhc, ColSideColors=mycolhc,
                           margin=c(30, 5),
-                          cexRow=.5, cexCol=.15,
+                          cexRow=.2, cexCol=.15,
                           key.title = c("Log2 fold change estimates"),
                           key.ylab = NA,
                           key.xlab = c("Genes Z-scores"),
@@ -969,7 +989,7 @@ for ( iterations in c(1:3) ) {
 
         ## models are trained in succession
         ## output is saved
-        start <- format(Sys.time(), "%X")
+        start <- format(Sys.time(), "%a-%d %X")
         cat("\n>> Iteration", ie, "on model", mods, "started at", start)
         modnam=models()
         model.name <- paste0(mods,"|",ie,"|",param)
@@ -990,7 +1010,7 @@ for ( iterations in c(1:3) ) {
             performance_summary <- c(performance_summary, list(trained.model))
             names(performance_summary)[modnam] <- model.name        
         }
-        end <- format(Sys.time(), "%X")
+        end <- format(Sys.time(), "%a-%d %X")
         cat(". >>", mods, "execution successful at", end)
     }
 }
@@ -1025,7 +1045,7 @@ if ( classification == TRUE & grouped == TRUE ) {
         param=parameter_counts[[m]]
 
         ## start logging
-        start <- format(Sys.time(), "%X")
+        start <- format(Sys.time(), "%a-%d %X")
         cat("\n>> Training on model", mods, "started at", start)
 
         ## models are trained in succession
@@ -1057,7 +1077,7 @@ if ( classification == TRUE & grouped == TRUE ) {
                                             accuracyPval=model.metrics$ConfusionMatrix$overall[[6]]))
 
         ## end logging
-        end <- format(Sys.time(), "%X")
+        end <- format(Sys.time(), "%a-%d %X")
         cat(paste0(". >> ",mods," execution successful at ", end,
                    " - Duration: ",durationMinutes,"min",
                    " (",round(durationMinutes/60,2),"H)"))

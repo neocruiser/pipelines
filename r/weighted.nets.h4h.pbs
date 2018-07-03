@@ -34,7 +34,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## repositories of gene expression analysis already executed
 ## Standard libraries (relapse project)
 ## choose contrast from: c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
-_contrast=systemicRelapseNodes
+_contrast=systemicRelapseCOOprediction
 _workingDir=$project/expression/317273
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 

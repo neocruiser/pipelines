@@ -44,7 +44,7 @@ cd $output
 
 
 ## get R scripts
-cp $home/script*/r/classification.R $output/scripts
+cp $home/script*/r/classification* $output/scripts
 cp $home/script*/r/lsos.R $output/scripts
 
 ## get gene epxression
@@ -53,12 +53,14 @@ cp $project/networks/$_networkJOBID/expressions $output
 
 ## get gene-module associations
 cp $project/networks/$_networkJOBID/summary/ids2modules.summary.txt $output
+cp $project/summary/annotated.normalized.systemic.expression.array.txt $output
+
 
 ## get gene annotations for the selected with significant expressions
 grep -Fwf <(cat $output/expressions | cut -f1 | sed '1d') \
-     $project/summary/annotated.normalized.systemic.expression.array.txt | cut -f1,3,8 | \
+     $output/annotated.normalized.systemic.expression.array.txt | cut -f1,3,8 | \
     sed -e 's/ \/\/ /\t/g' -e 's/ /./g' | cut -f1,2,3,4,5,6,8 | \
-    sort - | uniq > $output/expressions.NTWK$_networkJOBID.EXP$_expressionJOBID.annotated.txt
+    sort - | uniq > $output/ids2description.summary.txt
 
 
 
@@ -68,7 +70,7 @@ R CMD BATCH $output/script*/classification.R
 
 ## backup the expressions for the current job
 mv $output/expressions $output/expressions.NTWK$_networkJOBID.EXP$_expressionJOBID
-
+mv $output/*txt $output/summary
 
 
 
