@@ -15,6 +15,10 @@ regression=FALSE
 grouped=TRUE
 binomial=FALSE
 
+## apply normalization methods within samples
+standardization=FALSE
+lasso.std=TRUE
+
 ##########################
 ## Define new functions ##
 ##########################
@@ -197,7 +201,11 @@ cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n"
 means <- read.table("expressions", sep="\t", header=T, row.names=1)
 dim(means)
 cat("\n\nStandardized transformed scores: Genes are columns and samples are rows\n")
-adj.x <- t(decostand(means, "standardize"))
+if ( standardization == TRUE ) {
+    adj.x <- t(decostand(means, "standardize"))
+} else {
+    adj.x <- t(means)
+}
 dim(adj.x)
 
 
@@ -234,12 +242,15 @@ metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 
 # choose samples strutcture from metadata
 y <- metadata$Groups
+#y <- metadata$Prediction
 
-if ( nlevels(y) > 2 ){
+if ( nlevels(y) >= 2 ) {
     response="multinomial"
-} else if ( nlevels(y) == 2 ){
-    response="bionomial"
+} else if ( nlevels(y) == 2 ) {
+    ## experimental
+    response="binomial"
 } else {
+    ## experimental
     response="mgaussian"
 }
 
@@ -348,30 +359,31 @@ while (success == FALSE) {
                 index="grouped"
                 ncv=10
                 setalpha=1
-                # fitting a symmetric multinomial model,
+                ## fitting a symmetric multinomial model,
                 grid <- 10^seq(5, -5, length=100)
                 lasso.trained <- glmnet(adj.x[training,],
                                         y[training],
                                         alpha=setalpha,
                                         lambda=grid,
                                         family = response,
-                                        standardize=F,
+                                        standardize = lasso.std,
                                         type.multinomial=index)
-            } else {
-                stop("Alternative feature indexes are not yet implemented")
-            }
 
-            # Cross validation for hyperparameter tuning.
-            # Optimization of model selection to avoid overfitting
-            # also, silence errors due to unbalanced observations
-            cv.out <- try(cv.glmnet(adj.x[training,],
-                                y[training],
-                                alpha=setalpha,
-                                family = response,
-                                standardize=F,
-                                nfolds = ncv,
-                                type.multinomial=index),
-                          silent = TRUE)
+                ## Cross validation for hyperparameter tuning.
+                ## Optimization of model selection to avoid overfitting
+                ## also, silence errors due to unbalanced observations
+                cv.out <- try(cv.glmnet(adj.x[training,],
+                                        y[training],
+                                        alpha=setalpha,
+                                        family = response,
+                                        standardize = lasso.std,
+                                        nfolds = ncv,
+                                        type.multinomial=index),
+                              silent = TRUE)
+
+            } else {
+                stop("Alternative feature indexes are not yet implemented")                
+            }
 
             # make sure CV did not encounter unbalanced observations
             # if unbalanced obs exist, the whole iteration will repeat
@@ -522,13 +534,14 @@ for (l in 1:nrow(results)) {
     patient_labels <- results$group[[l]]
 
     # get lasso coefficients
+    index="grouped"
     training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
     lasso.trained <- glmnet(adj.x[training,],
                             y[training],
                             alpha=setalpha,
                             lambda=bestlam,
                             family = response,
-                            standardize=F,
+                            standardize = lasso.std,
                             type.multinomial=index)
 
     # get gene coefficients at selected lambda
@@ -540,8 +553,8 @@ for (l in 1:nrow(results)) {
 
     ## extract expression of regularized genes
     if ( length(selected.final) == length(selected.genes) ) {
-        lasso.select <- adj.x[, selected.final ]
-        dim(lasso.select)
+        lasso.select <- adj.x[ , selected.final ]
+        print(dim(lasso.select))
         write.table(t(lasso.select), paste0("expressions.",patient_labels,
                                          ".iterations",iterations,".cv",ncv,
                                          ".lambda_",sprintf("%.5f", bestlam),
@@ -647,7 +660,7 @@ min.aic <- round(min(reduce$anova$AIC),2)
 ## plot
 ## for scaling check ?biplot.rda {vegan}
 ## here the scores are scaled symmetrically by square root of eigenvalues
-pdf(paste0("rda.bestLassoLambda.seed",ed,".pdf"))
+pdf(paste0("rda.bestLassoLambda.seed.pdf"))
 par(mar=c(1,1,1,1), fig = c(.05,1,.05,1))
 plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=3, type="n", bty = "n")
 
@@ -774,18 +787,20 @@ metalabels <- list(groups = metadata$Groups,
 
 pdf("boxplots.modules4venn.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
-    for ( lab in metalabels ) {
         ## get the genes that intersect
         ## add module association from hierarchical clustering
         ## add gene function to gene ids from annotated files generated from PBS script
         genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, clustering.strategy)]
         genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
         colnames(genes2modules) <- c("genes", "modules")
-        colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site")
+        colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
 
-        full.list <- as.data.frame((adj.x[, vints[[lev]]])) %>%
-            mutate(groups = lab) %>%
+        full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
+            mutate(groups = metadata$Groups) %>%
+            mutate(nodes = metadata$Nodes) %>%
+            mutate(coo = metadata$Prediction) %>%            
             mutate(samples = rownames(adj.x)) %>%
+            mutate(category1 = paste0(coo,"-",nodes)) %>%
             gather("genes", "expressions", 1:length(vints[[lev]])) %>%
             full_join(genes2modules, by = "genes") %>%
             full_join(genes2description, by = "genes") %>%
@@ -795,22 +810,24 @@ for ( lev in 1:length(vints) ) {
             geom_jitter(aes(color = factor(groups)),
                         shape=16,
                         position=position_jitterdodge(dodge.width=.8),
-                        cex = .5) +
-            geom_boxplot(outlier.colour = NA) +
+                        cex = .15) +
+            geom_boxplot(outlier.colour = NA, lwd = .1) +
             coord_flip() +
+            facet_wrap(~ coo + nodes,
+                       ncol = 6) +
             scale_color_brewer(palette="Dark2") +
             theme_minimal() +
-            theme(legend.position = "top") +
+            theme(legend.position = "top",
+                  text = element_text(size = 7),
+                  axis.text.y = element_text(size = rel(.5))) +
             ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
             xlab("") +
             ylab("Log2 fold change estimates")
 
         print(full.list)
-    }
+
 }
 dev.off()
-
-
 
 
 ## clustering and bootstrap of lasso selected genes
@@ -833,14 +850,15 @@ for ( lev in 1:length(vints) ) {
             for ( it in dissimilar.genes ) {
                 cat(">> ",names(vints[lev]),"expression normalized with",i,"method &",it,"clustering >> ")
                 
-                df <- adj.x[, vints[[lev]]]
+                df <- adj.x[ , vints[[lev]] ]
 
                 ## add gene function to gene ids
                 genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
                 colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site")
 
                 ## normalize
-                scaledata <- t(decostand(df, method = normalize.genes))
+#                scaledata <- t(decostand(df, method = normalize.genes))
+                scaledata <- t(df)
                 rownames(scaledata) <- paste0(genes2description$genes, "-", genes2description$symbol)
                 gct <- dim(df)[2]
 
@@ -908,7 +926,7 @@ for ( lev in 1:length(vints) ) {
                           col=rev(palette.hc),
                           scale="row", trace="none",
                           RowSideColors = myrowhc, ColSideColors=mycolhc,
-                          margin=c(30, 5),
+                          margin=c(5, 30),
                           cexRow=.2, cexCol=.15,
                           key.title = c("Log2 fold change estimates"),
                           key.ylab = NA,

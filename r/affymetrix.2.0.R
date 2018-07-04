@@ -7,7 +7,10 @@ lapply(pkgs, require, character.only = TRUE)
 
 ## set boolean variable
 ## if TRUE outliers with high or low variance will be discarded
-remove.based.onVariance = FALSE
+remove.based.onVariance = TRUE
+
+## apply normalization methods within samples
+standardization=FALSE
 
 
 # Multicore processing
@@ -226,7 +229,12 @@ set.seed(15879284)
 
 # data transformation. Difference between gene expressions
 # has better variance interpretation
-xs <- decostand(x, "standardize")
+if ( standardization == TRUE ) {
+    xs <- decostand(x, "standardize")
+} else {
+    xs <- x
+}
+
 
 ## get number of discarded high variance genes
 ## iterate multiple thresholds, maximum 20 iterations
@@ -287,7 +295,7 @@ if ( remove.based.onVariance == TRUE ){
     ## remove based on variance
     from.m=c(means2subset$discarded[[1]] + 1)
 } else {
-    ## or dont remove babsed on variance
+    ## or dont remove based on variance
     from.m=1
 }
 to.m=means2subset$dimension[[1]]
@@ -295,7 +303,7 @@ to.m=means2subset$dimension[[1]]
 ## dimension minus the discarded high variance genes
 from.m
 to.m
-adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 0, silent = FALSE)
+adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 1, silent = FALSE)
 
 
 ##   subset and selcet normal variance genes

@@ -35,7 +35,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## Standard libraries (relapse project)
 ## choose contrast from: c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
 _contrast=systemicRelapseCOOprediction
-_workingDir=$project/expression/317273
+_workingDir=$project/expression/317799
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all
@@ -93,7 +93,7 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=-1.5
+    _bstatistics=0
     
     touch $output/ids.total.tmp
     
