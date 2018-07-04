@@ -785,49 +785,83 @@ metalabels <- list(groups = metadata$Groups,
                    coo = metadata$Prediction)
 
 
-pdf("boxplots.modules4venn.intersection.pdf", onefile = TRUE)
+pdf("boxplots.groups2genes.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
-        ## get the genes that intersect
-        ## add module association from hierarchical clustering
-        ## add gene function to gene ids from annotated files generated from PBS script
-        genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, clustering.strategy)]
-        genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
-        colnames(genes2modules) <- c("genes", "modules")
-        colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
+    ## get the genes that intersect
+    ## add module association from hierarchical clustering
+    ## add gene function to gene ids from annotated files generated from PBS script
+    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, clustering.strategy)]
+    genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
+    colnames(genes2modules) <- c("genes", "modules")
+    colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
 
-        full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
-            mutate(groups = metadata$Groups) %>%
-            mutate(nodes = metadata$Nodes) %>%
-            mutate(coo = metadata$Prediction) %>%            
-            mutate(samples = rownames(adj.x)) %>%
-            mutate(category1 = paste0(coo,"-",nodes)) %>%
-            gather("genes", "expressions", 1:length(vints[[lev]])) %>%
-            full_join(genes2modules, by = "genes") %>%
-            full_join(genes2description, by = "genes") %>%
-            ggplot(aes(x = reorder(paste0(genes,"-",symbol), expressions),
-                       y = expressions,
-                       color = groups)) +
-            geom_jitter(aes(color = factor(groups)),
-                        shape=16,
-                        position=position_jitterdodge(dodge.width=.8),
-                        cex = .15) +
-            geom_boxplot(outlier.colour = NA, lwd = .1) +
-            coord_flip() +
-            facet_wrap(~ coo + nodes,
-                       ncol = 6) +
-            scale_color_brewer(palette="Dark2") +
-            theme_minimal() +
-            theme(legend.position = "top",
-                  text = element_text(size = 7),
-                  axis.text.y = element_text(size = rel(.5))) +
-            ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
-            xlab("") +
-            ylab("Log2 fold change estimates")
+    full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
+        mutate(groups = metadata$Groups) %>%
+        mutate(nodes = metadata$Nodes) %>%
+        mutate(coo = metadata$Prediction) %>%            
+        mutate(samples = rownames(adj.x)) %>%
+        mutate(category1 = paste0(coo,"-",nodes)) %>%
+        gather("genes", "expressions", 1:length(vints[[lev]])) %>%
+        full_join(genes2modules, by = "genes") %>%
+        full_join(genes2description, by = "genes") %>%
+        ggplot(aes(x = reorder(paste0(genes,"-",symbol), expressions),
+                   y = expressions,
+                   color = groups)) +
+        geom_jitter(aes(color = factor(groups)),
+                    shape=16,
+                    position=position_jitterdodge(dodge.width=.8),
+                    cex = .15) +
+        geom_boxplot(outlier.colour = NA, lwd = .1) +
+        coord_flip() +
+        facet_wrap(~ coo + nodes,
+                   ncol = 6) +
+        scale_color_brewer(palette="Dark2") +
+        theme_minimal() +
+        theme(legend.position = "top",
+              text = element_text(size = 7),
+              axis.text.y = element_text(size = rel(.5))) +
+        ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
+        xlab("") +
+        ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
 
-        print(full.list)
+    print(full.list)
 
 }
 dev.off()
+
+
+pdf("boxplots.genes2groups.intersection.pdf", onefile = TRUE)
+for ( lev in 1:length(vints) ) {
+    full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
+        mutate(groups = metadata$Groups) %>%
+        mutate(nodes = metadata$Nodes) %>%
+        mutate(coo = metadata$Prediction) %>%            
+        mutate(samples = rownames(adj.x)) %>%
+        mutate(category1 = paste0(coo,"-",nodes,"-",groups)) %>%
+        gather("genes", "expressions", 1:length(vints[[lev]])) %>%
+        full_join(genes2modules, by = "genes") %>%
+        full_join(genes2description, by = "genes") %>%
+        ggplot(aes(x = reorder(category1, expressions),
+                   y = expressions)) +
+        geom_boxplot(aes(fill = groups), outlier.colour = NA, lwd = .1) +
+        facet_wrap(~ paste0(genes,"-",symbol),
+                   ncol = 6) +
+        coord_flip() +
+        theme_minimal() +
+        scale_color_brewer(palette = "Dark2") +            
+        theme(legend.position = "top",
+              text = element_text(size = 7),
+              axis.text.y = element_text(size = rel(.5))) +
+        ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
+        xlab("") +
+        ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
+
+    print(full.list)
+}
+dev.off()
+
+
+
 
 
 ## clustering and bootstrap of lasso selected genes

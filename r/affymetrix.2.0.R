@@ -118,6 +118,28 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
 }
 
 
+get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0, silent = TRUE){
+    ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
+    locus.var <- apply(t(dat), n, var)
+
+    if ( remove.hi == 1 ) {
+        ## discard high variance genes
+        hi.var <- order(abs(locus.var), decreasing = T)[from:to]
+        if ( silent == FALSE ) {
+            cat("Number of selected balanced-variance genes:",length(hi.var),"\n")
+        }
+    } else if ( remove.hi == 0 ) {
+        ## discard low variance genes
+        hi.var <- order(abs(locus.var), decreasing = F)[from:to]
+        if ( silent == FALSE ) {
+            cat("Number of selected high-variance genes:",length(hi.var),"\n")    
+        }
+    }
+
+    return(hi.x <- dat[,hi.var])
+}
+
+
 
 ###################################
 ####  Sample grouping  ####
@@ -167,7 +189,7 @@ sink()
 
 
 # RMA normalization
-trx.normalized <- oligo::rma(cel.raw, target='core')
+trx.normalized <- oligo::rma(cel.raw, background=TRUE, normalize=TRUE, target='core')
 write.exprs(trx.normalized, file="normalized.systemic.trx.expression.txt")
 dim(trx.normalized)
 
@@ -177,7 +199,7 @@ gc()
 
 
 
-##### REMOVE HIGH VARIANCE GENES
+##### Non-specific filtering based on mean, SD, flagged gene functions
 if ( file.exists("./ids.wo.ncrna") ) {
 
     ## file already constructed based on RNA pattern occurence in the annotated array
@@ -195,30 +217,6 @@ if ( file.exists("./ids.wo.ncrna") ) {
     print(dim(x))
     sink("create.subset.w.ncRNA.OK"); sink()
 
-}
-
-######################
-## FUNCTION CALLING ##
-######################
-get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0, silent = TRUE){
-    ## GET THE RANGE OF VARIANCE ACROSS ALL THE DATASET
-    locus.var <- apply(t(dat), n, var)
-
-    if ( remove.hi == 1 ) {
-        ## discard high variance genes
-        hi.var <- order(abs(locus.var), decreasing = T)[from:to]
-        if ( silent == FALSE ) {
-            cat("Number of selected balanced-variance genes:",length(hi.var),"\n")
-        }
-    } else if ( remove.hi == 0 ) {
-        ## discard low variance genes
-        hi.var <- order(abs(locus.var), decreasing = F)[from:to]
-        if ( silent == FALSE ) {
-            cat("Number of selected high-variance genes:",length(hi.var),"\n")    
-        }
-    }
-
-    return(hi.x <- dat[,hi.var])
 }
 
 
@@ -264,7 +262,7 @@ for (nset in seq(start_th, end_th, increment_th)) {
         nrow
 
     # recalculate variance based on adujusted new thresholds
-    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset)
+    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset, silent = FALSE)
     dm_new <- summary(apply(hi.x, 2, var))[[4]]
     dmv_new <- summary(apply(hi.x, 2, var))[[6]]
     dms_new <- summary(apply(hi.x, 2, sd))[[4]]
@@ -287,9 +285,8 @@ gv
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
-    filter(meanVariance > 0.03 & meanVariance <= 0.035) %>%
+    filter(meanVariance > 0.07 & meanVariance <= 0.08) %>%
     select(dimension, discarded)
-
 
 if ( remove.based.onVariance == TRUE ){
     ## remove based on variance
@@ -307,6 +304,7 @@ adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 1, silent = FAL
 
 
 ##   subset and selcet normal variance genes
+## VARIANCE SHRINKING
 trx.normalized <- trx.normalized[colnames(adj.x), ]
 write.exprs(trx.normalized, file=paste0("normalized.subset.",dim(adj.x)[2],".systemic.trx.expression.txt"))
 
