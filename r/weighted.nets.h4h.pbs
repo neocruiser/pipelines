@@ -34,8 +34,8 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## repositories of gene expression analysis already executed
 ## Standard libraries (relapse project)
 ## choose contrast from: c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
-_contrast=systemicRelapseCOOprediction
-_workingDir=$project/expression/317799
+_contrast=systemicRelapse
+_workingDir=$project/expression/322403
 _affymetrix=$_workingDir/summary/normalized.subset.*txt
 
 ## execute pipeline: clusters, networks, all
@@ -79,9 +79,10 @@ _bstatistics=1.5
 ## o---Bstats = 1.5 (81%)
 ## o---Bstats = 2 (88%)
 
-
 mkdir -p $output
 cd $output
+## get annotation file of genes
+cp $project/summary/annotated.normalized.systemic.expression.array.txt $output
 
 ## already set thresholds based on the $_workingDir output
 _adjPval=0.05
@@ -93,7 +94,7 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=0
+    _bstatistics=-1.5
     
     touch $output/ids.total.tmp
     
@@ -204,6 +205,14 @@ paste <(printf "%sids") \
       > $output/expressions
 # get expression of only annotated genes (NAs are discarded)
 cat $_affymetrix | grep -Fwf <(cat $output/ids.$_strategy.tmp | sort - | uniq -) >> $output/expressions
+
+
+## get gene annotations for the selected with significant expressions
+grep -Fwf <(cat $output/expressions | cut -f1 | sed '1d') \
+     $output/annotated.normalized.systemic.expression.array.txt | cut -f1,3,8 | \
+    sed -e 's/ \/\/ /\t/g' -e 's/ /./g' | cut -f1,2,3,4,5,6,8 | \
+    sort - | uniq > $output/ids2description.summary.txt
+
 
 ## for verification, output the dimensions (rows x columns) of the expression file
 ## number of rows, or genes, must be equal to the number of genes being selected based on their B-stats and average expession

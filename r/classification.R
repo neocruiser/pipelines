@@ -818,7 +818,7 @@ for ( lev in 1:length(vints) ) {
         scale_color_brewer(palette="Dark2") +
         theme_minimal() +
         theme(legend.position = "top",
-              text = element_text(size = 7),
+              text = element_text(size = 5),
               axis.text.y = element_text(size = rel(.5))) +
         ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
         xlab("") +
@@ -832,12 +832,15 @@ dev.off()
 
 pdf("boxplots.genes2groups.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
+    genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
+    colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
+
     full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
         mutate(groups = metadata$Groups) %>%
         mutate(nodes = metadata$Nodes) %>%
         mutate(coo = metadata$Prediction) %>%            
         mutate(samples = rownames(adj.x)) %>%
-        mutate(category1 = paste0(coo,"-",nodes,"-",groups)) %>%
+        mutate(category1 = paste0(coo,"-",nodes)) %>%
         gather("genes", "expressions", 1:length(vints[[lev]])) %>%
         full_join(genes2modules, by = "genes") %>%
         full_join(genes2description, by = "genes") %>%
@@ -845,12 +848,12 @@ for ( lev in 1:length(vints) ) {
                    y = expressions)) +
         geom_boxplot(aes(fill = groups), outlier.colour = NA, lwd = .1) +
         facet_wrap(~ paste0(genes,"-",symbol),
-                   ncol = 6) +
+                   ncol = 10) +
         coord_flip() +
         theme_minimal() +
         scale_color_brewer(palette = "Dark2") +            
         theme(legend.position = "top",
-              text = element_text(size = 7),
+              text = element_text(size = 4),
               axis.text.y = element_text(size = rel(.5))) +
         ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
         xlab("") +
@@ -859,9 +862,6 @@ for ( lev in 1:length(vints) ) {
     print(full.list)
 }
 dev.off()
-
-
-
 
 
 ## clustering and bootstrap of lasso selected genes

@@ -53,14 +53,7 @@ cp $project/networks/$_networkJOBID/expressions $output
 
 ## get gene-module associations
 cp $project/networks/$_networkJOBID/summary/ids2modules.summary.txt $output
-cp $project/summary/annotated.normalized.systemic.expression.array.txt $output
-
-
-## get gene annotations for the selected with significant expressions
-grep -Fwf <(cat $output/expressions | cut -f1 | sed '1d') \
-     $output/annotated.normalized.systemic.expression.array.txt | cut -f1,3,8 | \
-    sed -e 's/ \/\/ /\t/g' -e 's/ /./g' | cut -f1,2,3,4,5,6,8 | \
-    sort - | uniq > $output/ids2description.summary.txt
+cp $project/networks/$_networkJOBID/summary/ids2description.summary.txt $output
 
 
 
