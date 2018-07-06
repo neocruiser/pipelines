@@ -56,7 +56,6 @@ cp $project/networks/$_networkJOBID/summary/ids2modules.summary.txt $output
 cp $project/networks/$_networkJOBID/summary/ids2description.summary.txt $output
 
 
-
 R CMD BATCH $output/script*/classification.R
 
 

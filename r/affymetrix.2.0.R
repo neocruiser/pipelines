@@ -104,7 +104,10 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
         cel.fit <- lmFit(data, strategy) %>%
             contrasts.fit(contrasts) %>%
             eBayes()
-        
+        ## Benjamini & Hochberg (1995) control the false discovery rate,
+        ## the expected proportion of false discoveries amongst the rejected hypotheses
+        ## p-values are adjusted for multiple testing (fdr-adjusted p-value)
+        ## logFC = log2-fold-change
         topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
                  number=selected) %>%
             write.table(file=paste0(contrast.group[f],".",labels,
