@@ -992,11 +992,12 @@ dev.off()
 model_types <- c("kernelpls", "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
                  "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
                  "kknn", "naive_bayes", "gbm",
-                 "dnn", "mxnet",
                  "monmlp", "mlpSGD",
                  "rf", "RRF",
+                 "regLogistic", "LogitBoost",
+                 "dnn", "mxnet",
                  "nnet", "pcaNNet",
-                 "regLogistic", "LogitBoost", "multinom")
+                 "multinom")
 
 # number of parameters per model
 # the deep network used in this step is an automated model
@@ -1004,11 +1005,12 @@ model_types <- c("kernelpls", "svmLinear", "svmPoly", "svmRadialSigma", "svmLine
 parameter_counts <- c(1,1,3,2,2,
                       1,2,2,1,1,1,
                       3,3,4,
-                      5,7,
                       2,8,
                       1,3,
+                      3,1,
+                      5,7,
                       2,2,
-                      3,1,1)
+                      1)
 
 
 
