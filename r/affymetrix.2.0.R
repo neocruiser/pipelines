@@ -7,10 +7,10 @@ lapply(pkgs, require, character.only = TRUE)
 
 ## set boolean variable
 ## if TRUE outliers with high or low variance will be discarded
-remove.based.onVariance = TRUE
+remove.based.onVariance = FALSE
 
 ## apply normalization methods within samples
-standardization=FALSE
+standardization = FALSE
 
 
 # Multicore processing
@@ -288,17 +288,18 @@ gv
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
-    filter(meanVariance > 0.07 & meanVariance <= 0.08) %>%
+    filter(meanVariance > 0.055 & meanVariance <= 0.065) %>%
     select(dimension, discarded)
 
 if ( remove.based.onVariance == TRUE ){
     ## remove based on variance
     from.m=c(means2subset$discarded[[1]] + 1)
+    to.m=means2subset$dimension[[1]]
 } else {
     ## or dont remove based on variance
     from.m=1
+    to.m=dim(xs)[1]
 }
-to.m=means2subset$dimension[[1]]
 
 ## dimension minus the discarded high variance genes
 from.m
@@ -309,7 +310,7 @@ adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 1, silent = FAL
 ##   subset and selcet normal variance genes
 ## VARIANCE SHRINKING
 trx.normalized <- trx.normalized[colnames(adj.x), ]
-write.exprs(trx.normalized, file=paste0("normalized.subset.",dim(adj.x)[2],".systemic.trx.expression.txt"))
+write.exprs(trx.normalized, file=paste0("normalized.subsetCleaned_GEN",dim(adj.x)[2],".systemic.trx.expression.txt"))
 
 # Pull affymetrix annotations for genes and exons
 featureData(trx.normalized) <- getNetAffx(trx.normalized, 'transcript')
@@ -344,7 +345,9 @@ dim(trx.normalized)
 
 # moderated t-statistics (of standard errors) and log-odds of differential expression 
 # by empirical Bayes shrinkage of the standard errors
-groups = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
+##groups = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
+
+groups = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
 
 for (g in groups) {
 
