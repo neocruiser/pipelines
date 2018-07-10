@@ -347,9 +347,9 @@ dim(trx.normalized)
 # by empirical Bayes shrinkage of the standard errors
 ##groups = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
 
-groups = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
+grouping = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
 
-for (g in groups) {
+for (g in grouping) {
 
     if (g == "systemicRelapse") {
         strategy <- model.matrix(~ -1 + metadata$Groups)

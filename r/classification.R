@@ -109,10 +109,10 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .shrinkage=10^seq(-2,-4,length=5),.n.minobsinnode=seq(5,10,length=3))
         } else if ( method == "nnet" ) {
             ## neural networks
-            grid_models <- expand.grid(.size=seq(1,20,length=35), .decay=10^seq(-1,-5,length=35))
+            grid_models <- expand.grid(.size=seq(1,5,length=35), .decay=10^seq(-1,-2,length=35))
         } else if ( method == "pcaNNet" ) {
             ## neural networks with inclusive feature extraction
-            grid_models <- expand.grid(.size=seq(1,20,length=40), .decay=10^seq(-1,-5,length=40))
+            grid_models <- expand.grid(.size=seq(1,5,length=40), .decay=10^seq(-1,-2,length=40))
         } else if ( method == "monmlp" ) {
             ## monotone multi-layer perceptron neural network
             grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(5))
@@ -147,8 +147,8 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
         } else if ( method == "dnn" ) {
             ## stacked autoencoder deep neural network
             grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
-                                       .hidden_dropout=10^seq(-1,-7,length=10),
-                                       .visible_dropout=10^seq(-1,-7,length=10))
+                                       .hidden_dropout=10^seq(-1,-7,length=20),
+                                       .visible_dropout=10^seq(-1,-7,length=20))
         }
         
         ## train the model
@@ -1015,8 +1015,8 @@ parameter_counts <- c(1,1,3,2,2,
 
 
 ######### debugging ##########
-#model_types="mxnetAdam"
-#parameter_counts=1
+#model_types="nnet"
+#parameter_counts=2
 
 
 
@@ -1183,18 +1183,24 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .min_rows=0.7,
                                        .learn_rate=0.5,
                                        .col_sample_rate=0.8)
-        }
+        } else if ( method == "nnet" ) {
+            ## neural networks
+            grid_models <- expand.grid(.size=seq(1,5,length=30), .decay=10^seq(-1,-2,length=30))
+        } 
+
 
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],method=method,trControl= trainCtrl,preProc=c("center","scale"),tuneGrid=grid_models,tuneLength=tune))
+        
     } else if ( grid == FALSE ) {
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],method=method,trControl= trainCtrl,preProc=c("center","scale")))  }
+    
     results <- modelTrain$results
     Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
     conf.m <- confusionMatrix(data=Predd, dat[-train,1])
     output <- list(timeLapsed=lapsed,bestModel=modelTrain,Results=results,Hyperparameters=modelTrain$bestTune,ConfusionMatrix=conf.m)
     return(output)}
 
-model.metrics <- modelTune.clas(dat,training,method="gbm_h2o",folds=3,r=2,tune=2, grid=TRUE)
+model.metrics <- modelTune.clas(dat,training,method="nnet",folds=3,r=2,tune=2, grid=TRUE)
 
 
 ###### experimental ######

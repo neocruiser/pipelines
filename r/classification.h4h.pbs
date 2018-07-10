@@ -10,7 +10,14 @@
 set -eux
 
 module load R
-#module load R\3.4.1
+#module load R/3.4.1
+
+## increase stack size soft limits
+ulimit -Ss 300000
+## https://www.nas.nasa.gov/hecc/support/kb/adjusting-resource-limits-for-login-sessions-and-pbs-jobs_553.html
+## check for soft and hard limits
+ulimit -a
+ulimit -Ha
 
 ##################
 ## DO NOT TOUCH ##
