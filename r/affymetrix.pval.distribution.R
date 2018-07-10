@@ -1,4 +1,3 @@
-# Load packages
 pkgs <- c('RColorBrewer',
           'pvclust', 'foreach',
           'plyr', 'dplyr', 'reshape', 'tidyr',
@@ -7,7 +6,7 @@ lapply(pkgs, require, character.only = TRUE)
 
 
 
-pvals <- read.table("./summary/tmp", header = TRUE, fill = TRUE)
+pvals <- read.table("./summary.lmfit.all.txt", header = TRUE, fill = TRUE)
 
 
 groups = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
@@ -16,7 +15,7 @@ pdf(paste0("pval.distribution.postRMA.postClean.affymetrix.pdf"), onefile = TRUE
 
 for (g in groups) {
 
-	pvals %>%
+    density.plot <- pvals %>%
 	filter(Contrast == g) %>%
 	ggplot(aes(x = FDRadjPval,
 		   fill = Comparison)) +
@@ -28,7 +27,7 @@ for (g in groups) {
              y = "Density")
 
 
-	pvals %>%
+    histo.plot <- pvals %>%
 	filter(Contrast == g) %>% 
 	ggplot(aes(x = FDRadjPval,
 		   fill = Comparison)) +
@@ -36,13 +35,16 @@ for (g in groups) {
                        col=I("white")) +
 	theme_minimal() +
 	facet_wrap( ~ Comparison,
-		    ncol = 2, scales = "free") +
+                   ncol = 2, scales = "free") +
 	theme(legend.position = "none") +
 	scale_fill_brewer(palette = "Paired") +
 	labs(x = "False discovery rate adjusted P-values",
              y = "Density")
-	
-	
-    }
 
-		  dev.off()
+    print(density.plot)
+    print(histo.plot)
+    
+    
+}
+
+dev.off()

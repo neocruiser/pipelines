@@ -701,7 +701,7 @@ par(fig = c(.7,1,.7,1), new=TRUE, cex = .6)
 ## each specifically designed (categorized) to predict a class
 venn(selgenes)
 dev.off()
-
+try(dev.off(), silent = TRUE)
 
 ## Correlation matrices for each group
 ## show correlation for selected genes from Lasso
@@ -760,7 +760,7 @@ for ( lev in 1:length(vints) ) {
 
 }
 dev.off()
-
+try(dev.off(), silent = TRUE)
 
 
 ## box plot all selected genes
@@ -828,7 +828,7 @@ for ( lev in 1:length(vints) ) {
 
 }
 dev.off()
-
+try(dev.off(), silent = TRUE)
 
 pdf("boxplots.genes2groups.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
@@ -862,7 +862,7 @@ for ( lev in 1:length(vints) ) {
     print(full.list)
 }
 dev.off()
-
+try(dev.off(), silent = TRUE)
 
 ## clustering and bootstrap of lasso selected genes
 ## get adjusted pvalues of similar genes
@@ -979,7 +979,7 @@ for ( lev in 1:length(vints) ) {
 }
 
 dev.off()
-
+try(dev.off(), silent = TRUE)
 
 
 

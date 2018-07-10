@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=2,walltime=24:00:00,vmem=60g,mem=220g
+#PBS -l nodes=1:ppn=6,walltime=24:00:00,vmem=60g,mem=220g
 #PBS -N affymetrix
 #PBS -q himem
 #PBS -V
@@ -97,16 +97,18 @@ rm -r $output/ffObjs
 #############
 ## summarizing the output of differential genes
 # Choose expression parameters: B-stats, adjusted Pval, average expression, logFC
-bstatistics=-3
-adjustedpvalue=.049
-averageexpression=5
-highfoldchange=1
-lowfoldchange=-1
+bstatistics=-10
+adjustedpvalue=.1
+averageexpression=2
+highfoldchange=.5
+lowfoldchange=-.5
 
 bash $home/script*/r/affymetrix.summary.h4h.sh $bstatistics $adjustedpvalue $averageexpression $highfoldchange $lowfoldchange $pbs $output
 
 sleep 100
 
+
+bstatistics=-5
 bash $home/script*/r/affymetrix.extract.genes.sh $bstatistics $output
 
 sleep 100
