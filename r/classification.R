@@ -147,8 +147,8 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
         } else if ( method == "dnn" ) {
             ## stacked autoencoder deep neural network
             grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
-                                       .hidden_dropout=10^seq(-1,-7,length=20),
-                                       .visible_dropout=10^seq(-1,-7,length=20))
+                                       .hidden_dropout=10^seq(-1,-7,length=10),
+                                       .visible_dropout=10^seq(-1,-7,length=10))
         }
         
         ## train the model
@@ -1170,6 +1170,10 @@ if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
 }
 
 
+
+
+
+
 ##### debugging #####
 #model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
 #train(y~., data = dat, method = "glmnet_h2o")
@@ -1185,7 +1189,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .col_sample_rate=0.8)
         } else if ( method == "nnet" ) {
             ## neural networks
-            grid_models <- expand.grid(.size=seq(1,5,length=30), .decay=10^seq(-1,-2,length=30))
+            grid_models <- expand.grid(.size=seq(1,5,length=10), .decay=10^seq(-1,-2,length=10))
         } 
 
 
@@ -1200,7 +1204,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
     output <- list(timeLapsed=lapsed,bestModel=modelTrain,Results=results,Hyperparameters=modelTrain$bestTune,ConfusionMatrix=conf.m)
     return(output)}
 
-model.metrics <- modelTune.clas(dat,training,method="nnet",folds=3,r=2,tune=2, grid=TRUE)
+#model.metrics <- modelTune.clas(dat,training,method="nnet",folds=3,r=2,tune=2, grid=TRUE)
 
 
 ###### experimental ######
