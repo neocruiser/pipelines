@@ -14,19 +14,15 @@ cd $output/summary
 _listFiles=$(find $output -maxdepth 2 -iname "*moderated*")
 
 
-## Get ABC and GCB preselected and preferentially expressed genes
-## from RMA log2 quantile normalized scores per sample
-grep -wFf <(cat $project/summary/abc_gcb.genes.counts | cut -f1) $project/summary/normalized.subsetCleaned_GEN20658.systemic.trx.expression.txt  | sort - > $output/summary/abc_gcb.RMA.txt
-sed -i "1iID\t$(head -n1 normalized.subsetCleaned_GEN20658.systemic.trx.expression.txt)" $output/summary/abc_gcb.RMA.txt
-
-
 ## get gene counts significant or not per contrast after lmfit of limma
+## cleaning the annotation database
 ## mining operation on significantly selected genes
 for _index in all fdrAdjPval; do
 
     touch tmp.$_index
 
     if [ $_index == "all" ]; then
+	## this task requires nothing. All in - All out
 
 	## TASK 1
 	## do not select based on bavalue or any other statistic
@@ -45,14 +41,9 @@ for _index in all fdrAdjPval; do
 	    $output/summary/summary.lmfit.$_index.txt
 
 
-	cd $output
-	R CMD BATCH $home/script*/r/affymetrix.pval.distribution.R
-	
-
-
 
     elif [ $_index == "fdrAdjPval" ]; then
-
+	## this branch requires a Bstatistics value (already set as second input)
 	cd $output/summary
 	
 	## TASK 2
@@ -85,12 +76,26 @@ head -n1 $output/summary/summary.full* > $output/summary/summary.lmfit.bval.txt
 cat $output/summary/summary.full* | awk '{if($9>1 && $8 == "bval")print$0}' >> $output/summary/summary.lmfit.bval.txt
 
 
+
 ## TASK 4
 ## get ABC/GCB known expressed genes
-
 ## from lmfit in limma with fold change, Bstats, adj-pval per gene
 cd $output/summary
-grep -wFf <(cat $project/summary/abc_gcb.genes.counts | cut -f1) $output/summary/summary.lmfit.fdrAdjPval.txt  | sort - > $output/summary/abc_gcb.lmFolds.txt
+grep -wFf <(cat $project/summary/abc_gcb.genes.counts | cut -f1) $output/summary/summary.lmfit.all.txt  | sort - > $output/summary/abc_gcb.lmFolds.txt
 sed -i "1iComparison\tContrast\tID\tChromosome\tLogFC\tAveExp\tt\tPval\tFDRadjPval\tB\tEnsembl\tSymbol\tFunction" \
     $output/summary/abc_gcb.lmFolds.txt
+
+## Get ABC and GCB preselected and preferentially expressed genes
+## from RMA log2 quantile normalized scores per sample
+grep -wFf <(cat $project/summary/abc_gcb.genes.counts | cut -f1) $project/summary/normalized.subsetCleaned_GEN20658.systemic.trx.expression.txt  | sort - > $output/summary/abc_gcb.RMA.txt
+sed -i "1iID\t$(head -n1 normalized.subsetCleaned_GEN20658.systemic.trx.expression.txt)" $output/summary/abc_gcb.RMA.txt
+
+cp $project/summary/abc_gcb.genes.counts $output/summary
+
+
+## plotting
+cd $output
+R CMD BATCH $home/script*/r/affymetrix.pval.distribution.R
+	
+
 
