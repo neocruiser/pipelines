@@ -56,7 +56,7 @@ dev.off()
 ## PLOT 2
 ## Venn diagrams
 minPval <- min(pvals$FDRadjPval)
-pvalues <- c(0.01, 0.025, 0.05, 0.1, 0.25)
+pvalues <- c(0.01, 0.025, 0.05, 0.1, 0.15)
 pdf("venn.contrasts.lmfit.pdf", onefile = TRUE)
 
 par(mfrow=c(3,2), cex = .4)
@@ -94,11 +94,15 @@ dev.off()
 ## PLOT 3
 ## plot pre-selected genes known to be preferentially expressed in either
 ## ABC or GCB cell of origin subtype
-abc.gcb <- read.table("summary/abc_gcb.RMA.txt", header = TRUE, fill = TRUE, row.names = 1)
-abc.gcb <- read.table("abc_gcb.RMA.txt", header = TRUE, fill = TRUE, row.names = 1)
+abc.gcb <- read.table("summary/abc_gcb.RMA.txt", header = TRUE, fill = TRUE)
+abc.gcb.meta <- read.table("summary/abc_gcb.genes.counts", header = TRUE, fill = TRUE)
+
+## combine gene serial number with gene symbol
+dm <- left_join(abc.gcb, abc.gcb.meta, by = "ID")
+rownames(abc.gcb) <- paste0(dm$ID,"-", dm$symbol)
 
 ## restructure the dataset
-metadata <- read.table("phenodata", sep = "\t", header = T) %>%
+metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
     dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction) %>%
     filter(Timepoint != "T2") %>%
     mutate(Groups = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
@@ -114,24 +118,50 @@ metadata$Groups <- as.factor(metadata$Groups)
 y <- metadata$Prediction
 
 
-df <- data.frame(y, t(abc.gcb)) %>%
+df <- data.frame(y, t(abc.gcb[, -1])) %>%
     gather("id", "expression", 2:c(dim(abc.gcb)[1]+1))
 
 
 pdf("boxplots.abc_gcb.RMA.pdf")
 df %>%
     ggplot(aes(x = reorder(paste0(id), expression),
-               y = expression)) +
+               y = expression,
+               fill = y)) +
     geom_boxplot(outlier.colour = NA, lwd = .1) +
     coord_flip() +
     scale_color_brewer(palette="Dark2") +
-    facet_wrap( ~ y ) + 
     theme_minimal() +
     theme(legend.position = "top",
-          text = element_text(size = 5),
+          text = element_text(size = 7),
           axis.text.y = element_text(size = rel(.5))) +
     ggtitle(paste0("Intersection between genes")) +
     xlab("") +
     ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
 dev.off()
 try(dev.off(), silent = TRUE)
+
+
+
+## Plot 4
+## plot ABC GCB preselected genes based on lmfit limma eBayes analysis
+abc.gcb.folds <- read.table("summary/abc_gcb.lmFolds.txt", header = TRUE, fill = TRUE)
+pdf("boxplots.abc_gcb.lmfit.folds.pdf")
+    abc.gcb.folds %>%
+        filter(Contrast == "systemicRelapseCOOprediction") %>%
+        ggplot(aes(x = reorder(paste0(ID,"-",Symbol), LogFC),
+                   y = LogFC)) +
+        geom_bar(stat = "identity",
+                     position = "dodge") +
+        coord_flip() +
+        scale_color_brewer(palette="Dark2") +
+        facet_wrap( ~ Comparison ) + 
+        theme_minimal() +
+        theme(legend.position = "top",
+              text = element_text(size = 5),
+              axis.text.y = element_text(size = rel(.5))) +
+        ggtitle(paste0("Intersection between genes")) +
+        xlab("") +
+        ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
+dev.off()
+try(dev.off(), silent = TRUE)
+
