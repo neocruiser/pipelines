@@ -28,7 +28,7 @@ jobid=$pbs.R.affymetrix
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 ## Directory restructuring
-mkdir -p $output/figures $output/summary
+mkdir -p $output/figures $output/summary $output/scripts
 cd $output
 
 
@@ -86,10 +86,6 @@ fi
 R CMD BATCH $home/script*/r/affymetrix.2.0.R
 touch gene.expression.OK
 
-## clean up and organization
-mv $output/*pdf $output/figures
-mv $output/*txt $output/summary
-rm -r $output/ffObjs
 
 
 #############
@@ -104,16 +100,28 @@ highfoldchange=.5
 lowfoldchange=-.5
 
 bash $home/script*/r/affymetrix.summary.h4h.sh $bstatistics $adjustedpvalue $averageexpression $highfoldchange $lowfoldchange $pbs $output
-
 sleep 100
 
 
 bstatistics=-5
 bash $home/script*/r/affymetrix.extract.genes.sh $bstatistics $output
-
 sleep 100
 
+
+
+##############
+## PART III ##
+##############
+## clean up and organization of the output repo
 cd $output
+
+
+mv $output/*pdf $output/figures
+mv $output/*txt $output/summary
+#rm -r $output/ffObjs
+rm $output/.RData
+cp $home/script*/r/affymetrix* $output/scripts
+
 
 tar cf $output/$pbs.affymetrix.figures.tar $output/figures
 gzip $output/$pbs.affymetrix.figures.tar
