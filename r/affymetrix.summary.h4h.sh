@@ -77,8 +77,10 @@ function cleaning () {
 # Up and down regulated genes are also counted
 # the R code above will in addition to preprocessing the data and extracting expression scores, create venn diagrams of gene expressions
 
-for _B in -2 -1 0 0.5 1 1.5; do 
-    for i in total up down; do
+for _B in -2 -1 0 0.5 1 1.5; do
+    for i in total; do
+	##    for i in total up down; do
+	## bug inside the up/down summarization code
 	for files in $listFiles; do
 	    design=$(basename $files | sed -e 's/.txt//g' -e 's/\./\t/g')
 
