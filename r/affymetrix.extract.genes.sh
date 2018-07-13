@@ -71,7 +71,6 @@ done
 
 ## TASK 3
 ## get a tabulated summary of significant genes and their contrasts
-cd $output/summary
 head -n1 $output/summary/summary.full* > $output/summary/summary.lmfit.bval.txt
 cat $output/summary/summary.full* | awk '{if($9>1 && $8 == "bval")print$0}' >> $output/summary/summary.lmfit.bval.txt
 
@@ -80,22 +79,16 @@ cat $output/summary/summary.full* | awk '{if($9>1 && $8 == "bval")print$0}' >> $
 ## TASK 4
 ## get ABC/GCB known expressed genes
 ## from lmfit in limma with fold change, Bstats, adj-pval per gene
-cd $output/summary
-grep -wFf <(cat $project/summary/abc_gcb.genes.counts | cut -f1) $output/summary/summary.lmfit.all.txt  | sort - > $output/summary/abc_gcb.lmFolds.txt
-sed -i "1iComparison\tContrast\tID\tChromosome\tLogFC\tAveExp\tt\tPval\tFDRadjPval\tB\tEnsembl\tSymbol\tFunction" \
-    $output/summary/abc_gcb.lmFolds.txt
+cd $output
+grep -wFf <(cat $output/summary/abc_gcb.genes.counts | cut -f1) $output/summary/summary.lmfit.all.txt  | sort - > $output/summary/abc_gcb.lmFolds.txt
+sed -i "1iComparison\tContrast\tID\tChromosome\tLogFC\tAveExp\tt\tPval\tFDRadjPval\tB\tEnsembl\tSymbol\tFunction" $output/summary/abc_gcb.lmFolds.txt
 
 ## Get ABC and GCB preselected and preferentially expressed genes
 ## from RMA log2 quantile normalized scores per sample
-grep -wFf <(cat $project/summary/abc_gcb.genes.counts | cut -f1) $project/summary/normalized.subsetCleaned_GEN20658.systemic.trx.expression.txt  | sort - > $output/summary/abc_gcb.RMA.txt
-sed -i "1iID\t$(head -n1 normalized.subsetCleaned_GEN20658.systemic.trx.expression.txt)" $output/summary/abc_gcb.RMA.txt
+grep -wFf <(cat $output/summary/abc_gcb.genes.counts | cut -f1) $output/summary/normalized.subset*  | sort - > $output/summary/abc_gcb.RMA.txt
+sed -i "1iID\t$(head -n1 $output/summary/normalized.subset*)" $output/summary/abc_gcb.RMA.txt
 
-cp $project/summary/abc_gcb.genes.counts $output/summary
 
 
 ## plotting
-cd $output
 R CMD BATCH $home/script*/r/affymetrix.pval.distribution.R
-	
-
-

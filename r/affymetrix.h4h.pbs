@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=6,walltime=24:00:00,vmem=60g,mem=220g
+#PBS -l nodes=1:ppn=6,walltime=10:00:00,vmem=60g,mem=220g
 #PBS -N affymetrix
 #PBS -q himem
 #PBS -V
@@ -43,9 +43,12 @@ discard=yes
 ############
 ## listing the selected samples for analysis
 ## phenodata is a mantained sample classification file
-ls -trlgG $project/raw/*CEL | awk '{print $7}' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
+## depricated
+#ls -trlgG $project/raw/*CEL | awk '{print $7}' | cut -f4 -d '_' | sed 's/.CEL//g' | sort - > $output/summary/sampleIDs
+cp $project/summary/sampleIDs $output/summary
 cp $project/summary/phenodata $output/summary
-
+cp $project/summary/abc_gcb.genes.counts $output/summary
+cp $project/summary/annotated.normalized.systemic.expression.array.txt $output/summary
 
 ## Discard probes related to RNAs or just ncRNA
 ## they account for 46.68% of the array.
@@ -56,7 +59,7 @@ if [ $discard == "yes" ]; then
     ## get list of RNA mentions
     touch  $output/patterns.flagged4removal.txt
     for pat in rna pseudo uncharac intron; do
-	grep -iwo "\w*${pat}\w*" $project/summary/annotated.normalized.systemic.expression.array.txt | \
+	grep -iwo "\w*${pat}\w*" $output/summary/annotated.normalized.systemic.expression.array.txt | \
 	    sort - | uniq -c | sort -k1 -rn >> $output/patterns.flagged4removal.txt
     done
 
@@ -70,13 +73,13 @@ if [ $discard == "yes" ]; then
     ## novel transcripts left in data (around 12k)
 
     ## remove NAs (everything)
-    grep -Fwvf <(cat $project/summary/annotated.normalized.systemic.expression.array.txt | sed 's/ /./g' | \
+    grep -Fwvf <(cat $output/summary/annotated.normalized.systemic.expression.array.txt | sed 's/ /./g' | \
 			cut -f1,8 | grep -w "NA" | cut -f1 | sort - | uniq -u) \
-	 $project/summary/annotated.normalized.systemic.expression.array.txt > \
-	 $project/summary/annotated.normalized.systemic.expression.woNAs.txt
+	 $output/summary/annotated.normalized.systemic.expression.array.txt > \
+	 $output/summary/annotated.normalized.systemic.expression.woNAs.txt
     
     grep -Fivf <(cat $project/summary/patterns.flagged4removal_final.txt | \
-			awk '{print $2}') $project/summary/annotated.normalized.systemic.expression.woNAs.txt | \
+			awk '{print $2}') $output/summary/annotated.normalized.systemic.expression.woNAs.txt | \
 	sed '1d' | cut -f1 | sort - | uniq -u > $output/ids.wo.ncrna
     
     touch subsetting.ncrna.OK
@@ -92,9 +95,17 @@ touch gene.expression.OK
 ## PART II ##
 #############
 ## summarizing the output of differential genes
+cd $output
+mv $output/*txt $output/summary
+
+#rm -r $output/ffObjs
+cp $home/script*/r/affymetrix* $output/scripts
+
+
 # Choose expression parameters: B-stats, adjusted Pval, average expression, logFC
-bstatistics=-10
-adjustedpvalue=.1
+## -7.358 is the minimum Bstatistics of diff genes
+bstatistics=-8
+adjustedpvalue=.049
 averageexpression=2
 highfoldchange=.5
 lowfoldchange=-.5
@@ -103,7 +114,8 @@ bash $home/script*/r/affymetrix.summary.h4h.sh $bstatistics $adjustedpvalue $ave
 sleep 100
 
 
-bstatistics=-5
+## -4.6 is the Bstats that contains the third quantile of the distribution of differential genes (-4.12 is the mean)
+bstatistics=-3
 bash $home/script*/r/affymetrix.extract.genes.sh $bstatistics $output
 sleep 100
 
@@ -114,14 +126,8 @@ sleep 100
 ##############
 ## clean up and organization of the output repo
 cd $output
-
-
 mv $output/*pdf $output/figures
-mv $output/*txt $output/summary
-#rm -r $output/ffObjs
 rm $output/.RData
-cp $home/script*/r/affymetrix* $output/scripts
-
 
 tar cf $output/$pbs.affymetrix.figures.tar $output/figures
 gzip $output/$pbs.affymetrix.figures.tar

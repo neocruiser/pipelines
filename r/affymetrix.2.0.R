@@ -44,7 +44,10 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 cel.raw <- list.celfiles("../../raw", full=TRUE, listGzipped=FALSE) %>%
     read.celfiles()
 length(sampleNames(cel.raw))
+colnames(cel.raw)
+
 ids <- read.table("summary/sampleIDs")
+ids$V1
 gc()
 
 
@@ -170,15 +173,24 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
                              TRUE ~ "EN")) %>%
     mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0))
 
-# make sure all samples preserve their ID
+## make sure all samples preserve their ID
 metadata$Groups <- as.factor(metadata$Groups)
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$ABCScore <- as.factor(metadata$ABCScore)
 metadata$Nodes <- as.factor(metadata$Nodes)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
+## associate sample names
 metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
-row.names(metadata) = metadata$SAMPLE_ID
-colnames(cel.raw) = metadata$SAMPLE_ID
+## reorder phenodata to be associated with affymetrix-given cel.files names
+metadata <- arrange(metadata, factor(SAMPLE_ID, levels = ids$V1))
+head(metadata)
+tail(metadata)
+metadata$SAMPLE_ID
+
+## merge affy cel files and sample metdata
+row.names(metadata) <- metadata$SAMPLE_ID
+colnames(cel.raw) <- metadata$SAMPLE_ID
+
 pd <- AnnotatedDataFrame(data=metadata)
 sampleNames(pd) <- metadata$SAMPLE_ID
 phenoData(cel.raw) <- pd
