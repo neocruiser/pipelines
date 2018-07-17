@@ -85,6 +85,13 @@ if [ $discard == "yes" ]; then
     touch subsetting.ncrna.OK
 fi
 
+
+## The HTA file was released in 2016 by affymetrix
+## It contains probeset_ids and transcript_clusterIDs and gene annotations
+## In order to make use of it, the RMA should be initiated with probeset rather than the core argument
+## cat $project/summary/HTA-2_0.na36.hg19.probeset.csv | sed -e '1,14d' | sed -e 's/"//g' -e 's/,/\t/g'  | cut -f1,7,11 | awk '{if($3 != "---")print$0}' | sed -e 's/hg\/.*\t/hg\t/g' | sed 's/.\/\/./"/g' | cut -f1,2 -d'"' | sed 's/hg\t.*"/hg\t/g' | less
+
+
 ## Indexing, normalization, annoation, differential expression, and plotting of affymetrix data
 R CMD BATCH $home/script*/r/affymetrix.2.0.R
 touch gene.expression.OK
@@ -105,7 +112,7 @@ cp $home/script*/r/affymetrix* $output/scripts
 # Choose expression parameters: B-stats, adjusted Pval, average expression, logFC
 ## -7.358 is the minimum Bstatistics of diff genes
 bstatistics=-8
-adjustedpvalue=.049
+adjustedpvalue=.1
 averageexpression=2
 highfoldchange=.5
 lowfoldchange=-.5
@@ -115,7 +122,7 @@ sleep 100
 
 
 ## -4.6 is the Bstats that contains the third quantile of the distribution of differential genes (-4.12 is the mean)
-bstatistics=-3
+bstatistics=-4
 bash $home/script*/r/affymetrix.extract.genes.sh $bstatistics $output
 sleep 100
 

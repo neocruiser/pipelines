@@ -77,7 +77,24 @@ function cleaning () {
 # Up and down regulated genes are also counted
 # the R code above will in addition to preprocessing the data and extracting expression scores, create venn diagrams of gene expressions
 
-for _B in -2 -1 0 0.5 1 1.5; do
+## Data mining the expression datasets based on statistical thresholds
+## the steps are done after limma expression linear fitting
+## B-statistics is the major factor in choosing genes
+## equation to get the chance (%) of a gene to be differentially expressed
+## ( exp(1) / ( exp(1) + 1 )) * 100
+##
+## o---Bstats = -2 (12%)
+## o---Bstats = -1 (26%)
+## o---Bstats = -0.5 (37%)
+## |
+## o---Bstats = 0 (50%)
+## |
+## o---Bstats = 0.5 (62%)
+## o---Bstats = 1 (73%)
+## o---Bstats = 1.5 (81%)
+## o---Bstats = 2 (88%)
+
+for _B in -4 -2 0 1; do
     for i in total; do
 	##    for i in total up down; do
 	## bug inside the up/down summarization code

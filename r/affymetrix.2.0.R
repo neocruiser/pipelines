@@ -2,7 +2,7 @@
 pkgs <- c('RColorBrewer', 'genefilter', 'limma',
           'pvclust', 'foreach', 'oligo', 'pd.hta.2.0',
           'plyr', 'dplyr', 'reshape', 'tidyr', 'doMC',
-          'vegan')
+          'vegan', 'WGCNA', 'readr')
 lapply(pkgs, require, character.only = TRUE)
 
 ## set boolean variable
@@ -58,7 +58,7 @@ gc()
 pdf("boxplot.raw.pdf")
 boxplot(cel.raw, target="core")
 dev.off()
-pdf("histogram.raw.pdf")
+pdf("density.raw.pdf")
 hist(cel.raw, target="core")
 dev.off()
 pdf("ma.raw.pdf")
@@ -111,8 +111,7 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
         ## the expected proportion of false discoveries amongst the rejected hypotheses
         ## p-values are adjusted for multiple testing (fdr-adjusted p-value)
         ## logFC = log2-fold-change
-        topTable(cel.fit, coef=f, adjust="fdr", sort.by="B",
-                 number=selected) %>%
+        topTable(cel.fit, coef=f, adjust="fdr", sort.by="B", number=selected) %>%
             write.table(file=paste0(contrast.group[f],".",labels,
                                     ".moderated-tstat-bayes.limma.txt"),
                         row.names=FALSE, sep="\t", quote=FALSE) 
@@ -152,7 +151,8 @@ get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0, sil
 ###################################
 ## Samples classification and experimental designs
 metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
-    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Score, Prediction, ABClikelihood) %>%
+##    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Score, Prediction, ABClikelihood) %>%
+    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction) %>%    
     filter(Timepoint != "T2") %>%
     mutate(Groups = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
                                             "CNS_RELAPSE_CHOPorEQUIVALENT",
@@ -167,51 +167,97 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
                                 Score <= 1900 ~ "GCB",
 #                                Score == NA ~ "NA",
                                 TRUE ~ "U")) %>%
+    mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0)) %>%
     mutate(Nodes = case_when(SITE == "LN" ~ "LN",
                              SITE == "TO" ~ "LN",
                              SITE == "SP" ~ "LN",
-                             TRUE ~ "EN")) %>%
-    mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0))
+                             TRUE ~ "EN"))
 
 ## make sure all samples preserve their ID
-metadata$Groups <- as.factor(metadata$Groups)
 metadata$ABClassify <- as.factor(metadata$ABClassify)
 metadata$ABCScore <- as.factor(metadata$ABCScore)
-metadata$Nodes <- as.factor(metadata$Nodes)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
+metadata$Groups <- as.factor(metadata$Groups)
+metadata$Nodes <- as.factor(metadata$Nodes)
+
 ## associate sample names
 metadata <- metadata[metadata$SAMPLE_ID %in% ids$V1, ]
+
 ## reorder phenodata to be associated with affymetrix-given cel.files names
 metadata <- arrange(metadata, factor(SAMPLE_ID, levels = ids$V1))
 head(metadata)
 tail(metadata)
 metadata$SAMPLE_ID
 
-## merge affy cel files and sample metdata
+## index samples with metadata info
 row.names(metadata) <- metadata$SAMPLE_ID
 colnames(cel.raw) <- metadata$SAMPLE_ID
 
-pd <- AnnotatedDataFrame(data=metadata)
+## changing the affymetrix phenodata to highlight sample classes
+## default
+vMtData <- data.frame(labelDescription = "Sample type",
+                      channel = factor('exprs', levels = c("exprs", "_ALL_")))
+
+## merging sample groups
+meta.selected <- metadata %>%
+    mutate(Contrast = paste0(Groups, ".", Prediction)) %>%
+    mutate(Contrast2 = paste0(Groups, ".", Nodes))
+#    select(Groups)
+
+##phenoData(cel.raw) <- new("AnnotatedDataFrame",
+##                          data = meta.selected,
+##                          varMetadata = vMtData)
+
+## add metadata to affy phenodata
+pd <- AnnotatedDataFrame(data = meta.selected)
 sampleNames(pd) <- metadata$SAMPLE_ID
 phenoData(cel.raw) <- pd
-gc()
 
 
-summary(metadata)
-sink("metadata.samples.info.txt")
-summary(metadata)
+pData(cel.raw)
+sink("pData.samples.info.txt")
+pData(cel.raw)
 sink()
 
 
-# RMA normalization
+
+## RMA normalization
+## automatic summarization by transcript cluster (collapsing)
+## each gene has one transcriptclusterid and many probesetids
 trx.normalized <- oligo::rma(cel.raw, background=TRUE, normalize=TRUE, target='core')
+
 write.exprs(trx.normalized, file="normalized.systemic.trx.expression.txt")
 dim(trx.normalized)
-
-#probe.normalized <- oligo::rma(cel.raw, target='probeset')
-#write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
+pdf("boxplot.transcript.rma.pdf")
+boxplot(trx.normalized)
+dev.off()
+pdf("density.transcript.rma.pdf")
+hist(trx.normalized)
+dev.off()
+pdf("ma.transcript.rma.pdf")
+MAplot(trx.normalized)
+dev.off()
 gc()
 
+## gene summarization must be done after normalization
+##probe.normalized <- oligo::rma(cel.raw, target='probeset')
+
+##write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
+##dim(probe.normalized)
+##pdf("boxplot.probe.rma.pdf")
+##boxplot(probe.normalized)
+##dev.off()
+
+
+
+
+##############################
+## Annotated gene selection ##
+##############################
+
+### Experimental
+##df <- read_csv("/cluster/projects/kridelgroup/relapse/summary/HTA-2_0.na36.hg19.probeset.csv.zip", skip = 14, col_names = TRUE) %>%
+##    as.data.frame()
 
 
 ##### Non-specific filtering based on mean, SD, flagged gene functions
@@ -319,7 +365,7 @@ to.m
 adj.x <- get.var(t(xs), 1, from = from.m, to = to.m, remove.hi = 1, silent = FALSE)
 
 
-##   subset and selcet normal variance genes
+
 ## VARIANCE SHRINKING
 trx.normalized <- trx.normalized[colnames(adj.x), ]
 write.exprs(trx.normalized, file=paste0("normalized.subsetCleaned_GEN",dim(adj.x)[2],".systemic.trx.expression.txt"))
@@ -339,7 +385,7 @@ colnames(strategy) <- levels(sample.factors)
 contrast.matrix <- makeContrasts(CNSvsNOREL_LN = CNS.LN-NOREL.LN, levels=strategy)
 
 cat("\n\n\n\nSummary Metadata:\n")
-summary(metadata)
+summary(meta.selected)
 cat("\n\n\n\nAll possible permutations between sample cases:\n")
 sample.factors           
 cat("\n\n\n\nAll possible associations between pemutations and samples:\n")
@@ -365,7 +411,7 @@ for (g in grouping) {
 
     if (g == "systemicRelapse") {
         strategy <- model.matrix(~ -1 + metadata$Groups)
-        colnames(strategy) <- c("CNS", "NOREL", "SYST", "CTRL")
+        colnames(strategy) <- c("CNS", "CTRL", "NOREL", "SYST")
         contrast.matrix <- makeContrasts(CNSvsNOREL = CNS-NOREL,
                                          SYSTvsNOREL = SYST-NOREL,
                                          CNSvsSYST = CNS-SYST,
@@ -392,9 +438,9 @@ for (g in grouping) {
         coef <- rep(1:9)
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
-    } else if (g == "systemicRelapseCOOclasses") {
-        ## experimental
-        sample.factors <- paste(metadata$Groups, metadata$ABClassify, sep=".")
+    } else if (g == "systemicRelapseCOOprediction") {
+        ## selected
+        sample.factors <- paste(metadata$Groups, metadata$Prediction, sep=".")
         sample.factors <- factor(sample.factors, levels=c(unique(sample.factors)))        
         strategy <- model.matrix(~0 + sample.factors)
         colnames(strategy) <- levels(sample.factors)
@@ -411,9 +457,9 @@ for (g in grouping) {
         coef <- rep(1:9)
         moderatedFit(data=trx.normalized, contrasts=contrast.matrix, labels=g, coef=coef, percent=1)
         
-    } else if (g == "systemicRelapseCOOprediction") {
-        ## selected
-        sample.factors <- paste(metadata$Groups, metadata$Prediction, sep=".")
+    } else if (g == "systemicRelapseCOOclasses") {
+        ## experimental
+        sample.factors <- paste(metadata$Groups, metadata$ABClassify, sep=".")
         sample.factors <- factor(sample.factors, levels=c(unique(sample.factors)))        
         strategy <- model.matrix(~0 + sample.factors)
         colnames(strategy) <- levels(sample.factors)

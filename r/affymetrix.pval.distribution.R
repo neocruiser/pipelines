@@ -69,9 +69,9 @@ try(dev.off(), silent = TRUE)
 ## plot ABC GCB preselected genes based on lmfit limma eBayes analysis
 abc.gcb.folds$LogFC <- as.numeric(as.character(abc.gcb.folds$LogFC))
 
-pdf("boxplots.abc_gcb.lmfit.folds.pdf", onefile = TRUE)
+pdf("barplots.abc_gcb.lmfit.folds.pdf", onefile = TRUE)
 for ( g in grouping ) {
-    abc.boxes <- abc.gcb.folds %>%
+    abc.bars <- abc.gcb.folds %>%
 	filter(Contrast == g) %>%
         ggplot(aes(x = reorder(paste0(ID,"-",Symbol), LogFC),
                    y = LogFC,
@@ -89,11 +89,11 @@ for ( g in grouping ) {
               panel.border = element_rect(linetype = "blank",
                                           fill = NA),
               panel.grid.major = element_line(linetype = "blank")) +
-        ggtitle(paste0("Expression of ABC vs GCB genes (QC)")) +
+        ggtitle(paste0("Expression of ABC vs GCB genes (QC) for\n",g)) +
         xlab("") +
         ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
 
-    print(abc.boxes)
+    print(abc.bars)
 }
 dev.off()
 try(dev.off(), silent = TRUE)

@@ -90,5 +90,8 @@ sed -i "1iID\t$(head -n1 $output/summary/normalized.subset*)" $output/summary/ab
 
 
 
-## plotting
+## charts for distributions
 R CMD BATCH $home/script*/r/affymetrix.pval.distribution.R
+
+## charts per gene
+R CMD BATCH $home/script*/r/affymetrix.expression.distribution.R

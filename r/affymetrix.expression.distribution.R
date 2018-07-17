@@ -26,7 +26,7 @@ gene.ids <- genes.significant[1:21, 3 ]
 gene.pvals <- pvals[ pvals$ID %in% gene.ids,  ]
 dim(gene.pvals)
 
-pdf("test.pdf", onefile = TRUE)
+pdf("bars.significant.genes.lmfit.pdf", onefile = TRUE)
 for ( g in grouping ) {
     gene.bars <- gene.pvals %>%
         filter(Contrast == g) %>%
@@ -70,17 +70,13 @@ metadata <- metadata.raw %>%
                                GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "SYST",
                                TRUE ~ "CTRL"))
 
-ids <- read.table("sampleIDs")
 metadata <- arrange(metadata, factor(SAMPLE_ID, levels = ids$V1))
 metadata$Groups <- as.factor(metadata$Groups)
 y <- metadata$Prediction
 
 
-gene.selected = "TC4_ctg9_hap1000004.hg.1"
-gene.selected = genes.significant$ID
-
-pdf("test.pdf", onefile = TRUE)
-for (gene.name in gene.selected) {
+pdf("boxplots.per.gene.RMA.pdf", onefile = TRUE)
+for (gene.name in gene.ids) {
     rma.selected <- rma.all %>%
         filter(row.names(rma.all) == gene.name)
 
