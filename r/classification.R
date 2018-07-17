@@ -16,8 +16,22 @@ grouped=TRUE
 binomial=FALSE
 
 ## apply normalization methods within samples
-standardization=FALSE
+standardization=TRUE
 lasso.std=TRUE
+
+## choose contrasts
+## choose summary file with all FDR adjusted pvalues
+grouping = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
+pvals <- read.table("summary/summary.lmfit.all.txt", header = TRUE, fill = TRUE)
+## names of each sample files
+ids <- read.table("summary/sampleIDs")
+
+## ids2modules is a summary file generated from the weighted nets script
+## ids2description is an annotation file of the selected genes from the networks
+ids2modules <- read.table("./ids2modules.summary.txt", header = TRUE)
+ids2description <- read.table("./ids2description.summary.txt", header = FALSE, fill = TRUE)
+colnames(ids2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
+
 
 ##########################
 ## Define new functions ##
@@ -91,7 +105,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.mtry=seq(1,40,length=100))
         } else if ( method == "RRF" ) {
             ## regularized random forest
-            grid_models <- expand.grid(.mtry=seq(1:15),.coefReg=10^seq(-1,-5,length=15),.coefImp=10^seq(-1,-5,length=10))
+            grid_models <- expand.grid(.mtry=seq(1:10),.coefReg=10^seq(-1,-5,length=10),.coefImp=10^seq(-1,-5,length=10))
         } else if ( method == "kknn" ) {
             ## weighted k nearest neighbors
             grid_models <- expand.grid(.kmax=seq(1,15,length=20),.distance=seq(1,5,length=10),
@@ -109,10 +123,10 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .shrinkage=10^seq(-2,-4,length=5),.n.minobsinnode=seq(5,10,length=3))
         } else if ( method == "nnet" ) {
             ## neural networks
-            grid_models <- expand.grid(.size=seq(1,5,length=35), .decay=10^seq(-1,-2,length=35))
+            grid_models <- expand.grid(.size=seq(1:5), .decay=10^seq(-1,-2,length=7))
         } else if ( method == "pcaNNet" ) {
             ## neural networks with inclusive feature extraction
-            grid_models <- expand.grid(.size=seq(1,5,length=40), .decay=10^seq(-1,-2,length=40))
+            grid_models <- expand.grid(.size=seq(1:5), .decay=10^seq(-1,-2,length=7))
         } else if ( method == "monmlp" ) {
             ## monotone multi-layer perceptron neural network
             grid_models <- expand.grid(.hidden1=seq(1:5),.n.ensemble=c(5))
@@ -122,7 +136,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .learn_rate=10^seq(-1,-7,length=3),
                                        .gamma=10^seq(0,-1,length=3),
                                        .momentum=10^seq(0,-1,length=3),
-                                       .minibatchsz=seq(1,120,length=30),    
+                                       .minibatchsz=seq(1,120,length=15),    
                                        .repeats=2)
         } else if ( method == "mxnet" ) {
             ## deep neural network with GPU computing
@@ -130,10 +144,11 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             ## because relu converge faster (faster learning)
             ## also, a reduced likelihood of vanishing gradient (weights and biases)
             ## and adds sparcity resulting in less dense network representation
+            ## length 6 was the maximum threshold ie functional in 60 hours
             grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
-                                       .learning.rate=10^seq(-1,-7,length=6),
-                                       .momentum=10^seq(0,-1,length=6),
-                                       .dropout=10^seq(0,-5,length=6),
+                                       .learning.rate=10^seq(-1,-7,length=4),
+                                       .momentum=10^seq(0,-1,length=4),
+                                       .dropout=10^seq(0,-5,length=4),
                                        .activation=c("relu"))
         } else if ( method == "mxnetAdam" ) {
             ## deep neural network
@@ -239,6 +254,8 @@ metadata$ABCScore <- as.factor(metadata$ABCScore)
 metadata$Nodes <- as.factor(metadata$Nodes)
 metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 
+## reorder sample names
+metadata <- arrange(metadata, factor(SAMPLE_ID, levels = ids$V1))
 
 # choose samples strutcture from metadata
 y <- metadata$Groups
@@ -306,7 +323,7 @@ sink()
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=2
+iterations=5
 
 while (success == FALSE) {
     pdf(paste0("cvROC.iterations",iterations,".",response,".pdf"))
@@ -590,7 +607,7 @@ dat <- data.frame(y=y, t(lasso.selected.genes.nodup))
 dim(dat)
 set.seed(ed)
 gc()
-
+ 
 
 # plot lambda iterations
 #par(mfrow = c(3,4))
@@ -657,7 +674,7 @@ max.aic <- round(max(reduce$anova$AIC),2)
 min.aic <- round(min(reduce$anova$AIC),2)
 
 
-## plot
+## CHART 1
 ## for scaling check ?biplot.rda {vegan}
 ## here the scores are scaled symmetrically by square root of eigenvalues
 pdf(paste0("rda.bestLassoLambda.seed.pdf"))
@@ -703,16 +720,18 @@ venn(selgenes)
 dev.off()
 try(dev.off(), silent = TRUE)
 
+## CHART 2
 ## Correlation matrices for each group
 ## show correlation for selected genes from Lasso
 ## create heatmaps for genes specific for each sample class
 vints <- attr(venn(selgenes), "intersections")
 save(list=ls(pattern="vints"),file="venn.intersections.Rdata")
 
+
 pdf("correlation.matrices4venn.intersection.pdf", onefile = TRUE)
-for ( lev in 1:length(vints) ) {
+for ( lev in 1:length(selgenes) ) {
     ## get the genes that intersect
-    df <- adj.x[, vints[[lev]]]
+    df <- adj.x[, selgenes[[lev]]]
     cordf <- round(cor(df),2)
 
     get_upper_tri <- function(da){
@@ -754,7 +773,7 @@ for ( lev in 1:length(vints) ) {
                                      title.position = "top", title.hjust = 0.5)) +
         theme(axis.text.x = element_text(angle = 45, vjust = 1, 
                                          size = 8, hjust = 1)) +
-        ggtitle(paste0("Correlation between ",names(vints)[lev]," genes"))
+        ggtitle(paste0("Classifier genes for ",names(selgenes)[lev]))
 
     print(corplot)
 
@@ -763,13 +782,10 @@ dev.off()
 try(dev.off(), silent = TRUE)
 
 
+## CHART 3
 ## box plot all selected genes
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
-## ids2modules is a summary file generated from the weighted nets script
-## ids2description is an annotation file of the selected genes
-ids2modules <- read.table("./ids2modules.summary.txt", header = TRUE)
-ids2description <- read.table("./ids2description.summary.txt", header = FALSE, fill = TRUE)
 vints <- attr(venn(selgenes), "intersections")
 
 ## which correlation, power, normalization methods used from network analysis
@@ -786,24 +802,23 @@ metalabels <- list(groups = metadata$Groups,
 
 
 pdf("boxplots.groups2genes.intersection.pdf", onefile = TRUE)
-for ( lev in 1:length(vints) ) {
+for ( lev in 1:length(selgenes) ) {
     ## get the genes that intersect
     ## add module association from hierarchical clustering
     ## add gene function to gene ids from annotated files generated from PBS script
-    genes2modules <- ids2modules[ ids2modules$ids %in% vints[[lev]], c(1, clustering.strategy)]
-    genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
+    genes2modules <- ids2modules[ ids2modules$ids %in% selgenes[[lev]], c(1, clustering.strategy)]
     colnames(genes2modules) <- c("genes", "modules")
-    colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
+    genes2description <- ids2description[ ids2description$genes %in% selgenes[[lev]], ]    
 
-    full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
+    full.list <- as.data.frame(adj.x[ , selgenes[[lev]] ]) %>%
         mutate(groups = metadata$Groups) %>%
         mutate(nodes = metadata$Nodes) %>%
         mutate(coo = metadata$Prediction) %>%            
         mutate(samples = rownames(adj.x)) %>%
         mutate(category1 = paste0(coo,"-",nodes)) %>%
-        gather("genes", "expressions", 1:length(vints[[lev]])) %>%
-        full_join(genes2modules, by = "genes") %>%
-        full_join(genes2description, by = "genes") %>%
+        gather("genes", "expressions", 1:length(selgenes[[lev]])) %>%
+        left_join(genes2modules, by = "genes") %>%
+        left_join(genes2description, by = "genes") %>%
         ggplot(aes(x = reorder(paste0(genes,"-",symbol), expressions),
                    y = expressions,
                    color = groups)) +
@@ -820,7 +835,7 @@ for ( lev in 1:length(vints) ) {
         theme(legend.position = "top",
               text = element_text(size = 5),
               axis.text.y = element_text(size = rel(.5))) +
-        ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
+        ggtitle(paste0("Classifier genes for ",names(selgenes)[lev])) +
         xlab("") +
         ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
 
@@ -830,9 +845,89 @@ for ( lev in 1:length(vints) ) {
 dev.off()
 try(dev.off(), silent = TRUE)
 
+
+
+## CHART 4
+## gene expression from lmfit data from limma eBayes empirical analysis
+pdf("bars.classifier.genes.pdf", onefile = TRUE)
+for ( g in grouping ) {
+    for ( lev in 1:length(selgenes) ) {
+    gene.pvals <- pvals[ pvals$ID %in% selgenes[[lev]],  ]
+    print(dim(gene.pvals))
+
+    gene.bars <- gene.pvals %>%
+        filter(Contrast == g) %>%
+        ggplot(aes(x = reorder(paste0(ID,"-",Symbol), LogFC),
+                   y = LogFC,
+                   fill = factor(Comparison))) +
+        geom_bar(stat = "identity",
+                 position = "dodge") +
+        coord_flip() +
+        scale_fill_brewer(palette="Set1") +
+        theme_minimal() +
+        theme(legend.position = "top",
+              text = element_text(size = 6),
+              axis.text.y = element_text(size = rel(1.5)),
+              axis.text.x = element_text(size = rel(1.5)),
+              strip.background = element_rect(linetype = "blank",
+                                              fill = "white"),
+              panel.border = element_rect(linetype = "blank",
+                                          fill = NA),
+              panel.grid.major = element_line(linetype = "blank")) +
+        ggtitle(paste0("Differential genes for\n",g, " with classifier genes for ", names(selgenes)[lev])) +
+        xlab("") +
+        ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
+
+    print(gene.bars)
+    }
+}
+dev.off()
+try(dev.off(), silent = TRUE)
+
+
+
+## CHART 5
+##  RMA expressions
+pdf("boxplots.classifier.genes.pdf")
+for ( lev in 1:length(selgenes) ) {
+    ## get gene annotations
+    genes2description <- ids2description[ ids2description$genes %in% selgenes[[lev]], ]    
+    colnames(genes2description) <- c("ID", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
+    ## merge expression and annotations
+    rma.selected <- means[ rownames(means) %in% selgenes[[lev]], ]
+    rma.selected$ID <- rownames(rma.selected)
+    dm <- left_join(rma.selected, genes2description, by = "ID")
+    rownames(rma.selected) <- paste0(dm$ID,"-", dm$symbol)
+    ## plot
+    selgenes.box <- data.frame(y, t(rma.selected[, -237])) %>%
+        gather("id", "expression", 2:dim(rma.selected)[1]+1) %>%
+        ggplot(aes(x = reorder(paste0(id), expression),
+                   y = expression,
+                   fill = y)) +
+        geom_boxplot(outlier.colour = NA, lwd = .1) +
+        coord_flip() +
+        scale_color_brewer(palette="Dark2") +
+        theme_minimal() +
+        theme(legend.position = "top",
+              text = element_text(size = 7),
+              axis.text.y = element_text(size = rel(.5))) +
+        ggtitle(paste0("Classifier genes for ", names(selgenes[lev]))) +
+        xlab("") +
+        ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
+
+    print(selgenes.box)
+}
+dev.off()
+try(dev.off(), silent = TRUE)
+
+
+
+
+## CHART 6
+## RMA expression without contrast grouping
 pdf("boxplots.genes2groups.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
-    genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
+    genes2description <- ids2description[ ids2description$genes %in% vints[[lev]], ]    
     colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
 
     full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
@@ -842,8 +937,8 @@ for ( lev in 1:length(vints) ) {
         mutate(samples = rownames(adj.x)) %>%
         mutate(category1 = paste0(coo,"-",nodes)) %>%
         gather("genes", "expressions", 1:length(vints[[lev]])) %>%
-        full_join(genes2modules, by = "genes") %>%
-        full_join(genes2description, by = "genes") %>%
+        left_join(genes2modules, by = "genes") %>%
+        left_join(genes2description, by = "genes") %>%
         ggplot(aes(x = reorder(category1, expressions),
                    y = expressions)) +
         geom_boxplot(aes(fill = groups), outlier.colour = NA, lwd = .1) +
@@ -864,6 +959,8 @@ for ( lev in 1:length(vints) ) {
 dev.off()
 try(dev.off(), silent = TRUE)
 
+
+## CHART 7
 ## clustering and bootstrap of lasso selected genes
 ## get adjusted pvalues of similar genes
 ## analysis will generate heatmaps for each contrast
@@ -875,19 +972,18 @@ n.bootstraps=2
 p.alpha=0.95
 tree.cut=1.8
 
-vints <- attr(venn(selgenes), "intersections")
 pdf("heatmaps.modules4venn.intersection.pdf", onefile = TRUE)
-for ( lev in 1:length(vints) ) {
-    if ( length(vints[[lev]]) >= 10 ) {
+for ( lev in 1:length(selgenes) ) {
+    if ( length(selgenes[[lev]]) >= 10 ) {
         gc()
         for ( i in normalize.genes ) {
             for ( it in dissimilar.genes ) {
-                cat(">> ",names(vints[lev]),"expression normalized with",i,"method &",it,"clustering >> ")
+                cat(">> ",names(selgenes[lev]),"expression normalized with",i,"method &",it,"clustering >> ")
                 
-                df <- adj.x[ , vints[[lev]] ]
+                df <- adj.x[ , selgenes[[lev]] ]
 
                 ## add gene function to gene ids
-                genes2description <- ids2description[ ids2description$V1 %in% vints[[lev]], ]    
+                genes2description <- ids2description[ ids2description$genes %in% selgenes[[lev]], ]    
                 colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site")
 
                 ## normalize
@@ -966,14 +1062,14 @@ for ( lev in 1:length(vints) ) {
                           key.ylab = NA,
                           key.xlab = c("Genes Z-scores"),
                           density.info = "none",
-                          main = paste0(names(vints[lev]),'\n',
+                          main = paste0(names(selgenes[lev]),'\n',
                                         "expression normalized with ",i,'\n',
                                         "method & ",it," clustering"),
                           keysize = .9)
             }
         }
     } else {
-        print(paste0(names(vints[lev]), " interactions has ", length(vints[[lev]]),
+        print(paste0(names(selgenes[lev]), " interactions has ", length(selgenes[[lev]]),
                      " genes, which is less than the recommended gene counts for clustering."))
     }
 }
@@ -989,28 +1085,32 @@ try(dev.off(), silent = TRUE)
 ## Validating classifiers ##
 ############################
 # machine learning models used
-model_types <- c("kernelpls", "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
-                 "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
-                 "kknn", "naive_bayes", "gbm",
-                 "monmlp", "mlpSGD",
-                 "rf", "RRF",
-                 "regLogistic", "LogitBoost",
-                 "dnn", "mxnet",
-                 "nnet", "pcaNNet",
-                 "multinom")
+model_types <- c(
+    "LogitBoost",
+    "nnet", "pcaNNet",
+    "dnn",
+    "kernelpls", "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
+    "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
+    "kknn", "naive_bayes", "gbm",
+    "monmlp", "mlpSGD",
+    "rf", "RRF",
+    "multinom"
+)
 
 # number of parameters per model
 # the deep network used in this step is an automated model
 # hence the low number of parameters to adjust
-parameter_counts <- c(1,1,3,2,2,
-                      1,2,2,1,1,1,
-                      3,3,4,
-                      2,8,
-                      1,3,
-                      3,1,
-                      5,7,
-                      2,2,
-                      1)
+parameter_counts <- c(
+    1,
+    2,2,
+    5,
+    1,1,3,2,2,
+    1,2,2,1,1,1,
+    3,3,4,
+    2,8,
+    1,3,
+    1
+)
 
 
 
@@ -1029,7 +1129,7 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( iterations in c(1:3) ) {
+for ( iterations in c(1:2) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
@@ -1218,4 +1318,8 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 ####### Save ########
 ## print full view of variables, data frames, matrices, funcitons...
 lsos()
-#load("EnsembleMethods.Rdata", .GlobalEnv)
+sink("log.R.sessionInfo.txt")
+sessionInfo()
+sink()
+
+##load("EnsembleMethods.Rdata", .GlobalEnv)

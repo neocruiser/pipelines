@@ -40,8 +40,9 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 #################
 ## MUST DEFINE BEFORE EXECUTION
 _contrast=systemicRelapse
-_expressionJOBID=317272
-_networkJOBID=317785
+_expressionJOBID=377763
+_networkJOBID=378121
+_geneRanking=TRUE
 
 ############
 ## PART I ##
@@ -56,7 +57,9 @@ cp $home/script*/r/lsos.R $output/scripts
 
 ## get gene epxression
 cp $project/summary/phenodata $output/summary
+cp $project/summary/sampleIDs $output/summary
 cp $project/networks/$_networkJOBID/expressions $output
+cp $project/expression/$_expressionJOBID/summary/summary.lmfit.all.txt $output/summary
 
 ## get gene-module associations
 cp $project/networks/$_networkJOBID/summary/ids2modules.summary.txt $output
@@ -67,6 +70,35 @@ R CMD BATCH $output/script*/classification.R
 
 
 
+
+
+
+##############
+## PART III ##
+##############
+## gene ranking
+
+if [ $_geneRanking == "TRUE" ]; then
+
+    ## network.csv contains clusters with minimum 4 nodes
+    grep -Fwf <(cat ~/expressions/network.csv | sed 's/","/ /g' | cut -f5 -d' ' | sed 's/"//g' | awk 'NR>1') $project/expression/summary/CNSvsNOREL.systemicRelapse.moderated-tstat-bayes.limma.txt | sed -e '1d' -e 's/ /./g' | cut -f1,3,20-25 > $output/summary/ranking.lmfit
+    sed -i "1i$(head -n1 $project/expression/summary/CNSvsNOREL.systemicRelapse.moderated-tstat-bayes.limma.txt | sed 's/ /./g' | cut -f1,3,20-25)" $output/summary/ranking.lmfit
+
+    ## the csv was exported from cytoscape
+    ## contains degrees of the clusters with minimum 4 nodes
+    cat ranking.network.csv | cut -f 7,11,12 -d',' | sed -e 's/"//g' -e 's/,/\t/g' | cut -f1,3 | sed '1d' | sort -nr -k1 > $output/summary/ranking.degree
+
+    cd $output
+
+    R CMD BATCH $output/script*/line.ranking.R
+fi
+
+
+
+
+
+
+
 ## backup the expressions for the current job
 mv $output/expressions $output/expressions.NTWK$_networkJOBID.EXP$_expressionJOBID
 mv $output/*txt $output/summary
@@ -74,9 +106,11 @@ mv $output/*txt $output/summary
 
 
 
-##############
-## PART III ##
-##############
+
+
+#############
+## PART IV ##
+#############
 ## Restructure logs into R readable summaries.
 _metrics=$output/performance1*
 
@@ -129,4 +163,3 @@ mv *iterations*lambda* selected
 mv *Rdata backups
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
-
