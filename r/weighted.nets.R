@@ -15,7 +15,7 @@ palette.red <- colorRampPalette(palette.rd)(n = 200)
 
 source("./convertMatrix2graph.R")
 
-#load data
+## load data
 counts <- read.table("./logs", header = T)
 counts <- data.frame(contigs = rownames(counts), counts) %>%
     arrange(desc(contigs))
@@ -25,7 +25,7 @@ tbl_df(counts)
 nco <- dim(counts)[1]
 
 allowWGCNAThreads()
-#create similarity matrix
+## create similarity matrix
 cordist <- function(dat) {
     cor_matrix  <- cor(t(dat))
 
@@ -40,24 +40,24 @@ sim_matrix <- cordist(counts)
 pdf(paste("similarity.matrix.SSIZE",nco,".heatmap.pdf",sep = ""))
 heatmap_indices <- sample(nrow(sim_matrix), 50)
 heatmap.2(t(sim_matrix[heatmap_indices, heatmap_indices]),
-            col=palette.red,
-            labRow=NA, labCol=NA,
-            trace='none', dendrogram='row',
-            xlab='Gene', ylab='Gene',
-            main='Similarity matrix',
-            density.info='none', revC=TRUE)
+          col=palette.red,
+          labRow=NA, labCol=NA,
+          trace='none', dendrogram='row',
+          xlab='Gene', ylab='Gene',
+          main='Similarity matrix',
+          density.info='none', revC=TRUE)
 dev.off()
 
 for(p in pow) {
 
-#Convert similarity matrix to adjacency matrix.
-adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=p, type='signed')
-gc()
-## gene ids are Trinity IDs
-gene_ids <- rownames(adj_matrix)
-adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
-rownames(adj_matrix) <- gene_ids
-colnames(adj_matrix) <- gene_ids
+    ## Convert similarity matrix to adjacency matrix.
+    adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=p, type='signed')
+    gc()
+    ## gene ids are Trinity IDs
+    gene_ids <- rownames(adj_matrix)
+    adj_matrix <- matrix(adj_matrix, nrow=nrow(adj_matrix))
+    rownames(adj_matrix) <- gene_ids
+    colnames(adj_matrix) <- gene_ids
 
     pdf(paste("adjacency.matrix.SSIZE",nco,".heatmap.pdf", sep = ""))
     heatmap.2(t(adj_matrix[heatmap_indices, heatmap_indices]),
@@ -69,8 +69,8 @@ colnames(adj_matrix) <- gene_ids
               density.info='none', revC=TRUE)
     dev.off()
 
-## Detect co-expression modules
-## Hierarchical clustering first
+    ## Detect co-expression modules
+    ## Hierarchical clustering first
     correlate_rows <- c("pearson", "spearman")
     normalize_df <- c("complete", "ward.D2", "average")
     for ( n in normalize_df ) {
@@ -78,81 +78,83 @@ colnames(adj_matrix) <- gene_ids
 
 
             gene_tree <- hclust(as.dist(1-cor(t(adj_matrix),
-                                  method= cr)),
-                    method= n)
-#gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
+                                              method= cr)),
+                                method= n)
+            ##gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
 
 
-## create only a dendrogram from cluster visualization
-dend <- as.dendrogram(hclust(as.dist(1-cor(t(adj_matrix),
-                                           method= cr)),
-                             method= n))
-#x11(); plot(dend);gc()
+            ## create only a dendrogram from cluster visualization
+            dend <- as.dendrogram(hclust(as.dist(1-cor(t(adj_matrix),
+                                                       method= cr)),
+                                         method= n))
+            ##x11(); plot(dend);gc()
 
-## Get the number of clusters (modules) and the number of genes per cluster
-d <- NULL
-imax=20
-for ( i in seq(5,imax,5) ) {
-    module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=i,
-                                       deepSplit=TRUE)
-    d <- rbind(d, data.frame(genes = i, modules = summary(module_labels)[[6]]))
-}
-## The mean of the number of clusters will be used to cut the dendrogram
-min.mods <- apply(d, 2, function(x) mean(x))
-# change the number of genes per cluster
-    for ( fm in c(5, 15, 25) ) {
-#    for ( f in c(1, 2) ) {
-#fm <- floor(min.mods[[f]])
-#fm <- floor(((imax-fm)/2.5) + fm)
-fm
-module_labels <- cutreeDynamicTree(dendro=gene_tree,
-                                   minModuleSize=fm,
-                                   deepSplit=TRUE)
-pdf(paste("minimum.module.SSIZE",nco,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
-plot(d, main = paste("Module (cluster) size selected = ", fm, sep=""))
-abline(lm(d$modules ~ d$genes), col="red")
-lines(lowess(d$genes,d$modules), col="blue")
-dev.off()
+            ## Get the number of clusters (modules) and the number of genes per cluster
+            d <- NULL
+            imax=20
+            for ( i in seq(5,imax,5) ) {
+                module_labels <- cutreeDynamicTree(dendro=gene_tree, minModuleSize=i,
+                                                   deepSplit=TRUE)
+                d <- rbind(d, data.frame(genes = i, modules = summary(module_labels)[[6]]))
+            }
+            ## The mean of the number of clusters will be used to cut the dendrogram
+            min.mods <- apply(d, 2, function(x) mean(x))
+            ## change the number of genes per cluster
+            for ( fm in c(5, 15, 25) ) {
+                ## for ( f in c(1, 2) ) {
+                ## fm <- floor(min.mods[[f]])
+                ## fm <- floor(((imax-fm)/2.5) + fm)
+                fm
+                module_labels <- cutreeDynamicTree(dendro=gene_tree,
+                                                   minModuleSize=fm,
+                                                   deepSplit=TRUE)
+                pdf(paste("minimum.module.SSIZE",nco,".var-CORR",cr,".CLU",n,".pdf", sep = ""))
+                plot(d, main = paste("Module (cluster) size selected = ", fm, sep=""))
+                abline(lm(d$modules ~ d$genes), col="red")
+                lines(lowess(d$genes,d$modules), col="blue")
+                dev.off()
 
-module_colors <- labels2colors(module_labels)
-gene_info <- data.frame(id = gene_ids, modules=module_colors)
-gene_info$color_rgb<- col2hex(gene_info$modules)
+                module_colors <- labels2colors(module_labels)
+                gene_info <- data.frame(id = gene_ids, modules=module_colors)
+                gene_info$color_rgb<- col2hex(gene_info$modules)
 
 
-### Merge annotated contigs with coexpressed modules
-tbl_df(gene_info)
-dim(adj_matrix)
-# this simply removes annotated genes without a description content being found in any gene database.
-# however there might be another of the same annotated gene with a description. this gene is a duplicate and will remain in the data frame
-### To make the annotation file, merge IPS output and Panther output
-        annotations <- read.table("./id2description", fill = TRUE, na.strings = c("", "NA"))
-#        annotations <- read.table("./contigs.deseq2.p4.c2.prot.fa.tsv.id2description.NR-PTHR-IPS.diamond5.LEN20.EVAL5.txt", fill = TRUE, na.strings = c("", "NA"))
-tbl_df(annotations)
+                ## Merge annotated contigs with coexpressed modules
+                tbl_df(gene_info)
+                dim(adj_matrix)
+                ## this simply removes annotated genes
+                ## without a description content being found in any gene database.
+                ## however there might be another of the same annotated gene
+                ## with a description. this gene is a duplicate and will remain in the data frame
+                ## To make the annotation file, merge IPS output and Panther output
+                annotations <- read.table("./id2description", fill = TRUE, na.strings = c("", "NA"))
 
-df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
-df <- df[!duplicated(df$id),]
-colnames(df) <- c('gene_id','modules','colors_rgb','description')
-df$description <- as.character(df$description)
+                tbl_df(annotations)
 
-df <- arrange(df, desc(gene_id))
+                df <- merge(gene_info, annotations, by.x = "id", by.y = "V1", all.x = T)
+                df <- df[!duplicated(df$id),]
+                colnames(df) <- c('gene_id','modules','colors_rgb','description')
+                df$description <- as.character(df$description)
 
-        tbl_df(df)
+                df <- arrange(df, desc(gene_id))
 
-#extract network
-    for (t in th){
-        g <- export_network_to_graphml(adj_matrix,
-                                       filename = paste("network.POW",p,
-                                                        ".Th",t,
-                                                        ".GEN",fm,
-                                                        ".SSIZE",nco,
-                                                        ".CLU",n,
-                                                        ".var-CORR",cr,
-                                                        ".graphml",
-                                                        sep = "" ),
-                                       threshold=t,
-                                       nodeAttrDataFrame=df)
-    }
-    }
+                tbl_df(df)
+
+                ## extract network
+                for (t in th){
+                    g <- export_network_to_graphml(adj_matrix,
+                                                   filename = paste("network.POW",p,
+                                                                    ".Th",t,
+                                                                    ".GEN",fm,
+                                                                    ".SSIZE",nco,
+                                                                    ".CLU",n,
+                                                                    ".var-CORR",cr,
+                                                                    ".graphml",
+                                                                    sep = "" ),
+                                                   threshold=t,
+                                                   nodeAttrDataFrame=df)
+                }
+            }
         }
     }
     

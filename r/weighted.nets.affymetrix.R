@@ -6,7 +6,7 @@ lapply(pkgs, require, character.only = TRUE)
 
 source("./convertMatrix2graph.R")
 
-#LOAD DATA
+## LOAD DATA
 counts <- as.matrix(read.table("./expressions", header = T, row.names = 1))
 tbl_df(counts)
 
@@ -25,7 +25,7 @@ if ( nco >= 500 ) {
 th=.5
 
 
-# sampling for heatmaps
+## sampling for heatmaps
 if ( nco >= 100 ){
     heatmap.indices.sampling <- sample(nco, c(nco*.1))
     
@@ -54,7 +54,7 @@ palette.red <- colorRampPalette(palette.rd)(n = nco)
 ### END ###
 
     
-# standardization
+## standardization
 standardize_df <- c("hellinger", "standardize", "range")
 
 ## Initialize variable that will contain different networks iterations
@@ -67,7 +67,7 @@ gene2module <- data.frame(ids = rownames(counts))
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
 ite <- icc()
 steps_done="tmp"
-                    
+
 
 ## Create networks
 ## iterated across different normalization and correlation methods
@@ -80,23 +80,23 @@ for ( s in standardize_df ) {
     ## the scores should remain non-negative to successfuly get a graph
     counts <- decostand(x = counts, method = s)
 
-#    counts <- scale(counts, center=T, scale = T)
+    ##    counts <- scale(counts, center=T, scale = T)
 
     allowWGCNAThreads()
 
-    #create similarity matrix
+                                        #create similarity matrix
     cordist <- function(dat) {
         cor_matrix  <- cor(t(dat))
 
         dist_matrix <- as.matrix(dist(dat, diag=TRUE, upper=TRUE))
 
-#        dist_matrix <- as.matrix(dist(scale(dat, center=T, scale=T), diag=TRUE, upper=TRUE))
+        ##        dist_matrix <- as.matrix(dist(scale(dat, center=T, scale=T), diag=TRUE, upper=TRUE))
 
-        # Calculates the log-likelihood
-#        dist_matrix <- log1p(dist_matrix)
-        # Scale negative values
+        ## Calculates the log-likelihood
+        ##        dist_matrix <- log1p(dist_matrix)
+        ## Scale negative values
         dist_matrix <- 1 - (dist_matrix / max(dist_matrix))
-#        sign(cor_matrix) * ((abs(cor_matrix) + dist_matrix)/ 2)
+        ##        sign(cor_matrix) * ((abs(cor_matrix) + dist_matrix)/ 2)
     }
     sim_matrix <- cordist(counts)
 
@@ -113,15 +113,15 @@ for ( s in standardize_df ) {
 
 
     
-## Start a progress bar
-#pb <- txtProgressBar(min = 0, max = nco, style = 3)
-#k=0
+    ## Start a progress bar
+    ##pb <- txtProgressBar(min = 0, max = nco, style = 3)
+    ##k=0
 
 
-## construct different networks based on their power analysis
+    ## construct different networks based on their power analysis
     for(p in pow) {
 
-        #Convert similarity matrix to adjacency matrix.
+        ## Convert similarity matrix to adjacency matrix.
         adj_matrix <- adjacency.fromSimilarity(sim_matrix, power=p, type='signed')
         gc()
         ## gene ids are serial numbers
@@ -142,13 +142,13 @@ for ( s in standardize_df ) {
 
         ## Detect co-expression modules
         ## Hierarchical clustering first
-#        correlate_rows <- c("pearson", "spearman")
+        ##        correlate_rows <- c("pearson", "spearman")
         correlate_rows <- c("pearson")        
-#        normalize_df <- c("complete", "ward.D2", "average")
+        ##        normalize_df <- c("complete", "ward.D2", "average")
         normalize_df <- c("complete")
 
 
-## redistribute genes into modules based on different correlation strategies
+        ## redistribute genes into modules based on different correlation strategies
         for ( n in normalize_df ) {
             for ( cr in correlate_rows ) {
 
@@ -156,7 +156,7 @@ for ( s in standardize_df ) {
                 gene_tree <- hclust(as.dist(1-cor(t(adj_matrix),
                                                   method= cr,
                                                   use = "pairwise.complete.obs")), method = n)
-                                        #gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
+                ##gene_tree <- hclust(as.dist(1 - adj_matrix), method="average")
 
 
                 ## create only a dendrogram from cluster visualization
@@ -165,7 +165,7 @@ for ( s in standardize_df ) {
                                                            use = "pairwise.complete.obs")), method= n))
 
                 ## Get the number of clusters (modules) and the number of genes per cluster
-                # max number of genes per module            
+                ## max number of genes per module            
                 if ( nco >= 100 ) {
                     imax = floor(nco * .1)
                     ival = floor(nco * .01)
@@ -185,10 +185,10 @@ for ( s in standardize_df ) {
                                                        minModuleSize=i,
                                                        deepSplit=TRUE)
 
-                    # during some iterations on higher power thresholds
-                    # the number of modules is 0
-                    # so R throws an error, the pipe is then aborted
-                    # below is to amend the broken pipe and keep the analysis going
+                    ## during some iterations on higher power thresholds
+                    ## the number of modules is 0
+                    ## so R throws an error, the pipe is then aborted
+                    ## below is to amend the broken pipe and keep the analysis going
                     nbmods = NULL
                     nbmods = try(summary(module_labels)[[6]], silent = TRUE)
                     if ( is.numeric(nbmods) == TRUE ) {
@@ -223,7 +223,7 @@ for ( s in standardize_df ) {
                     mods_c = c ( imax - ival )
                 }
 
-                # Iterate Clustering Based on the number of genes per module
+                ## Iterate Clustering Based on the number of genes per module
                 for ( fm in c(mods_a, mods_b, mods_c) ) {
 
                     module_labels <- cutreeDynamicTree(dendro=gene_tree,
@@ -240,12 +240,12 @@ for ( s in standardize_df ) {
                     gene_info <- data.frame(id = gene_ids, modules=module_colors)
                     gene_info$color_rgb<- col2hex(gene_info$modules)
 
-                    ### Merge annotated contigs with coexpressed modules
+                    ## Merge annotated contigs with coexpressed modules
                     tbl_df(gene_info)
                     dim(adj_matrix)
                     df=gene_info
 
-                    #EXTRACT NETWORK
+                    ## extract network
                     for (t in th){
                         g <- export_network_to_graphml(adj_matrix,
                                                        filename = paste("network.POW",p,
@@ -303,7 +303,7 @@ for ( s in standardize_df ) {
                     ## add modules, one iteration at a time
                     gene2module <- cbind(gene2module, module_labels)
                     names(gene2module)[c( 1 + ii)] <- paste0("GMOD",fm,"PO",p,"TH",t,"_STD",s,"CLU",n,"COR",cr)
-                
+                    
                 }
             }
         }
@@ -318,7 +318,7 @@ write.table(networks.summary, "networks.summary.txt", quote=FALSE, sep="\t", row
 
 
 
-#save(file = "log.Rdata")
+##save(file = "log.Rdata")
 disableWGCNAThreads()
 gc()
 
