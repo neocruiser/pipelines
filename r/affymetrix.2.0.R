@@ -37,55 +37,6 @@ palette.green <- colorRampPalette(palette.gr)(n = 200)
 palette.red <- colorRampPalette(palette.rd)(n = 200)
 
 
-#########################
-####  Read samples   ####
-#########################
-# Microarray files loaded into array
-cel.raw <- list.celfiles("../../raw", full=TRUE, listGzipped=FALSE) %>%
-    read.celfiles()
-length(sampleNames(cel.raw))
-colnames(cel.raw)
-
-ids <- read.table("summary/sampleIDs")
-ids$V1
-gc()
-
-
-###########################
-####  Quality control  ####
-###########################
-# Log intensities
-pdf("boxplot.raw.pdf")
-boxplot(cel.raw, target="core")
-dev.off()
-pdf("density.raw.pdf")
-hist(cel.raw, target="core")
-dev.off()
-pdf("ma.raw.pdf")
-MAplot(cel.raw[, 1:4], pairs=TRUE)
-dev.off()
-gc()
-
-# get probeset info
-pInfo <- getProbeInfo(cel.raw, target="probeset",field=c("fid","type"),sortBy="none")
-dim(cel.raw); dim(pInfo)
-sink("probe.info.affymetrix.chip.txt")
-table(pInfo$type[pInfo$fid %in% rownames(cel.raw)])
-sink()
-gc()
-
-# Probe level model fitted to the raw data
-# scaling the standard errors and relative log expression
-#plmFit <- fitProbeLevelModel(cel.raw, target='core')
-#cols <- rep(darkColors(nlevels(cel.raw$Prediction)), each=2)
-#mypar(2, 1)
-#pdf("nuse.plm.raw.pdf")
-#NUSE(plmFit, col=cols)
-#RLE(plmFit, col=cols)
-#dev.off();dev.off()
-#gc()
-
-
 ########################################
 ####  Differential gene expression  ####
 ########################################
@@ -144,6 +95,55 @@ get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0, sil
     return(hi.x <- dat[,hi.var])
 }
 
+#########################
+####  Read samples   ####
+#########################
+# Microarray files loaded into array
+cel.raw <- list.celfiles("../../raw", full=TRUE, listGzipped=FALSE) %>%
+    read.celfiles()
+length(sampleNames(cel.raw))
+colnames(cel.raw)
+
+ids <- read.table("summary/sampleIDs")
+ids$V1
+gc()
+
+
+###########################
+####  Quality control  ####
+###########################
+# Log intensities
+pdf("boxplot.raw.pdf")
+boxplot(cel.raw, target="core")
+dev.off()
+pdf("density.raw.pdf")
+hist(cel.raw, target="core")
+dev.off()
+pdf("ma.raw.pdf")
+MAplot(cel.raw[, 1:4], pairs=TRUE)
+dev.off()
+gc()
+
+# get probeset info
+pInfo <- getProbeInfo(cel.raw, target="probeset",field=c("fid","type"),sortBy="none")
+dim(cel.raw); dim(pInfo)
+sink("probe.info.affymetrix.chip.txt")
+table(pInfo$type[pInfo$fid %in% rownames(cel.raw)])
+sink()
+gc()
+
+# Probe level model fitted to the raw data
+# scaling the standard errors and relative log expression
+#plmFit <- fitProbeLevelModel(cel.raw, target='core')
+#cols <- rep(darkColors(nlevels(cel.raw$Prediction)), each=2)
+#mypar(2, 1)
+#pdf("nuse.plm.raw.pdf")
+#NUSE(plmFit, col=cols)
+#RLE(plmFit, col=cols)
+#dev.off();dev.off()
+#gc()
+
+
 
 
 ###################################
@@ -151,8 +151,8 @@ get.var <- function(dat, n, from = 1, to = (dim(dat)[2])*0.1, remove.hi = 0, sil
 ###################################
 ## Samples classification and experimental designs
 metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
-##    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Score, Prediction, ABClikelihood) %>%
-    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction) %>%    
+    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Score, Prediction, ABClikelihood) %>%
+##    dplyr::select(SAMPLE_ID, Timepoint, GROUP, SITE, Prediction) %>%    
     filter(Timepoint != "T2") %>%
     mutate(Groups = case_when(GROUP %in% c("CNS_RELAPSE_RCHOP",
                                             "CNS_RELAPSE_CHOPorEQUIVALENT",
@@ -167,11 +167,11 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
                                 Score <= 1900 ~ "GCB",
 #                                Score == NA ~ "NA",
                                 TRUE ~ "U")) %>%
-    mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0)) %>%
     mutate(Nodes = case_when(SITE == "LN" ~ "LN",
                              SITE == "TO" ~ "LN",
                              SITE == "SP" ~ "LN",
-                             TRUE ~ "EN"))
+                             TRUE ~ "EN")) %>%
+    mutate(Lymphnodes = case_when(Nodes == "LN" ~ 1, TRUE ~ 0))
 
 ## make sure all samples preserve their ID
 metadata$ABClassify <- as.factor(metadata$ABClassify)
@@ -200,13 +200,9 @@ vMtData <- data.frame(labelDescription = "Sample type",
 
 ## merging sample groups
 meta.selected <- metadata %>%
-    mutate(Contrast = paste0(Groups, ".", Prediction)) %>%
-    mutate(Contrast2 = paste0(Groups, ".", Nodes))
+    mutate(Contrast = as.factor(paste0(Groups, ".", Prediction))) %>%
+    mutate(Contrast2 = as.factor(paste0(Groups, ".", Nodes)))
 #    select(Groups)
-
-##phenoData(cel.raw) <- new("AnnotatedDataFrame",
-##                          data = meta.selected,
-##                          varMetadata = vMtData)
 
 ## add metadata to affy phenodata
 pd <- AnnotatedDataFrame(data = meta.selected)
@@ -216,12 +212,13 @@ phenoData(cel.raw) <- pd
 
 pData(cel.raw)
 sink("pData.samples.info.txt")
-pData(cel.raw)
+summary(pData(cel.raw))
 sink()
 
 
-
-## RMA normalization
+#######################
+## RMA normalization ##
+#######################
 ## automatic summarization by transcript cluster (collapsing)
 ## each gene has one transcriptclusterid and many probesetids
 trx.normalized <- oligo::rma(cel.raw, background=TRUE, normalize=TRUE, target='core')
@@ -240,7 +237,7 @@ dev.off()
 gc()
 
 ## gene summarization must be done after normalization
-##probe.normalized <- oligo::rma(cel.raw, target='probeset')
+probe.normalized <- oligo::rma(cel.raw, target='probeset')
 
 ##write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
 ##dim(probe.normalized)
@@ -248,6 +245,8 @@ gc()
 ##boxplot(probe.normalized)
 ##dev.off()
 
+##trx.normalized <- read.table("/cluster/projects/kridelgroup/relapse/old/affymetrix.old.rma", header = TRUE, row.names = 1) %>%
+##    select(ends_with("T1"))
 
 
 
@@ -323,7 +322,7 @@ for (nset in seq(start_th, end_th, increment_th)) {
         nrow
 
     # recalculate variance based on adujusted new thresholds
-    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset, silent = FALSE)
+    hi.x <- get.var(t(xs), 1, from = c(selected+1), to = nset, silent = TRUE)
     dm_new <- summary(apply(hi.x, 2, var))[[4]]
     dmv_new <- summary(apply(hi.x, 2, var))[[6]]
     dms_new <- summary(apply(hi.x, 2, sd))[[4]]
@@ -501,8 +500,14 @@ warnings()
 
 
 
-sink("r_session.info")
+sink("log.R.sessionInfo.txt")
 sessionInfo()
 sink()
 
 
+
+##cel.fit <- lmFit(trx.normalized, strategy) %>%
+##    contrasts.fit(contrast.matrix) %>%
+##    eBayes()
+##
+##topTable(cel.fit, coef=3, adjust="fdr", sort.by="B", number=5)[, c("logFC", "AveExpr", "P.Value", "adj.P.Val", "B")]

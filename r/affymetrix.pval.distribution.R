@@ -180,7 +180,7 @@ for (g in grouping) {
         } else { cat(">> Warning, no intersections found!\n") }
         
         try(venn(selgenes), silent = TRUE)
-        title(paste0(g, '\n', "@maximum FDR-adjusted p-value of ", p))
+        try(title(paste0(g, '\n', "@maximum FDR-adjusted p-value of ", p)), silent = TRUE)
     }
 }
 dev.off()

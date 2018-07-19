@@ -47,7 +47,7 @@ for ( g in grouping ) {
               panel.border = element_rect(linetype = "blank",
                                           fill = NA),
               panel.grid.major = element_line(linetype = "blank")) +
-        ggtitle(paste0("Differential genes for\n",g)) +
+        ggtitle(paste0("Differential genes for\n",g, " @FDR-adjusted p-val ", p)) +
         xlab("") +
         ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
 
@@ -97,7 +97,7 @@ for (gene.name in gene.ids) {
         theme(legend.position = "top",
               text = element_text(size = 7),
               axis.text.y = element_text(size = rel(.5))) +
-        ggtitle(paste0(gene.name)) +
+        ggtitle(paste0(gene.name, " differentially expressed @FDR-adjusted p-val", p)) +
         xlab("") +
         ylab("RMA quantile normalization (2 is 4-fold up)")
 
