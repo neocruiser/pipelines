@@ -322,6 +322,6 @@ write.table(networks.summary, "networks.summary.txt", quote=FALSE, sep="\t", row
 disableWGCNAThreads()
 gc()
 
-sink("r_session.info")
+sink("log.R.sessionInfo.txt")
 sessionInfo()
 sink()

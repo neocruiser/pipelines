@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=2,walltime=03:00:00,vmem=30g,mem=220g
+#PBS -l nodes=1:ppn=6,walltime=05:00:00,vmem=30g,mem=220g
 #PBS -N networks
 #PBS -q all
 #PBS -V
@@ -35,7 +35,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## Standard libraries (relapse project)
 ## choose contrast from: c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
 _contrast=systemicRelapse
-_workingDir=$project/expression/377763
+_workingDir=$project/expression/390387
 _affymetrix=$_workingDir/summary/normalized.subset*txt
 _lmfit=$_workingDir/summary/summary.lmfit.all.txt
 
@@ -63,7 +63,7 @@ _bstatistics=1.5
 
 ## if strategy is fdadj
 ## set pvalue adjusted with FDR
-_pval=0.00000000000000000001
+_pval=0.1
 
 
 ############
@@ -101,7 +101,7 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=1
+    _bstatistics=-2
     
     touch $output/ids.total.tmp
     
