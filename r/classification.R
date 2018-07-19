@@ -17,7 +17,7 @@ binomial=FALSE
 
 ## apply normalization methods within samples
 standardization=TRUE
-lasso.std=TRUE
+lasso.std=FALSE
 
 ## choose contrasts
 ## choose summary file with all FDR adjusted pvalues
@@ -25,7 +25,7 @@ grouping = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOpredi
 pvals <- read.table("summary/summary.lmfit.all.txt", header = TRUE, fill = TRUE)
 ## names of each sample files
 ids <- read.table("summary/sampleIDs")
-
+ 
 ## ids2modules is a summary file generated from the weighted nets script
 ## ids2description is an annotation file of the selected genes from the networks
 ids2modules <- read.table("./ids2modules.summary.txt", header = TRUE)
@@ -76,7 +76,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
             grid_models <- expand.grid(.lambda=10^seq(-1,-5,length=50))
         } else if ( method == "loclda" ) {
             ## localized linear discriminant analysis
-            grid_models <- expand.grid(.k=seq(1,350,length=15))
+            grid_models <- expand.grid(.k=seq(1,350,length=10))
         } else if ( method == "bagFDAGCV" ) {
             ## bagged FDA using gCV pruning
             grid_models <- expand.grid(.degree=seq(10^-3,5,length=100))
@@ -165,12 +165,20 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .hidden_dropout=10^seq(-1,-7,length=10),
                                        .visible_dropout=10^seq(-1,-7,length=10))
         }
-        
+
+        if ( sample.classes == "Groups" ) {
+            ## up-weighting imbalanced samples
+            model_weights <- ifelse(dat$y == "NOREL",
+            (1/table(dat$y)[1]) * 0.35,
+            (1/table(dat$y)[3]) * 0.5)
+            }
+
         ## train the model
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,
                                                   trControl= trainCtrl,
                                                   preProc=c("center","scale"),
+                                                  weights = model_weights,
                                                   tuneGrid=grid_models,
                                                   tuneLength=tune))
 
@@ -257,8 +265,15 @@ metadata$Lymphnodes <- as.factor(metadata$Lymphnodes)
 ## reorder sample names
 metadata <- arrange(metadata, factor(SAMPLE_ID, levels = ids$V1))
 
-# choose samples strutcture from metadata
-y <- metadata$Groups
+meta.selected <- metadata %>%
+    mutate(Contrast1 = as.factor(paste0(Groups, ".", Prediction))) %>%
+    mutate(Contrast2 = as.factor(paste0(Groups, ".", Nodes)))
+
+
+## choose samples strutcture from metadata
+sample.classes = "Groups"
+y <- meta.selected$Groups
+#y <- metadata$Groups
 #y <- metadata$Prediction
 
 if ( nlevels(y) >= 2 ) {
@@ -323,21 +338,27 @@ sink()
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=5
+iterations=20
 
 while (success == FALSE) {
-    pdf(paste0("cvROC.iterations",iterations,".",response,".pdf"))
+    pdf(paste0("cvROC.shrinking.iterations",iterations,".",response,".pdf"))
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
     dm=NULL
     df=NULL
+    gpd=NULL
+    
     ## The control class is throwing an error
     # prediction cannot be done on small sample size
     # remove CTRL class
-    nl <- c(1:nlevels(y))[levels(y)!="CTRL"]
-
-    if (!require(ROCR)) {
-        stop("Can't continue can't load ROCR")
+    if ( sample.classes == "Contrast1" ) {
+        nl <- c(1:nlevels(y))[ levels(y) != c("CTRL.ABC", "CTRL.GCB", "CTRL.NA", "CTRL.U")]
+    } else if ( sample.classes == "Contrast2" ) {
+        nl <- c(1:nlevels(y))[ levels(y) != c("CTRL.EN", "CTRL.LN")]
+    } else if ( sample.classes == "Groups" ) {
+        nl <- c(1:nlevels(y))[ levels(y) != "CTRL"]
     }
+
+    if (!require(ROCR)) {    stop("Can't continue can't load ROCR")   }
 
     for (i in nl) {
         gc()
@@ -376,12 +397,35 @@ while (success == FALSE) {
                 index="grouped"
                 ncv=10
                 setalpha=1
+                nfold <- 10
+
+                ## treating sample imbalances
+                ## by manually assigning CV folds
+                ## and by up-weithing over represented samples for shrinkage
+                if ( sample.classes == "Groups" ) {
+                    ## assign folds evenly using the modulus operator
+                    foldid <- as.numeric(length(y[training]))
+                    fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
+                    fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
+                    fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
+                    fold3 <- sample.int(sum(y[training] == "CTRL")) %% nfold                
+                    foldid[ y[training] == "CNS" ] <- fold0
+                    foldid[ y[training] == "SYST" ] <- fold1
+                    foldid[ y[training] == "NOREL" ] <- fold2
+                    foldid[ y[training] == "CTRL" ] <- fold3
+                    foldid.custom <- foldid + 1
+
+                    ## assign weights
+                    unbalance.class <- table(y[training])/length(y[training])
+                    weights.class <- 1 - unbalance.class[y[training]]
+                }
+
                 ## fitting a symmetric multinomial model,
                 grid <- 10^seq(5, -5, length=100)
                 lasso.trained <- glmnet(adj.x[training,],
                                         y[training],
-                                        alpha=setalpha,
-                                        lambda=grid,
+                                        alpha = setalpha,
+                                        lambda = grid,
                                         family = response,
                                         standardize = lasso.std,
                                         type.multinomial=index)
@@ -392,12 +436,13 @@ while (success == FALSE) {
                 cv.out <- try(cv.glmnet(adj.x[training,],
                                         y[training],
                                         alpha=setalpha,
+                                        foldid = foldid.custom,
                                         family = response,
+                                        weights = weights.class,
                                         standardize = lasso.std,
                                         nfolds = ncv,
                                         type.multinomial=index),
                               silent = TRUE)
-
             } else {
                 stop("Alternative feature indexes are not yet implemented")                
             }
@@ -438,14 +483,21 @@ while (success == FALSE) {
             names(ps)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
             names(dl)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
             
-            # create summary of probabilities
-            # from a list of genes that have a mean probability to classify
-            # all cases into correct patient diagnosis
+            ## create summary of probabilities
+            ## from a list of genes that have a mean probability to classify
+            ## all cases into correct patient diagnosis
             dm <- rbind(dm, data.frame(iterations=e,
                                        class=levels(y)[i],
                                        seed=ede,
                                        lambda=bestlam,
                                        probabilityScore=mean(ps[[e]]) ))
+
+            ## extract probability of classification per sample
+            ## to get general distribution of the whole classification
+            gpd <- rbind(gpd, data.frame(probabilities = ps[[e]],
+                                         classes = as.factor(y[-training]),
+                                         genes = as.factor(levels(y)[i])))
+
 
             ## compile accuracies into summary file
             # get sample labels
@@ -514,10 +566,33 @@ if ( exists('dm') && exists('df') ) {
     ## extract regularization metrics for all iterations
     write.table(dm, paste0("logSummary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
     write.table(df, paste0("logSummary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
-
+    write.table(gpd, paste0("logSummary.lambda.iterations",iterations,".",response,".densities.txt"), sep="\t", quote=F)
+    
     sink("feature.extraction.ok")
     sink()
 }
+
+
+
+
+## CHART 0
+pdf(paste0("density.shrinking.iterations",iterations,".",response,".pdf"))
+gpd %>%
+    filter(classes == c("CNS", "SYST", "NOREL")) %>%
+    ggplot(aes(x = probabilities,
+               fill = classes)) +
+    geom_density() +
+    theme_minimal() +
+    facet_wrap( ~ genes,
+               ncol = 1,
+               scales = "free") +
+    theme(legend.position = "top") +
+    scale_fill_brewer(palette = "Dark2") +
+    labs(x = "Probability of selected genes to predict different patient classes",
+         y = "Density (fitted probabilities with lambda = 1)")
+dev.off()
+try(dev.off(), silent = TRUE)
+
 
 
 #########################
@@ -605,6 +680,9 @@ for (l in 1:nrow(results)) {
 lasso.selected.genes.nodup <- unique(lasso.selected.genes[, ])
 dat <- data.frame(y=y, t(lasso.selected.genes.nodup))
 dim(dat)
+cat("\nGroup imabalances across available all samples: ")
+round(table(dat$y)/length(dat$y)*100, 2)
+
 set.seed(ed)
 gc()
  
@@ -1275,8 +1353,6 @@ if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
 
 
 ##### debugging #####
-#model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
-#train(y~., data = dat, method = "glmnet_h2o")
 
 modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TRUE){
     trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=rep,summaryFunction=defaultSummary)
@@ -1290,25 +1366,57 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
         } else if ( method == "nnet" ) {
             ## neural networks
             grid_models <- expand.grid(.size=seq(1,5,length=10), .decay=10^seq(-1,-2,length=10))
+        } else if ( method == "svmPoly") {
+            ## svmRadial
+            grid_models <- expand.grid(.degree=seq(0,10,.5),
+                                       .scale=10^seq(-1,-3,length=10),
+                                       .C=seq(.1,2, length=20))
         } 
 
 
-        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],method=method,trControl= trainCtrl,preProc=c("center","scale"),tuneGrid=grid_models,tuneLength=tune))
+        lapsed <- system.time(modelTrain <- train(y~.,
+                                                  data=dat[train,],
+                                                  method=method,
+                                                  trControl= trainCtrl,
+                                                  preProc=c("center","scale"),
+                                                  tuneGrid=grid_models,
+                                                  weights = model_weights,
+                                                  tuneLength=tune))
         
     } else if ( grid == FALSE ) {
-        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],method=method,trControl= trainCtrl,preProc=c("center","scale")))  }
+        lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
+                                                  method=method,trControl= trainCtrl,
+                                                  preProc=c("center","scale")))  }
     
     results <- modelTrain$results
     Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
     conf.m <- confusionMatrix(data=Predd, dat[-train,1])
-    output <- list(timeLapsed=lapsed,bestModel=modelTrain,Results=results,Hyperparameters=modelTrain$bestTune,ConfusionMatrix=conf.m)
-    return(output)}
+    output <- list(timeLapsed=lapsed,bestModel=modelTrain,
+                   Results=results,Hyperparameters=modelTrain$bestTune,
+                   ConfusionMatrix=conf.m)
+    return(output)
+}
 
-#model.metrics <- modelTune.clas(dat,training,method="nnet",folds=3,r=2,tune=2, grid=TRUE)
+##unbalance.class <- table(y[training])/length(y[training])
+##model_weights <- as.numeric(1 - unbalance.class[y[training]])
+
+
+model_weights <- ifelse(dat$y == "NOREL",
+(1/table(dat$y)[1]) * 0.35,
+(1/table(dat$y)[3]) * 0.5)
+
+mm.nnet <- modelTune.clas(dat,training,method="nnet",folds=2,r=1,tune=1, grid=FALSE)
+model_list <- list(original = mm.o$bestModel,
+                   weighted.nnet = mm.nnet$bestModel,
+                   weighted.linear = mm.linear$bestModel,
+                   weighted = mm.w$bestModel)
+model_list %>% resamples %>% summary
 
 
 ###### experimental ######
 #compare_models(nnet0,rf1)
+#model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
+#modelTrain <- train(y~., data = dat, method = "glmnet_h2o", classProbs=TRUE)
 
 
 
