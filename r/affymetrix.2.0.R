@@ -7,7 +7,7 @@ lapply(pkgs, require, character.only = TRUE)
 
 ## set boolean variable
 ## if TRUE outliers with high or low variance will be discarded
-remove.based.onVariance = FALSE
+remove.based.onVariance = TRUE
 
 ## apply normalization methods within samples
 standardization = FALSE
@@ -159,7 +159,8 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
                                             "CNS_DIAGNOSIS") ~ "CNS",
                                GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NOREL",
                                GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "SYST",
-                               TRUE ~ "CTRL")) %>%
+                              TRUE ~ "CTRL")) %>%
+    filter(Groups != "CTRL") %>%
     mutate(ABClassify = case_when(ABClikelihood >= .9 ~ "ABC",
                                   ABClikelihood <= .1 ~ "GCB",
                                   TRUE ~ "U")) %>%
@@ -237,7 +238,7 @@ dev.off()
 gc()
 
 ## gene summarization must be done after normalization
-probe.normalized <- oligo::rma(cel.raw, target='probeset')
+##probe.normalized <- oligo::rma(cel.raw, target='probeset')
 
 ##write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
 ##dim(probe.normalized)
@@ -345,7 +346,7 @@ gv
 
 ## subset the dataset based on a selected mean and SD
 means2subset <- gv %>%
-    filter(meanVariance > 0.055 & meanVariance <= 0.065) %>%
+    filter(meanVariance > 0.05 & meanVariance <= 0.055) %>%
     select(dimension, discarded)
 
 if ( remove.based.onVariance == TRUE ){
@@ -410,7 +411,8 @@ for (g in grouping) {
 
     if (g == "systemicRelapse") {
         strategy <- model.matrix(~ -1 + metadata$Groups)
-        colnames(strategy) <- c("CNS", "CTRL", "NOREL", "SYST")
+        ##        colnames(strategy) <- c("CNS", "CTRL", "NOREL", "SYST")
+        colnames(strategy) <- c("CNS", "NOREL", "SYST")        
         contrast.matrix <- makeContrasts(CNSvsNOREL = CNS-NOREL,
                                          SYSTvsNOREL = SYST-NOREL,
                                          CNSvsSYST = CNS-SYST,
