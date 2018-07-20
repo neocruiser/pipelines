@@ -16,7 +16,7 @@ grouped=TRUE
 binomial=FALSE
 
 ## apply normalization methods within samples
-standardization=TRUE
+standardization=FALSE
 lasso.std=FALSE
 
 ## choose contrasts
@@ -166,19 +166,21 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .visible_dropout=10^seq(-1,-7,length=10))
         }
 
-        if ( sample.classes == "Groups" ) {
-            ## up-weighting imbalanced samples
-            model_weights <- ifelse(dat$y == "NOREL",
-            (1/table(dat$y)[1]) * 0.35,
-            (1/table(dat$y)[3]) * 0.5)
-            }
+##        ## reassign weights for imbalanced samples
+##        ## some model do not accept weights though
+##        if ( sample.classes == "Groups" ) {
+##            ## up-weighting imbalanced samples
+##            model_weights <- ifelse(dat$y == "NOREL",
+##            (1/table(dat$y)[1]) * 0.35,
+##            (1/table(dat$y)[3]) * 0.5)
+##            }
 
         ## train the model
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,
                                                   trControl= trainCtrl,
                                                   preProc=c("center","scale"),
-                                                  weights = model_weights,
+##                                                  weights = model_weights,
                                                   tuneGrid=grid_models,
                                                   tuneLength=tune))
 
@@ -213,6 +215,25 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 
 
 
+balancedSamples <- function (meta.selected, y, adj.x, dex = 1.53) {
+    ## when imbalanced samples occur
+    ## select an equal distribution of samples across groups
+    training=NULL
+    for (i in 1:nlevels(y) ) {
+        selected.group <- meta.selected %>%
+            select(SAMPLE_ID, Groups) %>%
+            filter(Groups == levels(y)[i] )
+
+        selected.samples <- sample(selected.group$SAMPLE_ID,
+                                   round((nrow(adj.x)/ dex ) / nlevels(y)) )
+
+        selected.index <- data.frame(A=1:nrow(adj.x), B=row.names(adj.x))
+        final <- selected.index[ selected.index$B %in% selected.samples, 1]
+
+        training <- c(training, final)
+    }
+    return(training)
+}
 
 ##########################
 ## Load expression data ##
@@ -221,8 +242,14 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 # rows=genes
 # col=samples
 cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n")
-means <- read.table("expressions", sep="\t", header=T, row.names=1)
+
+## remove controls (imbalanced samples)
+means <- read.table("expressions", sep="\t", header=T, row.names=1) %>%
+    select(-matches("CNR800.T1")) %>%
+    select(-matches("CNR900.T1")) 
 dim(means)
+
+
 cat("\n\nStandardized transformed scores: Genes are columns and samples are rows\n")
 if ( standardization == TRUE ) {
     adj.x <- t(decostand(means, "standardize"))
@@ -242,6 +269,7 @@ metadata <- read.table("summary/phenodata", sep = "\t", header = T) %>%
                                GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NOREL",
                                GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "SYST",
                                TRUE ~ "CTRL")) %>%
+    filter(Groups != "CTRL") %>%
     mutate(ABClassify = case_when(ABClikelihood >= .9 ~ "ABC",
                                   ABClikelihood <= .1 ~ "GCB",
                                   TRUE ~ "U")) %>%
@@ -273,9 +301,8 @@ meta.selected <- metadata %>%
 ## choose samples strutcture from metadata
 sample.classes = "Groups"
 y <- meta.selected$Groups
-#y <- metadata$Groups
-#y <- metadata$Prediction
 
+## designate a multivariate analysis
 if ( nlevels(y) >= 2 ) {
     response="multinomial"
 } else if ( nlevels(y) == 2 ) {
@@ -286,17 +313,15 @@ if ( nlevels(y) >= 2 ) {
     response="mgaussian"
 }
 
-
 ## prepare testing dataset
 # set seed for reproducibility
 ed <- floor(abs(rnorm(1) * 10000000))
 set.seed(ed)
 
-# Split the dataset into 80% training data
-training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+## Split the dataset into 65% training data
+#training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
 tr <- length(training)
-
-
 
 sink("expression.data.loaded.ok")
 sink()
@@ -338,7 +363,7 @@ sink()
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=20
+iterations=30
 
 while (success == FALSE) {
     pdf(paste0("cvROC.shrinking.iterations",iterations,".",response,".pdf"))
@@ -346,6 +371,9 @@ while (success == FALSE) {
     dm=NULL
     df=NULL
     gpd=NULL
+
+    ##Remove levels without observations
+    ##obsLevels <- levels(droplevels(allObs))
     
     ## The control class is throwing an error
     # prediction cannot be done on small sample size
@@ -368,27 +396,28 @@ while (success == FALSE) {
             ede <- floor(abs(rnorm(1) * 10000000))
             set.seed(ede)
 
-            # Split the dataset into 80% training data
-            training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+            # Split the dataset into 65% training data
+            training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
             tr <- length(training)
+            print(round((table(y[training])/tr) * 100),2)
 
             # make sure all sample categories are included
             # in the training and testing sets
             # if not, errors occur during training
             # for missing observations in certain classes
-            while (
-            (length(unique(y[training])) != nlevels(y))
-            &
-            (length(unique(y[-training])) != nlevels(y))
-            ) {
-                ede <- floor(abs(rnorm(1) * 10000000))
-                set.seed(ede)
-                # split 70% of the data
-                randomize <- sample(nrow(adj.x))
-                training <- sample(randomize, nrow(adj.x)/1.429)
-                #table(y[-training])
-                tr <- length(training)
-            }
+##            while (
+##            (length(unique(y[training])) != nlevels(y))
+##            &
+##            (length(unique(y[-training])) != nlevels(y))
+##            ) {
+##                ede <- floor(abs(rnorm(1) * 10000000))
+##                set.seed(ede)
+##                # split 70% of the data
+##                randomize <- sample(nrow(adj.x))
+##                training <- sample(randomize, nrow(adj.x)/1.429)
+##                #table(y[-training])
+##                tr <- length(training)
+##            }
 
             # fit a generalized linear model via penalized maximum likelihood
             # if alpha 1 then lasso L1 penality and discard genes
@@ -408,17 +437,37 @@ while (success == FALSE) {
                     fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
                     fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
                     fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
-                    fold3 <- sample.int(sum(y[training] == "CTRL")) %% nfold                
                     foldid[ y[training] == "CNS" ] <- fold0
                     foldid[ y[training] == "SYST" ] <- fold1
                     foldid[ y[training] == "NOREL" ] <- fold2
-                    foldid[ y[training] == "CTRL" ] <- fold3
+                    foldid.custom <- foldid + 1
+
+                    ## assign weights
+                    unbalance.class <- table(y[training])/length(y[training])
+                    weights.class <- 1 - unbalance.class[y[training]]
+
+                } else if ( sample.classes == "Contrast2" ) {
+                    ## assign folds evenly using the modulus operator
+                    foldid <- as.numeric(length(y[training]))
+                    fold0 <- sample.int(sum(y[training] == "CNS.EN")) %% nfold
+                    fold1 <- sample.int(sum(y[training] == "SYST.EN")) %% nfold
+                    fold2 <- sample.int(sum(y[training] == "NOREL.EN")) %% nfold
+                    fold3 <- sample.int(sum(y[training] == "CNS.LN")) %% nfold    
+                    fold4 <- sample.int(sum(y[training] == "SYST.LN")) %% nfold    
+                    fold5 <- sample.int(sum(y[training] == "NOREL.LN")) %% nfold    
+                    foldid[ y[training] == "CNS.EN" ] <- fold0
+                    foldid[ y[training] == "SYST.EN" ] <- fold1
+                    foldid[ y[training] == "NOREL.EN" ] <- fold2
+                    foldid[ y[training] == "CNS.LN" ] <- fold3
+                    foldid[ y[training] == "SYST.LN" ] <- fold4
+                    foldid[ y[training] == "NOREL.LN" ] <- fold5
                     foldid.custom <- foldid + 1
 
                     ## assign weights
                     unbalance.class <- table(y[training])/length(y[training])
                     weights.class <- 1 - unbalance.class[y[training]]
                 }
+
 
                 ## fitting a symmetric multinomial model,
                 grid <- 10^seq(5, -5, length=100)
@@ -545,6 +594,8 @@ while (success == FALSE) {
             } else {
                 stop("Data must be fit as either a classification or regression model")
             }
+
+            cat(paste(">> Iteration", e, "finished for", levels(y)[i] ))
         }
         ## plot the lot of iterations
         pred <- prediction(ps, dl)
@@ -578,7 +629,7 @@ if ( exists('dm') && exists('df') ) {
 ## CHART 0
 pdf(paste0("density.shrinking.iterations",iterations,".",response,".pdf"))
 gpd %>%
-    filter(classes == c("CNS", "SYST", "NOREL")) %>%
+##    filter(classes == c("CNS", "SYST", "NOREL")) %>%
     ggplot(aes(x = probabilities,
                fill = classes)) +
     geom_density() +
@@ -627,7 +678,8 @@ for (l in 1:nrow(results)) {
 
     # get lasso coefficients
     index="grouped"
-    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+    ##    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
+    training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
     lasso.trained <- glmnet(adj.x[training,],
                             y[training],
                             alpha=setalpha,
@@ -791,10 +843,10 @@ legend("topleft",
        bty = "n",
        horiz=FALSE)
 
-par(fig = c(.7,1,.7,1), new=TRUE, cex = .6)
+par(fig = c(.7,1,.7,1), new = TRUE, cex = .6)
 ## Venn diagram showing redundancy between genes assigned to different subsets
 ## each specifically designed (categorized) to predict a class
-venn(selgenes)
+try(venn(selgenes), silent = TRUE)
 dev.off()
 try(dev.off(), silent = TRUE)
 
@@ -872,12 +924,10 @@ vints <- attr(venn(selgenes), "intersections")
 ## STD = hellinger, CLU = complete, COR = pearson
 clustering.strategy = 3
 
-
 ## sample grouping based on available labels
 metalabels <- list(groups = metadata$Groups,
                    nodes = metadata$Nodes,
                    coo = metadata$Prediction)
-
 
 pdf("boxplots.groups2genes.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(selgenes) ) {
@@ -1207,7 +1257,7 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( iterations in c(1:2) ) {
+for ( iterations in c(1:10) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
@@ -1401,16 +1451,16 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 ##model_weights <- as.numeric(1 - unbalance.class[y[training]])
 
 
-model_weights <- ifelse(dat$y == "NOREL",
-(1/table(dat$y)[1]) * 0.35,
-(1/table(dat$y)[3]) * 0.5)
+##model_weights <- ifelse(dat$y == "NOREL",
+##(1/table(dat$y)[1]) * 0.35,
+##(1/table(dat$y)[3]) * 0.5)
 
-mm.nnet <- modelTune.clas(dat,training,method="nnet",folds=2,r=1,tune=1, grid=FALSE)
-model_list <- list(original = mm.o$bestModel,
-                   weighted.nnet = mm.nnet$bestModel,
-                   weighted.linear = mm.linear$bestModel,
-                   weighted = mm.w$bestModel)
-model_list %>% resamples %>% summary
+##mm.nnet <- modelTune.clas(dat,training,method="nnet",folds=2,r=1,tune=1, grid=FALSE)
+##model_list <- list(original = mm.o$bestModel,
+##                   weighted.nnet = mm.nnet$bestModel,
+##                   weighted.linear = mm.linear$bestModel,
+##                   weighted = mm.w$bestModel)
+##model_list %>% resamples %>% summary
 
 
 ###### experimental ######
