@@ -33,7 +33,8 @@ metadata <- metadata.raw %>%
                                             "CNS_DIAGNOSIS") ~ "CNS",
                                GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NOREL",
                                GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "SYST",
-                               TRUE ~ "CTRL"))
+                              TRUE ~ "CTRL")) %>%
+    filter(Groups != "CTRL")    
 
 
 ## factorize

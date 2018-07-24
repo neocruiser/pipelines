@@ -35,7 +35,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## Standard libraries (relapse project)
 ## choose contrast from: c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
 _contrast=systemicRelapse
-_workingDir=$project/expression/390387
+_workingDir=$project/expression/409794
 _affymetrix=$_workingDir/summary/normalized.subset*txt
 _lmfit=$_workingDir/summary/summary.lmfit.all.txt
 
@@ -63,7 +63,7 @@ _bstatistics=1.5
 
 ## if strategy is fdadj
 ## set pvalue adjusted with FDR
-_pval=0.1
+_pval=0.05
 
 
 ############
@@ -122,6 +122,7 @@ if [ $_strategy == "total" ]; then
 elif [ $_strategy == "fdradj" ]; then
     
     cat $_lmfit | awk -vc=$_contrast -vp=$_pval '{if($2 == c && $9 <= p) print$3}' | sort - | uniq >> $output/ids.fdradj.tmp
+    _counts=$(cat $output/ids.$_strategy.tmp | wc -l)
     
 
 

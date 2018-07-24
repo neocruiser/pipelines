@@ -9,7 +9,7 @@ lapply(pkgs, require, character.only = TRUE)
 ids <- read.table("summary/sampleIDs")
 metadata.raw <- read.table("summary/phenodata", sep = "\t", header = TRUE)
 pvals <- read.table("summary/summary.lmfit.all.txt", header = TRUE, fill = TRUE)
-rma.all <- read.table("summary/normalized.subsetCleaned_GEN20658.systemic.trx.expression.txt", header = TRUE, fill = TRUE)
+rma.all <- read.table("summary/normalized.subsetCleaned_GEN19477.systemic.trx.expression.txt", header = TRUE, fill = TRUE)
 
 
 grouping = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
@@ -68,7 +68,8 @@ metadata <- metadata.raw %>%
                                             "CNS_DIAGNOSIS") ~ "CNS",
                                GROUP %in% c("TESTICULAR_NO_CNS_RELAPSE", "NO_RELAPSE") ~ "NOREL",
                                GROUP == "SYTEMIC_RELAPSE_NO_CNS" ~ "SYST",
-                               TRUE ~ "CTRL"))
+                              TRUE ~ "CTRL")) %>%
+    filter(Groups != "CTRL")
 
 metadata <- arrange(metadata, factor(SAMPLE_ID, levels = ids$V1))
 metadata$Groups <- as.factor(metadata$Groups)

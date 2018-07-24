@@ -16,7 +16,7 @@ grouped=TRUE
 binomial=FALSE
 
 ## apply normalization methods within samples
-standardization=FALSE
+standardization=TRUE
 lasso.std=FALSE
 
 ## choose contrasts
@@ -215,7 +215,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 
 
 
-balancedSamples <- function (meta.selected, y, adj.x, dex = 1.53) {
+balancedSamples <- function (meta.selected, y, adj.x, dex = 1.53, rep = FALSE) {
     ## when imbalanced samples occur
     ## select an equal distribution of samples across groups
     training=NULL
@@ -225,7 +225,8 @@ balancedSamples <- function (meta.selected, y, adj.x, dex = 1.53) {
             filter(Groups == levels(y)[i] )
 
         selected.samples <- sample(selected.group$SAMPLE_ID,
-                                   round((nrow(adj.x)/ dex ) / nlevels(y)) )
+                                   round((nrow(adj.x)/ dex ) / nlevels(y)) ,
+                                   replace = rep)
 
         selected.index <- data.frame(A=1:nrow(adj.x), B=row.names(adj.x))
         final <- selected.index[ selected.index$B %in% selected.samples, 1]
@@ -318,9 +319,9 @@ if ( nlevels(y) >= 2 ) {
 ed <- floor(abs(rnorm(1) * 10000000))
 set.seed(ed)
 
-## Split the dataset into 65% training data
-#training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
-training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
+## Split the dataset into 85% training data
+training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
+##training <- balancedSamples(meta.selected, y, adj.x, dex = .5, rep = TRUE)
 tr <- length(training)
 
 sink("expression.data.loaded.ok")
@@ -363,7 +364,7 @@ sink()
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=30
+iterations=5
 
 while (success == FALSE) {
     pdf(paste0("cvROC.shrinking.iterations",iterations,".",response,".pdf"))
@@ -397,7 +398,8 @@ while (success == FALSE) {
             set.seed(ede)
 
             # Split the dataset into 65% training data
-            training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
+            ##            training <- balancedSamples(meta.selected, y, adj.x, dex = .5, rep = TRUE)
+            training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)            
             tr <- length(training)
             print(round((table(y[training])/tr) * 100),2)
 
@@ -542,6 +544,7 @@ while (success == FALSE) {
                                        probabilityScore=mean(ps[[e]]) ))
 
             ## extract probability of classification per sample
+            ## during training
             ## to get general distribution of the whole classification
             gpd <- rbind(gpd, data.frame(probabilities = ps[[e]],
                                          classes = as.factor(y[-training]),
@@ -575,7 +578,9 @@ while (success == FALSE) {
                     if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
                     if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
 
+                    ## contains predicted probablities
                     df <- rbind(df, data.frame(iterations=e,
+                                               patients=levels(y)[i],
                                                group=n,
                                                accuracy=f,
                                                seed=ede,
@@ -678,8 +683,8 @@ for (l in 1:nrow(results)) {
 
     # get lasso coefficients
     index="grouped"
-    ##    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.25)
-    training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
+    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
+##    training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
     lasso.trained <- glmnet(adj.x[training,],
                             y[training],
                             alpha=setalpha,
@@ -1027,7 +1032,7 @@ for ( lev in 1:length(selgenes) ) {
     dm <- left_join(rma.selected, genes2description, by = "ID")
     rownames(rma.selected) <- paste0(dm$ID,"-", dm$symbol)
     ## plot
-    selgenes.box <- data.frame(y, t(rma.selected[, -237])) %>%
+    selgenes.box <- data.frame(y, t(rma.selected[, -c(dim(means)[2]+1)])) %>%
         gather("id", "expression", 2:dim(rma.selected)[1]+1) %>%
         ggplot(aes(x = reorder(paste0(id), expression),
                    y = expression,
@@ -1455,7 +1460,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 ##(1/table(dat$y)[1]) * 0.35,
 ##(1/table(dat$y)[3]) * 0.5)
 
-##mm.nnet <- modelTune.clas(dat,training,method="nnet",folds=2,r=1,tune=1, grid=FALSE)
+##mm.svm <- modelTune.clas(dat,training,method="svmPoly",folds=2,r=1,tune=1, grid=FALSE)
 ##model_list <- list(original = mm.o$bestModel,
 ##                   weighted.nnet = mm.nnet$bestModel,
 ##                   weighted.linear = mm.linear$bestModel,

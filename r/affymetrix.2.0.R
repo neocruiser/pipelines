@@ -238,11 +238,11 @@ dev.off()
 gc()
 
 ## gene summarization must be done after normalization
-##probe.normalized <- oligo::rma(cel.raw, target='probeset')
+probe.normalized <- oligo::rma(cel.raw, target='probeset')
 
-##write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
-##dim(probe.normalized)
-##pdf("boxplot.probe.rma.pdf")
+write.exprs(probe.normalized, file="normalized.systemic.probe.expression.txt")
+dim(probe.normalized)
+##df("boxplot.probe.rma.pdf")
 ##boxplot(probe.normalized)
 ##dev.off()
 
@@ -411,7 +411,7 @@ for (g in grouping) {
 
     if (g == "systemicRelapse") {
         strategy <- model.matrix(~ -1 + metadata$Groups)
-        ##        colnames(strategy) <- c("CNS", "CTRL", "NOREL", "SYST")
+##        colnames(strategy) <- c("CNS", "CTRL", "NOREL", "SYST")
         colnames(strategy) <- c("CNS", "NOREL", "SYST")        
         contrast.matrix <- makeContrasts(CNSvsNOREL = CNS-NOREL,
                                          SYSTvsNOREL = SYST-NOREL,
@@ -509,7 +509,6 @@ sink()
 
 
 ##cel.fit <- lmFit(trx.normalized, strategy) %>%
-##    contrasts.fit(contrast.matrix) %>%
+##   contrasts.fit(contrast.matrix) %>%
 ##    eBayes()
-##
-##topTable(cel.fit, coef=3, adjust="fdr", sort.by="B", number=5)[, c("logFC", "AveExpr", "P.Value", "adj.P.Val", "B")]
+##topTable(cel.fit, coef=1, adjust="fdr", sort.by="B", number=5)[, c("logFC", "AveExpr", "P.Value", "adj.P.Val", "B")]

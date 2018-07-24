@@ -40,14 +40,14 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 #################
 ## MUST DEFINE BEFORE EXECUTION
 _contrast=systemicRelapse
-_expressionJOBID=390387
-_networkJOBID=405546
+_expressionJOBID=409794
+_networkJOBID=411094
 _geneRanking=FALSE
 
 ############
 ## PART I ##
 ############
-mkdir -p $output/graph $output/summary $output/scripts $output/selected $output/backups
+mkdir -p $output/graph $output/summary $output/scripts $output/selected $output/backups $output/logs
 cd $output
 
 
@@ -111,6 +111,7 @@ mv $output/*txt $output/summary
 #############
 ## PART IV ##
 #############
+cd $output
 ## Restructure logs into R readable summaries.
 _metrics=$output/performance1*
 
@@ -122,7 +123,7 @@ if [ ! -f "$_metrics" ]; then
 	cat $_metrics  | sed -n "/${m}/,/NA/p" |\
 	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\titeration\tparameters\tMin/g' \
 		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
-		> $output/log.$m.$_metrics."${pbs}".txt
+		> $output/log.$m.$(basename $_metrics)."${pbs}".txt
     done
     rm $_metrics
 else
@@ -132,11 +133,11 @@ fi
 _metrics=$output/performance2*
 if [ ! -f "$_metrics" ]; then
     ## get model metrics for tuning parameters
-    for m in Accuracy Kappa; do
+    for m in Accuracy ; do
 	cat $_metrics  | sed -n "/${m}/,/NA/p" |\
 	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\tparameters\tMin/g' \
 		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
-		> $output/log.$m.$_metrics."${pbs}".txt
+		> $output/log.$m.$(basename $_metrics)."${pbs}".txt
     done
     rm $_metrics
 else
@@ -148,7 +149,7 @@ _metrics=$output/performance3*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
     cat $_metrics  | sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
-			 > $output/log.$_metrics."${pbs}".txt
+			 > $output/log.$(basename $_metrics)."${pbs}".txt
     rm $_metrics
 else
     echo -e "\nPerformance analysis with parameter tuning unsuccessful"
@@ -158,8 +159,7 @@ fi
 ## organize output files
 cd $output
 mv *pdf graph
-mv log* summary
-mv *iterations*lambda* selected
+mv log* logs
 mv *Rdata backups
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
