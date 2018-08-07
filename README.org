@@ -29,53 +29,46 @@ are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]].
 
 Licence: MIT Licence
 
-* Systemic Analytical Pipelines 
-=scripts can be adjusted for any sample size=
-1. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][Microarray sample preprocessing and automation]] in bash (Bassim 2018)
-2. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.2.0.R][Microarray normalization and expression analyses]] in R (Bassim 2018)
-   - Various descriptive plotting
-   - Feature selection
-   - Data metrics (adjusted variance, means)
-   - Subsampling
-   - Data fitting with Bayes linear models (B-stats, folds, pvals, averages)
-3. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.summary.h4h.sh][Automation to create summary report of all expression analyses]] in
-   bash (Bassim 2018)
-   - Iterative logging over data fitting
-   - Performance metrics (adjusted values, pvals)
-4. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][Clustering and network automation]] in bash (Bassim 2018)
+
+Most algorithms include:
+   - Feature engineering & regularization (lasso, ridge, elastic)
    - Data subsetting, extraction, reformating
-   - Combining models and filtering
-5. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][Network
-   inference based on weighted scoring and different correlation and
-   data transformation methods]] in R (Bassim 2018)
-   - Normalization and standardization methods
-   - Similarity and adjacency matrices
-   - Different correlation methods
-   - Multi-iterative module allocations
-   - Clustering
-   - Logging and iterative performance testing
-6. [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][Clustering automation with different expression aggregation methods
-   and bootstrapping]] in R (Bassim 2018)
-   - Hierarchical clustering
-   - Model training and module allocations
+   - Subsampling & mini-batch sampling
+   - Data spliting (binomial and multiclass)
+   - Unsupervised learning (fuzzy, hierarchical clustering)
+   - Grid search for normalization & standardization methods
+   - Bayesian linear models
+   - Similarity & adjacency matrices
+   - Multi-iterative module allocations for gene expressions
+   - Weighted genetic networks
+   - Supervised learning and grid hyper tuning
    - Bootstrapping and model alpha adjustments
-   - Various descriptive plotting
-   - Iterative testing across methods
-7. [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Machine learning and deep learning models]] for cancer risk factor
-   predictions in R (Bassim 2018)
-   - Subsampling and spliting (binomial and multiclass)
-   - Feature selection (lasso, ridge, elastic)
-   - Nested cross validation
+   - Logging & performance metrics (ROC, AUROC, 95% CI, kappa)
+   - Various descriptive and performance plotting
+   - Nested cross-validation & iterative resampling structures
    - Redundancy and descriptive analyses
-   - Clustering and correlation analyses
-   - Base model optimizations
+   - Machine learning optimizations
    - Random seeding optimizations
-   - Iterative resampling structures
-   - Performance metrics (ROC, AUROC, 95% CI, kappa)
-   - Hyperparameter tuning
    - Over 20 machine learning models
    - Deep learning (Mxnet, DNN, Keras)
-8. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][Separating reads from dual RNA sequencing of host and parasite]] in
+
+
+* Systemic Analytical Pipelines 
+=scripts can be scaled while adjusted for any sample size. Majority
+reproducible on other data sets=
+1. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][Microarray sample preprocessing & automation]] in bash (Bassim 2018)
+2. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.2.0.R][Microarray normalization & expression analyses]] in R (Bassim 2018)
+3. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.summary.h4h.sh][Automation to create summary report of all expression analyses]] in
+   bash (Bassim 2018)
+4. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][Clustering and network automation]] in bash (Bassim 2018)
+5. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][Network
+   inference, iterated grid tuning on weighted scoring, correlation &
+   data transformation]] in R (Bassim 2018)
+6. [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][Clustering automation with different expression aggregation methods
+   & bootstrapping]] in R (Bassim 2018)
+7. [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Machine learning & deep learning models]] for cancer risk factor
+   predictions in R (Bassim 2018)
+8. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][Two species reads separation from dual RNA sequencing of host & parasite]] in
    bash (Bassim 2017)
 9. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug4.slurm][Sequence abundance and expression from dual RNA-seq]] in R
    (Bassim 2017)
