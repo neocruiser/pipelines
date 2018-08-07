@@ -19,6 +19,11 @@ binomial=FALSE
 standardization=TRUE
 lasso.std=FALSE
 
+## choose between methods of normalization and correlation
+## variable will be extracted from ids2modules
+## the latter is generated from gene networks
+clustering.strategy = 3
+
 ## choose contrasts
 ## choose summary file with all FDR adjusted pvalues
 grouping = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
@@ -785,6 +790,15 @@ rda.scores <- vegan::scores(rda.results)$species
 ## create color palette
 available.colors <- brewer.pal(6, name = "RdYlBu")
 selected.colors <- colorRampPalette(available.colors)(n = max(nl))
+selected.forms <- c(15:19)
+
+
+## experimental
+xcol <- length(unique(ids2modules[, clustering.strategy]))
+available.colors <- brewer.pal(12, name = "Set3")
+selected.colors <- colorRampPalette(available.colors)(n = xcol)
+selected.forms <- c(15:19)
+
 
 
 ## variance inflation factor to identify collinearity
@@ -808,7 +822,6 @@ reduce
 max.aic <- round(max(reduce$anova$AIC),2)
 min.aic <- round(min(reduce$anova$AIC),2)
 
-
 ## CHART 1
 ## for scaling check ?biplot.rda {vegan}
 ## here the scores are scaled symmetrically by square root of eigenvalues
@@ -822,15 +835,23 @@ points(rda.scores, pch=1, col="grey", cex=.5)
 
 ## distinguish genes selected by best lambda by minimizing the least squares
 for ( sp in nl ) {
+    genes2modules <- ids2modules[ ids2modules$ids %in% selgenes[[sp]], c(1, clustering.strategy)]
+    ## add +1 to offset module 0
+    vcol <- (unique(genes2modules[, 2]) + 1)
+
     points(rda.scores[rownames(rda.scores) %in% selgenes[[levels(y)[sp]]],],
-           pch = 20,
-           col = selected.colors[[sp]], cex=c(2-(sp/3.25)))
+           pch = selected.forms[[sp]],
+           col = selected.colors[vcol], cex=c(2-(sp/3.25)))
 }
+
 ## add vectors
+## add centroids of factor constraints
 text(rda.results, dis="cn", col="chocolate", font=4)
+#text(rda.results, dis="species", col="chocolate", font=.2)
 
 ## content of the legend from tests of significance
-legend("bottomleft", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
+##legend("bottomleft", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
+legend("bottomleft", colnames(associations), pch = selected.forms[nl], cex = .8, bty = "n")
 legend("topleft",
        inset = -.01,
        title = "Sample-wise gene expression statistics",
