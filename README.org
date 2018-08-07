@@ -30,7 +30,7 @@ are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]].
 Licence: MIT Licence
 
 
-Most algorithms include:
+Algorithms below include:
    - Feature engineering & regularization (lasso, ridge, elastic)
    - Data subsetting, extraction, reformating
    - Subsampling & mini-batch sampling
