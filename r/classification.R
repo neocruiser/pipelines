@@ -219,27 +219,41 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 }
 
 
+miniBatch.balancedSampling <- function (meta.selected, y, adj.x, batch = 65, miniBch = 85, repl = FALSE) {
+    ## when imbalanced samples are found
+    ## select an equal distribution of samples across classes
+    ## batch sampling from the original dataset
+    ## mini-batch subsampling from the balanced batch
 
-balancedSamples <- function (meta.selected, y, adj.x, dex = 1.53, rep = FALSE) {
-    ## when imbalanced samples occur
-    ## select an equal distribution of samples across groups
-    training=NULL
-    for (i in 1:nlevels(y) ) {
-        selected.group <- meta.selected %>%
-            select(SAMPLE_ID, Groups) %>%
-            filter(Groups == levels(y)[i] )
+    ## get minimum length of smallest imabalanced class
+    ## select mini batch size
+    min.class <- min(as.data.frame(table(meta.selected$Groups))$Freq)
+    mini.batch <- round( (batch / 100) * nrow(adj.x) / nlevels(y), 0)
+    raw.index <- data.frame(index = 1:nrow(adj.x), samples = row.names(adj.x))
 
-        selected.samples <- sample(selected.group$SAMPLE_ID,
-                                   round((nrow(adj.x)/ dex ) / nlevels(y)) ,
-                                   replace = rep)
+    ## create first random sub sampled data set
+    if ( mini.batch <= min.class ) {
+        sub.training=NULL
+        for (i in 1:nlevels(y) ) {
+            selected.group <- meta.selected %>%
+                select(SAMPLE_ID, Groups) %>%
+                filter(Groups == levels(y)[i] )
 
-        selected.index <- data.frame(A=1:nrow(adj.x), B=row.names(adj.x))
-        final <- selected.index[ selected.index$B %in% selected.samples, 1]
-
-        training <- c(training, final)
+            mini.class.samples <- sample(selected.group$SAMPLE_ID, mini.batch, replace = repl)
+            final <- selected.index[ raw.index$samples %in% mini.class.samples, 1]
+            sub.training <- c(sub.training, final)
+        }
+    } else {
+        print("Error! Batch size is too large. Set a lower number to generate a smaller stochastic mini-batch than the minimum length of the smallest imbalanced class.")
     }
+
+    ## create a balanced random training set
+    tr <- length(sub.training) * c( miniBch / 100 )
+    training <- sample(sub.training, tr)
     return(training)
 }
+
+
 
 ##########################
 ## Load expression data ##
@@ -325,9 +339,12 @@ ed <- floor(abs(rnorm(1) * 10000000))
 set.seed(ed)
 
 ## Split the dataset into 85% training data
-training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
-##training <- balancedSamples(meta.selected, y, adj.x, dex = .5, rep = TRUE)
+## training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
+training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 65, miniBch = 85, rep = FALSE)
 tr <- length(training)
+##  proportions (in percentages) of imbalanced samples
+print(round((table(y[training])/tr) * 100),2)
+
 
 sink("expression.data.loaded.ok")
 sink()
@@ -369,7 +386,7 @@ sink()
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=5
+iterations=30
 
 while (success == FALSE) {
     pdf(paste0("cvROC.shrinking.iterations",iterations,".",response,".pdf"))
@@ -403,8 +420,8 @@ while (success == FALSE) {
             set.seed(ede)
 
             # Split the dataset into 65% training data
-            ##            training <- balancedSamples(meta.selected, y, adj.x, dex = .5, rep = TRUE)
-            training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)            
+            training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 65, miniBch = 85, rep = FALSE)
+            ##training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)            
             tr <- length(training)
             print(round((table(y[training])/tr) * 100),2)
 
@@ -438,42 +455,42 @@ while (success == FALSE) {
                 ## treating sample imbalances
                 ## by manually assigning CV folds
                 ## and by up-weithing over represented samples for shrinkage
-                if ( sample.classes == "Groups" ) {
-                    ## assign folds evenly using the modulus operator
-                    foldid <- as.numeric(length(y[training]))
-                    fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
-                    fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
-                    fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
-                    foldid[ y[training] == "CNS" ] <- fold0
-                    foldid[ y[training] == "SYST" ] <- fold1
-                    foldid[ y[training] == "NOREL" ] <- fold2
-                    foldid.custom <- foldid + 1
+##                if ( sample.classes == "Groups" ) {
+##                    ## assign folds evenly using the modulus operator
+##                    foldid <- as.numeric(length(y[training]))
+##                    fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
+##                    fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
+##                    fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
+##                    foldid[ y[training] == "CNS" ] <- fold0
+##                    foldid[ y[training] == "SYST" ] <- fold1
+##                    foldid[ y[training] == "NOREL" ] <- fold2
+##                    foldid.custom <- foldid + 1
 
                     ## assign weights
-                    unbalance.class <- table(y[training])/length(y[training])
-                    weights.class <- 1 - unbalance.class[y[training]]
+##                    unbalance.class <- table(y[training])/length(y[training])
+##                    weights.class <- 1 - unbalance.class[y[training]]
 
-                } else if ( sample.classes == "Contrast2" ) {
-                    ## assign folds evenly using the modulus operator
-                    foldid <- as.numeric(length(y[training]))
-                    fold0 <- sample.int(sum(y[training] == "CNS.EN")) %% nfold
-                    fold1 <- sample.int(sum(y[training] == "SYST.EN")) %% nfold
-                    fold2 <- sample.int(sum(y[training] == "NOREL.EN")) %% nfold
-                    fold3 <- sample.int(sum(y[training] == "CNS.LN")) %% nfold    
-                    fold4 <- sample.int(sum(y[training] == "SYST.LN")) %% nfold    
-                    fold5 <- sample.int(sum(y[training] == "NOREL.LN")) %% nfold    
-                    foldid[ y[training] == "CNS.EN" ] <- fold0
-                    foldid[ y[training] == "SYST.EN" ] <- fold1
-                    foldid[ y[training] == "NOREL.EN" ] <- fold2
-                    foldid[ y[training] == "CNS.LN" ] <- fold3
-                    foldid[ y[training] == "SYST.LN" ] <- fold4
-                    foldid[ y[training] == "NOREL.LN" ] <- fold5
-                    foldid.custom <- foldid + 1
+##                } else if ( sample.classes == "Contrast2" ) {
+##                    ## assign folds evenly using the modulus operator
+##                    foldid <- as.numeric(length(y[training]))
+##                    fold0 <- sample.int(sum(y[training] == "CNS.EN")) %% nfold
+##                    fold1 <- sample.int(sum(y[training] == "SYST.EN")) %% nfold
+##                    fold2 <- sample.int(sum(y[training] == "NOREL.EN")) %% nfold
+##                    fold3 <- sample.int(sum(y[training] == "CNS.LN")) %% nfold    
+##                    fold4 <- sample.int(sum(y[training] == "SYST.LN")) %% nfold    
+##                    fold5 <- sample.int(sum(y[training] == "NOREL.LN")) %% nfold    
+##                    foldid[ y[training] == "CNS.EN" ] <- fold0
+##                    foldid[ y[training] == "SYST.EN" ] <- fold1
+##                    foldid[ y[training] == "NOREL.EN" ] <- fold2
+##                    foldid[ y[training] == "CNS.LN" ] <- fold3
+##                    foldid[ y[training] == "SYST.LN" ] <- fold4
+##                    foldid[ y[training] == "NOREL.LN" ] <- fold5
+##                    foldid.custom <- foldid + 1
 
                     ## assign weights
-                    unbalance.class <- table(y[training])/length(y[training])
-                    weights.class <- 1 - unbalance.class[y[training]]
-                }
+##                    unbalance.class <- table(y[training])/length(y[training])
+##                    weights.class <- 1 - unbalance.class[y[training]]
+##                }
 
 
                 ## fitting a symmetric multinomial model,
@@ -492,9 +509,9 @@ while (success == FALSE) {
                 cv.out <- try(cv.glmnet(adj.x[training,],
                                         y[training],
                                         alpha=setalpha,
-                                        foldid = foldid.custom,
                                         family = response,
-                                        weights = weights.class,
+##                                        foldid = foldid.custom,
+##                                        weights = weights.class,
                                         standardize = lasso.std,
                                         nfolds = ncv,
                                         type.multinomial=index),
@@ -688,8 +705,8 @@ for (l in 1:nrow(results)) {
 
     # get lasso coefficients
     index="grouped"
-    training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
-##    training <- balancedSamples(meta.selected, y, adj.x, dex = 1.53)
+    ##training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
+    training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 65, miniBch = 85, rep = FALSE)
     lasso.trained <- glmnet(adj.x[training,],
                             y[training],
                             alpha=setalpha,
@@ -846,8 +863,8 @@ for ( sp in nl ) {
 
 ## add vectors
 ## add centroids of factor constraints
-text(rda.results, dis="cn", col="chocolate", font=4)
-#text(rda.results, dis="species", col="chocolate", font=.2)
+##text(rda.results, dis="cn", col="chocolate", font=4)
+plot(ena, add = TRUE, col = "chocolate")
 
 ## content of the legend from tests of significance
 ##legend("bottomleft", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
