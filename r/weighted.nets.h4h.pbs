@@ -34,7 +34,8 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## repositories of gene expression analysis already executed
 ## Standard libraries (relapse project)
 ## choose contrast from: c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOclasses", "systemicRelapseCOOscores", "systemicRelapseCOOprediction")
-_contrast=systemicRelapse
+## choose contrast = "systemic" for significant genes of all contrasts (only functional with pipe = total)
+_contrast=systemic
 _workingDir=$project/expression/409794
 _affymetrix=$_workingDir/summary/normalized.subset*txt
 _lmfit=$_workingDir/summary/summary.lmfit.all.txt
@@ -48,7 +49,7 @@ run_pipe=networks
 ## analysis on upregulated genes (up)
 ## analysis on genes selected by hiereachical clustering (clusters)
 ## analysis on genes selected from lmfit limma differential expression (fdradj)
-_strategy=fdradj
+_strategy=total
 
 ## if strategy is clusters
 ## setting these parameters will set the correlation method,
@@ -101,11 +102,16 @@ if [ $_strategy == "total" ]; then
 
     mkdir -p $output/$_contrast
 
-    _bstatistics=-2
+    _bstatistics=0
     
     touch $output/ids.total.tmp
-    
-    listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}.moderated*txt")
+
+    ## if using all significant genes from all contrasted analyses
+    if [ $_contrast == "systemic" ]; then
+	listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}*moderated*txt")
+    else
+	listFiles=$(find $_workingDir -maxdepth 3 -iname "*${_contrast}.moderated*txt")
+    fi
 
     for files in $listFiles; do
 
