@@ -16,8 +16,8 @@ grouped=TRUE
 binomial=FALSE
 
 ## apply normalization methods within samples
-standardization=TRUE
-lasso.std=FALSE
+standardization=FALSE
+lasso.std=TRUE
 
 ## choose between methods of normalization and correlation
 ## variable will be extracted from ids2modules
@@ -26,6 +26,7 @@ clustering.strategy = 3
 
 ## choose contrasts
 ## choose summary file with all FDR adjusted pvalues
+## file generated from expression analysis
 grouping = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
 pvals <- read.table("summary/summary.lmfit.all.txt", header = TRUE, fill = TRUE)
 ## names of each sample files
@@ -45,8 +46,10 @@ colnames(ids2description) <- c("genes", "chromosome", "ensembl", "symbol", "func
 modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TRUE){
     ## requires caret
     ## GRID search HYPERPARAMETERS tuning
-    ## Train model and test on independant dataset
-    ## returns a classification error
+    ## Cross validation for parameter tuning
+    ## minimum 10 epochs repeated 5 times
+    ## over 20 different flexible and less flexible machine learning algorithms
+    ## output are logged under different formats for different performance summarizations
     trainCtrl <- trainControl(method="repeatedcv",
                               number=folds,
                               repeats=rep,
@@ -240,7 +243,7 @@ miniBatch.balancedSampling <- function (meta.selected, y, adj.x, batch = 65, min
                 filter(Groups == levels(y)[i] )
 
             mini.class.samples <- sample(selected.group$SAMPLE_ID, mini.batch, replace = repl)
-            final <- selected.index[ raw.index$samples %in% mini.class.samples, 1]
+            final <- raw.index[ raw.index$samples %in% mini.class.samples, 1]
             sub.training <- c(sub.training, final)
         }
     } else {
@@ -339,8 +342,8 @@ ed <- floor(abs(rnorm(1) * 10000000))
 set.seed(ed)
 
 ## Split the dataset into 85% training data
-## training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
-training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 65, miniBch = 85, rep = FALSE)
+##training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(85/100)) )
+training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = 80, rep = FALSE)
 tr <- length(training)
 ##  proportions (in percentages) of imbalanced samples
 print(round((table(y[training])/tr) * 100),2)
@@ -351,45 +354,45 @@ sink()
 
 ########################
 ## FEATURE EXTRACTION ##
-########################
-## Result: Lambda for Lasso feature selection with highest accuracy outcome
-## Reduce collinearity or excessive correlation among genes
-## improve identification of optimal set of variables
-# feature extraction
-# |-- randomize seed
-# |   |-- iterate multiple seeds
-# |
-# |-- parameter tuning
-# |   |-- grid tuning
-# |   |-- nested cross validation
-# |
-# |-- fit linear model
-# |   |-- first on training set
-# |   |-- second on testing set
-# |   |-- iterate multiple model fitting
-# |
-# |-- get prediction scores for each iteration
-# |-- plot accuracy scores
-# |   |-- iterate multiple accuracy tests
-# |   |-- ROC curves for Cross validation test
-# |   |-- ROC curves for prediction/validation set
-# |
-# |-- create summary of all iterations
-# |
-# |-- get the best lambda
-# |   |-- best accuracy has the best lambda
-# |   |-- use this lambda for subsequent analyses
-# |   |-- plot final accuracy at this lambda cutoff
-
+##############################################################################
+## Result: Lambda for Lasso feature selection with highest accuracy outcome ##
+## Reduce collinearity or excessive correlation among genes                 ##
+## improve identification of optimal set of variables                       ##
+##  feature extraction                                                      ##
+##  |-- randomize seed                                                      ##
+##  |   |-- iterate multiple seeds                                          ##
+##  |                                                                       ##
+##  |-- parameter tuning                                                    ##
+##  |   |-- grid tuning                                                     ##
+##  |   |-- nested cross validation                                         ##
+##  |                                                                       ##
+##  |-- fit linear model                                                    ##
+##  |   |-- first on training set                                           ##
+##  |   |-- second on testing set                                           ##
+##  |   |-- iterate multiple model fitting                                  ##
+##  |                                                                       ##
+##  |-- get prediction scores for each iteration                            ##
+##  |-- plot accuracy scores                                                ##
+##  |   |-- iterate multiple accuracy tests                                 ##
+##  |   |-- ROC curves for Cross validation test                            ##
+##  |   |-- ROC curves for prediction/validation set                        ##
+##  |                                                                       ##
+##  |-- create summary of all iterations                                    ##
+##  |                                                                       ##
+##  |-- get the best lambda                                                 ##
+##  |   |-- best accuracy has the best lambda                               ##
+##  |   |-- use this lambda for subsequent analyses                         ##
+##  |   |-- plot final accuracy at this lambda cutoff                       ##
+##############################################################################
 
 # WARNING: sometimes LOGNET throws an error of 0 or 1 observations
 # this is due to the unbalanced nature of cross validation
 # SOLUTION: the while condition will repeat the test until success
 success=FALSE
-iterations=30
+epochs=20
 
 while (success == FALSE) {
-    pdf(paste0("cvROC.shrinking.iterations",iterations,".",response,".pdf"))
+    pdf(paste0("cvROC.shrinking.epochs",epochs,".",response,".pdf"))
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
     dm=NULL
     df=NULL
@@ -399,8 +402,8 @@ while (success == FALSE) {
     ##obsLevels <- levels(droplevels(allObs))
     
     ## The control class is throwing an error
-    # prediction cannot be done on small sample size
-    # remove CTRL class
+    ## prediction cannot be done on small sample size
+    ## remove CTRL class
     if ( sample.classes == "Contrast1" ) {
         nl <- c(1:nlevels(y))[ levels(y) != c("CTRL.ABC", "CTRL.GCB", "CTRL.NA", "CTRL.U")]
     } else if ( sample.classes == "Contrast2" ) {
@@ -411,87 +414,86 @@ while (success == FALSE) {
 
     if (!require(ROCR)) {    stop("Can't continue can't load ROCR")   }
 
-    for (i in nl) {
+    for (nid in nl) {
         gc()
         
-        for (e in 1:iterations) {
-            # set seed for reproducibility
+        for (e in 1:epochs) {
+            ## set seed for reproducibility
             ede <- floor(abs(rnorm(1) * 10000000))
             set.seed(ede)
 
-            # Split the dataset into 65% training data
-            training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 65, miniBch = 85, rep = FALSE)
-            ##training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)            
+            ## Split the dataset into 65% training data
+            training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = 80, rep = FALSE)
+##            training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(85/100)) )
             tr <- length(training)
             print(round((table(y[training])/tr) * 100),2)
 
-            # make sure all sample categories are included
-            # in the training and testing sets
-            # if not, errors occur during training
-            # for missing observations in certain classes
-##            while (
-##            (length(unique(y[training])) != nlevels(y))
-##            &
-##            (length(unique(y[-training])) != nlevels(y))
-##            ) {
-##                ede <- floor(abs(rnorm(1) * 10000000))
-##                set.seed(ede)
-##                # split 70% of the data
-##                randomize <- sample(nrow(adj.x))
-##                training <- sample(randomize, nrow(adj.x)/1.429)
-##                #table(y[-training])
-##                tr <- length(training)
-##            }
+            ## make sure all sample categories are included
+            ## in the training and testing sets
+            ## if not, errors occur during training
+            ## for missing observations in certain classes
+            ## while (
+            ## (length(unique(y[training])) != nlevels(y))
+            ## &
+            ## (length(unique(y[-training])) != nlevels(y))
+            ## ) {
+            ##     ede <- floor(abs(rnorm(1) * 10000000))
+            ##     set.seed(ede)
+            ##     # split 70% of the data
+            ##     randomize <- sample(nrow(adj.x))
+            ##     training <- sample(randomize, nrow(adj.x)/1.429)
+            ##     #table(y[-training])
+            ##     tr <- length(training)
+            ## }
 
-            # fit a generalized linear model via penalized maximum likelihood
-            # if alpha 1 then lasso L1 penality and discard genes
-            # if alpha 0 then ridge regression then L2 and rank genes
+            ## fit a generalized linear model via penalized maximum likelihood
+            ## if alpha 1 then lasso L1 penality and discard genes
+            ## if alpha 0 then ridge regression then L2 and rank genes
             if ( grouped == TRUE ){
                 index="grouped"
                 ncv=10
                 setalpha=1
                 nfold <- 10
 
-                ## treating sample imbalances
-                ## by manually assigning CV folds
-                ## and by up-weithing over represented samples for shrinkage
-##                if ( sample.classes == "Groups" ) {
-##                    ## assign folds evenly using the modulus operator
-##                    foldid <- as.numeric(length(y[training]))
-##                    fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
-##                    fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
-##                    fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
-##                    foldid[ y[training] == "CNS" ] <- fold0
-##                    foldid[ y[training] == "SYST" ] <- fold1
-##                    foldid[ y[training] == "NOREL" ] <- fold2
-##                    foldid.custom <- foldid + 1
+                ## ## treating sample imbalances
+                ## ## by manually assigning CV folds
+                ## ## and by up-weithing over represented samples for shrinkage
+                ## if ( sample.classes == "Groups" ) {
+                ##     ## assign folds evenly using the modulus operator
+                ##     foldid <- as.numeric(length(y[training]))
+                ##     fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
+                ##     fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
+                ##     fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
+                ##     foldid[ y[training] == "CNS" ] <- fold0
+                ##     foldid[ y[training] == "SYST" ] <- fold1
+                ##     foldid[ y[training] == "NOREL" ] <- fold2
+                ##     foldid.custom <- foldid + 1
 
-                    ## assign weights
-##                    unbalance.class <- table(y[training])/length(y[training])
-##                    weights.class <- 1 - unbalance.class[y[training]]
+                ##     ## assign weights
+                ##     unbalance.class <- table(y[training])/length(y[training])
+                ##     weights.class <- 1 - unbalance.class[y[training]]
 
-##                } else if ( sample.classes == "Contrast2" ) {
-##                    ## assign folds evenly using the modulus operator
-##                    foldid <- as.numeric(length(y[training]))
-##                    fold0 <- sample.int(sum(y[training] == "CNS.EN")) %% nfold
-##                    fold1 <- sample.int(sum(y[training] == "SYST.EN")) %% nfold
-##                    fold2 <- sample.int(sum(y[training] == "NOREL.EN")) %% nfold
-##                    fold3 <- sample.int(sum(y[training] == "CNS.LN")) %% nfold    
-##                    fold4 <- sample.int(sum(y[training] == "SYST.LN")) %% nfold    
-##                    fold5 <- sample.int(sum(y[training] == "NOREL.LN")) %% nfold    
-##                    foldid[ y[training] == "CNS.EN" ] <- fold0
-##                    foldid[ y[training] == "SYST.EN" ] <- fold1
-##                    foldid[ y[training] == "NOREL.EN" ] <- fold2
-##                    foldid[ y[training] == "CNS.LN" ] <- fold3
-##                    foldid[ y[training] == "SYST.LN" ] <- fold4
-##                    foldid[ y[training] == "NOREL.LN" ] <- fold5
-##                    foldid.custom <- foldid + 1
+                ## } else if ( sample.classes == "Contrast2" ) {
+                ##     ## assign folds evenly using the modulus operator
+                ##     foldid <- as.numeric(length(y[training]))
+                ##     fold0 <- sample.int(sum(y[training] == "CNS.EN")) %% nfold
+                ##     fold1 <- sample.int(sum(y[training] == "SYST.EN")) %% nfold
+                ##     fold2 <- sample.int(sum(y[training] == "NOREL.EN")) %% nfold
+                ##     fold3 <- sample.int(sum(y[training] == "CNS.LN")) %% nfold    
+                ##     fold4 <- sample.int(sum(y[training] == "SYST.LN")) %% nfold    
+                ##     fold5 <- sample.int(sum(y[training] == "NOREL.LN")) %% nfold    
+                ##     foldid[ y[training] == "CNS.EN" ] <- fold0
+                ##     foldid[ y[training] == "SYST.EN" ] <- fold1
+                ##     foldid[ y[training] == "NOREL.EN" ] <- fold2
+                ##     foldid[ y[training] == "CNS.LN" ] <- fold3
+                ##     foldid[ y[training] == "SYST.LN" ] <- fold4
+                ##     foldid[ y[training] == "NOREL.LN" ] <- fold5
+                ##     foldid.custom <- foldid + 1
 
-                    ## assign weights
-##                    unbalance.class <- table(y[training])/length(y[training])
-##                    weights.class <- 1 - unbalance.class[y[training]]
-##                }
-
+                ##     ## assign weights
+                ##     unbalance.class <- table(y[training])/length(y[training])
+                ##     weights.class <- 1 - unbalance.class[y[training]]
+                ## }
 
                 ## fitting a symmetric multinomial model,
                 grid <- 10^seq(5, -5, length=100)
@@ -510,8 +512,8 @@ while (success == FALSE) {
                                         y[training],
                                         alpha=setalpha,
                                         family = response,
-##                                        foldid = foldid.custom,
-##                                        weights = weights.class,
+                                        foldid = foldid.custom,
+                                        weights = weights.class,
                                         standardize = lasso.std,
                                         nfolds = ncv,
                                         type.multinomial=index),
@@ -520,30 +522,30 @@ while (success == FALSE) {
                 stop("Alternative feature indexes are not yet implemented")                
             }
 
-            # make sure CV did not encounter unbalanced observations
-            # if unbalanced obs exist, the whole iteration will repeat
+            ## make sure CV did not encounter unbalanced observations
+            ## if unbalanced obs exist, the whole iteration will repeat
             if (class(cv.out) != "cv.glmnet") {
                 success=FALSE
                 ## initiate iteration
-                # not working, must be set early
-                #if ( e > 1 ) { e = e - 1 } 
+                ## not working, must be set early
+                ##if ( e > 1 ) { e = e - 1 } 
                 break
             } else {
                 success=TRUE
             }
 
-            # get best lambda
-            # lowest probability to overfit
+            ## get best lambda
+            ## lowest probability to overfit
             bestlam <- cv.out$lambda.min
 
-            # get probabilities
+            ## get probabilities
             lasso.response <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="response")
 
             ## create list of iteration scores for each class
-            probability.scores <- as.data.frame(lasso.response)[, i]
-            dummy.labels <- as.vector(model.matrix(~0 + y[-training])[, i])
+            probability.scores <- as.data.frame(lasso.response)[, nid]
+            dummy.labels <- as.vector(model.matrix(~0 + y[-training])[, nid])
 
-            # create multi dimensional list across all iterations
+            ## create multi dimensional list across all iterations
             if ( e == 1 ){
                 ps <- list(probability.scores)
                 dl <- list(dummy.labels)
@@ -552,15 +554,15 @@ while (success == FALSE) {
                 dl <- c(dl, list(dummy.labels))
             }
 
-            # rename listing headers
-            names(ps)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
-            names(dl)[e]=paste0(levels(y)[i],"-class",i,".iteration",e)
+            ## rename listing headers
+            names(ps)[e]=paste0(levels(y)[nid],"-class",nid,".epochs",e)
+            names(dl)[e]=paste0(levels(y)[nid],"-class",nid,".epochs",e)
             
             ## create summary of probabilities
             ## from a list of genes that have a mean probability to classify
             ## all cases into correct patient diagnosis
-            dm <- rbind(dm, data.frame(iterations=e,
-                                       class=levels(y)[i],
+            dm <- rbind(dm, data.frame(epochs=e,
+                                       class=levels(y)[nid],
                                        seed=ede,
                                        lambda=bestlam,
                                        probabilityScore=mean(ps[[e]]) ))
@@ -570,18 +572,18 @@ while (success == FALSE) {
             ## to get general distribution of the whole classification
             gpd <- rbind(gpd, data.frame(probabilities = ps[[e]],
                                          classes = as.factor(y[-training]),
-                                         genes = as.factor(levels(y)[i])))
+                                         genes = as.factor(levels(y)[nid])))
 
 
             ## compile accuracies into summary file
-            # get sample labels
+            ## get sample labels
             lasso.labels <- predict(lasso.trained, s=bestlam, newx=adj.x[-training,], type="class")
 
-            # get gene coefficients at selected lambda
+            ## get gene coefficients at selected best lambda
             lasso.coef <- predict(lasso.trained, s=bestlam, type = "coefficients")
 
             ## get non-zero genes
-            selected.genes <- lasso.coef[[1]]@i[ lasso.coef[[1]]@i >= 1]
+            selected.genes <- lasso.coef[[nid]]@i[ lasso.coef[[nid]]@i >= 1]
             original.genes <- colnames(adj.x)
             selected.final <- original.genes[selected.genes]
             len <- length(selected.genes)
@@ -594,16 +596,16 @@ while (success == FALSE) {
                 for ( q in 1:nrow(freq) ) {
                     ## prepare a table summary
                     ## of regularization accuracy
-                    n=names(rowSums(freq)[q])
-                    f <- freq[n,n] / rowSums(freq)[[q]] * 100
+                    nas = names(rowSums(freq)[q])
+                    f <- freq[nas, nas] / rowSums(freq)[[q]] * 100
 
-                    if ( setalpha == 1 ) {me="lasso"} else {me="ridge"}
+                    if ( setalpha == 1 ) {me="lasso"} else {me="ridge/elastic"}
                     if ( index == "grouped") {ind=TRUE} else (ind=FALSE)
 
                     ## contains predicted probablities
-                    df <- rbind(df, data.frame(iterations=e,
-                                               patients=levels(y)[i],
-                                               group=n,
+                    df <- rbind(df, data.frame(epochs=e,
+                                               patients=nas,
+                                               featureGrouping=levels(y)[nid],
                                                accuracy=f,
                                                seed=ede,
                                                classification=response,
@@ -622,29 +624,29 @@ while (success == FALSE) {
                 stop("Data must be fit as either a classification or regression model")
             }
 
-            cat(paste(">> Iteration", e, "finished for", levels(y)[i] ))
+            cat(paste(">> Iteration", e, "finished for", levels(y)[nid] ))
         }
         ## plot the lot of iterations
         pred <- prediction(ps, dl)
         perf <- performance(pred, 'tpr', 'fpr')
         par(new=TRUE)
-        plot(perf, lty=3, col=couleurs[i],
+        plot(perf, lty=3, col=couleurs[nid],
              xlab="Specificity (1-False positive rate)",
              ylab="Sensitivity (True positive rate)")
         par(new=TRUE)
-        plot(perf,col=couleurs[i],lty=1,lwd=2,avg="vertical",spread.estimate="stderror",add=TRUE)
+        plot(perf,col=couleurs[nid],lty=1,lwd=2,avg="vertical",spread.estimate="stderror",add=TRUE)
     }
-legend("bottomright", levels(y)[nl], lty=1, lwd=5, col = couleurs[nl])
-dev.off()
+    legend("bottomright", levels(y)[nl], lty=1, lwd=5, col = couleurs[nl])
+    dev.off()
 }
 
 
 if ( exists('dm') && exists('df') ) {
 
     ## extract regularization metrics for all iterations
-    write.table(dm, paste0("logSummary.lambda.iterations",iterations,".",response,".probabilities.txt"), sep="\t", quote=F)
-    write.table(df, paste0("logSummary.lambda.iterations",iterations,".",response,".accuracies.txt"), sep="\t", quote=F)
-    write.table(gpd, paste0("logSummary.lambda.iterations",iterations,".",response,".densities.txt"), sep="\t", quote=F)
+    write.table(dm, paste0("logSummary.lambda.epochs",epochs,".",response,".probabilities.txt"), sep="\t", quote=F)
+    write.table(df, paste0("logSummary.lambda.epochs",epochs,".",response,".accuracies.txt"), sep="\t", quote=F)
+    write.table(gpd, paste0("logSummary.lambda.epochs",epochs,".",response,".densities.txt"), sep="\t", quote=F)
     
     sink("feature.extraction.ok")
     sink()
@@ -654,12 +656,13 @@ if ( exists('dm') && exists('df') ) {
 
 
 ## CHART 0
-pdf(paste0("density.shrinking.iterations",iterations,".",response,".pdf"))
+pdf(paste0("density.shrinking.epochs",epochs,".",response,".pdf"))
 gpd %>%
 ##    filter(classes == c("CNS", "SYST", "NOREL")) %>%
     ggplot(aes(x = probabilities,
                fill = classes)) +
-    geom_density() +
+    geom_density(alpha = 0.3) +
+##    geom_density(position = "stack") +    
     theme_minimal() +
     facet_wrap( ~ genes,
                ncol = 1,
@@ -684,7 +687,7 @@ for ( z in nl ) {
     ## get lambda and iteration seed based on maximum accuracy
     patient_labels<- levels(y)[z]
     max_accuracy <- df %>%
-        filter(group == patient_labels) %>%
+        filter(patients == patient_labels) %>%
         filter(accuracy == max(accuracy)) %>%
         filter(regNgenes == max(regNgenes))
 
@@ -705,8 +708,8 @@ for (l in 1:nrow(results)) {
 
     # get lasso coefficients
     index="grouped"
-    ##training <- sample(1:nrow(adj.x), nrow(adj.x)/1.18)
-    training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 65, miniBch = 85, rep = FALSE)
+##  training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(85/100)) )
+    training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = 80, rep = FALSE)
     lasso.trained <- glmnet(adj.x[training,],
                             y[training],
                             alpha=setalpha,
@@ -727,7 +730,7 @@ for (l in 1:nrow(results)) {
         lasso.select <- adj.x[ , selected.final ]
         print(dim(lasso.select))
         write.table(t(lasso.select), paste0("expressions.",patient_labels,
-                                         ".iterations",iterations,".cv",ncv,
+                                         ".epochs",epochs,".cv",ncv,
                                          ".lambda_",sprintf("%.5f", bestlam),
                                          "_",response,".regularization",setalpha,
                                          ".",index,".genes",len,".seed",ed,".txt"),
@@ -858,7 +861,7 @@ for ( sp in nl ) {
 
     points(rda.scores[rownames(rda.scores) %in% selgenes[[levels(y)[sp]]],],
            pch = selected.forms[[sp]],
-           col = selected.colors[vcol], cex=c(2-(sp/3.25)))
+           col = selected.colors[vcol], cex=c(2-(sp * 0.5)))
 }
 
 ## add vectors
@@ -1283,14 +1286,9 @@ parameter_counts <- c(
     1
 )
 
-
-
 ######### debugging ##########
-#model_types="nnet"
-#parameter_counts=2
-
-
-
+model_types="svmPoly"
+parameter_counts=3
 
 ######## STEP I ##########
 ## performance metrics for best model without hyperparameter optimization
@@ -1300,7 +1298,7 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( iterations in c(1:10) ) {
+for ( epochs in c(1:10) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
@@ -1482,7 +1480,16 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                                   preProc=c("center","scale")))  }
     
     results <- modelTrain$results
+
+
+
+
     Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+
+
+
+
+
     conf.m <- confusionMatrix(data=Predd, dat[-train,1])
     output <- list(timeLapsed=lapsed,bestModel=modelTrain,
                    Results=results,Hyperparameters=modelTrain$bestTune,
