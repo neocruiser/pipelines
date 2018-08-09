@@ -16,8 +16,10 @@ grouped=TRUE
 binomial=FALSE
 
 ## apply normalization methods within samples
-standardization=FALSE
-lasso.std=TRUE
+## applying a regularization transformation
+## increases the number of selected genens
+standardization=TRUE
+lasso.std=FALSE
 
 ## choose between methods of normalization and correlation
 ## variable will be extracted from ids2modules
@@ -42,8 +44,45 @@ colnames(ids2description) <- c("genes", "chromosome", "ensembl", "symbol", "func
 ##########################
 ## Define new functions ##
 ##########################
-## Classification
-modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TRUE){
+## Stochastic mini-batch sampling using heuristic selection
+miniBatch.balancedSampling <- function (meta.selected, y, adj.x, batch = 65, miniBch = 85, repl = FALSE) {
+    ## when imbalanced samples are found
+    ## select an equal distribution of samples across classes
+    ## batch sampling from the original dataset
+    ## mini-batch subsampling from the balanced batch
+
+    ## get minimum length of smallest imabalanced class
+    ## select mini batch size
+    min.class <- min(as.data.frame(table(meta.selected$Groups))$Freq)
+    mini.batch <- round( (batch / 100) * nrow(adj.x) / nlevels(y), 0)
+    raw.index <- data.frame(index = 1:nrow(adj.x), samples = row.names(adj.x))
+
+    ## create first random sub sampled data set
+    if ( mini.batch <= min.class ) {
+        sub.training=NULL
+        for (i in 1:nlevels(y) ) {
+            selected.group <- meta.selected %>%
+                select(SAMPLE_ID, Groups) %>%
+                filter(Groups == levels(y)[i] )
+
+            mini.class.samples <- sample(selected.group$SAMPLE_ID, mini.batch, replace = repl)
+            final <- raw.index[ raw.index$samples %in% mini.class.samples, 1]
+            sub.training <- c(sub.training, final)
+        }
+    } else {
+        print("Error! Batch size is too large. Set a lower number to generate a smaller stochastic mini-batch than the minimum length of the smallest imbalanced class.")
+    }
+
+    ## create a balanced random training set
+    tr <- length(sub.training) * c( miniBch / 100 )
+    training <- sample(sub.training, tr)
+    return(training)
+}
+
+
+
+## Multi model classification
+modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confusion.metrics=NULL, systems.metrics=NULL){
     ## requires caret
     ## GRID search HYPERPARAMETERS tuning
     ## Cross validation for parameter tuning
@@ -190,7 +229,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                                   preProc=c("center","scale"),
 ##                                                  weights = model_weights,
                                                   tuneGrid=grid_models,
-                                                  tuneLength=tune))
+                                                  tuneLength=c(folds*3)))
 
     } else if ( grid == FALSE ) {
         ## do not tune the hyperparameters
@@ -222,42 +261,6 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
 }
 
 
-miniBatch.balancedSampling <- function (meta.selected, y, adj.x, batch = 65, miniBch = 85, repl = FALSE) {
-    ## when imbalanced samples are found
-    ## select an equal distribution of samples across classes
-    ## batch sampling from the original dataset
-    ## mini-batch subsampling from the balanced batch
-
-    ## get minimum length of smallest imabalanced class
-    ## select mini batch size
-    min.class <- min(as.data.frame(table(meta.selected$Groups))$Freq)
-    mini.batch <- round( (batch / 100) * nrow(adj.x) / nlevels(y), 0)
-    raw.index <- data.frame(index = 1:nrow(adj.x), samples = row.names(adj.x))
-
-    ## create first random sub sampled data set
-    if ( mini.batch <= min.class ) {
-        sub.training=NULL
-        for (i in 1:nlevels(y) ) {
-            selected.group <- meta.selected %>%
-                select(SAMPLE_ID, Groups) %>%
-                filter(Groups == levels(y)[i] )
-
-            mini.class.samples <- sample(selected.group$SAMPLE_ID, mini.batch, replace = repl)
-            final <- raw.index[ raw.index$samples %in% mini.class.samples, 1]
-            sub.training <- c(sub.training, final)
-        }
-    } else {
-        print("Error! Batch size is too large. Set a lower number to generate a smaller stochastic mini-batch than the minimum length of the smallest imbalanced class.")
-    }
-
-    ## create a balanced random training set
-    tr <- length(sub.training) * c( miniBch / 100 )
-    training <- sample(sub.training, tr)
-    return(training)
-}
-
-
-
 ##########################
 ## Load expression data ##
 ##########################
@@ -276,8 +279,10 @@ dim(means)
 cat("\n\nStandardized transformed scores: Genes are columns and samples are rows\n")
 if ( standardization == TRUE ) {
     adj.x <- t(decostand(means, "standardize"))
+    print("Data have been transformed as requested for better interpretability and overall fitting under flexible models")
 } else {
     adj.x <- t(means)
+    print("Data were not transformed and kept as is.")
 }
 dim(adj.x)
 
@@ -341,49 +346,51 @@ if ( nlevels(y) >= 2 ) {
 ed <- floor(abs(rnorm(1) * 10000000))
 set.seed(ed)
 
-## Split the dataset into 85% training data
-##training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(85/100)) )
-training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = 80, rep = FALSE)
+## Split the dataset
+training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
 tr <- length(training)
+
 ##  proportions (in percentages) of imbalanced samples
 print(round((table(y[training])/tr) * 100),2)
-
-
 sink("expression.data.loaded.ok")
 sink()
 
 ########################
 ## FEATURE EXTRACTION ##
-##############################################################################
-## Result: Lambda for Lasso feature selection with highest accuracy outcome ##
-## Reduce collinearity or excessive correlation among genes                 ##
-## improve identification of optimal set of variables                       ##
-##  feature extraction                                                      ##
-##  |-- randomize seed                                                      ##
-##  |   |-- iterate multiple seeds                                          ##
-##  |                                                                       ##
-##  |-- parameter tuning                                                    ##
-##  |   |-- grid tuning                                                     ##
-##  |   |-- nested cross validation                                         ##
-##  |                                                                       ##
-##  |-- fit linear model                                                    ##
-##  |   |-- first on training set                                           ##
-##  |   |-- second on testing set                                           ##
-##  |   |-- iterate multiple model fitting                                  ##
-##  |                                                                       ##
-##  |-- get prediction scores for each iteration                            ##
-##  |-- plot accuracy scores                                                ##
-##  |   |-- iterate multiple accuracy tests                                 ##
-##  |   |-- ROC curves for Cross validation test                            ##
-##  |   |-- ROC curves for prediction/validation set                        ##
-##  |                                                                       ##
-##  |-- create summary of all iterations                                    ##
-##  |                                                                       ##
-##  |-- get the best lambda                                                 ##
-##  |   |-- best accuracy has the best lambda                               ##
-##  |   |-- use this lambda for subsequent analyses                         ##
-##  |   |-- plot final accuracy at this lambda cutoff                       ##
-##############################################################################
+########################
+
+     ##############################################################################
+     ## Result: Lambda for Lasso feature selection with highest accuracy outcome ##
+     ## Reduce collinearity or excessive correlation among genes                 ##
+     ## improve identification of optimal set of variables                       ##
+     ##  feature extraction                                                      ##
+     ##  |-- randomize seed                                                      ##
+     ##  |   |-- iterate multiple seeds                                          ##
+     ##  |   |-- mini-batch sampling                                             ##
+     ##  |   |-- imbalanced sample weighting (optional)                          ##
+     ##  |                                                                       ##
+     ##  |-- parameter lambda tuning                                             ##
+     ##  |   |-- grid search                                                     ##
+     ##  |   |-- nested cross validation                                         ##
+     ##  |                                                                       ##
+     ##  |-- fit linear model                                                    ##
+     ##  |   |-- first on training set                                           ##
+     ##  |   |-- second on testing set                                           ##
+     ##  |   |-- iterate multiple model fitting over multiple epochs             ##
+     ##  |                                                                       ##
+     ##  |-- get prediction scores for each iteration                            ##
+     ##  |-- plot accuracy scores                                                ##
+     ##  |   |-- iterate multiple accuracy tests                                 ##
+     ##  |   |-- ROC curves for Cross validation test                            ##
+     ##  |   |-- ROC curves for prediction/validation set                        ##
+     ##  |                                                                       ##
+     ##  |-- create summary of all iterations                                    ##
+     ##  |                                                                       ##
+     ##  |-- get the best lambda                                                 ##
+     ##  |   |-- best accuracy has the best lambda                               ##
+     ##  |   |-- use this lambda for subsequent analyses                         ##
+     ##  |   |-- plot final accuracy at this lambda cutoff                       ##
+     ##############################################################################
 
 # WARNING: sometimes LOGNET throws an error of 0 or 1 observations
 # this is due to the unbalanced nature of cross validation
@@ -512,8 +519,8 @@ while (success == FALSE) {
                                         y[training],
                                         alpha=setalpha,
                                         family = response,
-                                        foldid = foldid.custom,
-                                        weights = weights.class,
+##                                        foldid = foldid.custom,
+##                                        weights = weights.class,
                                         standardize = lasso.std,
                                         nfolds = ncv,
                                         type.multinomial=index),
@@ -687,7 +694,7 @@ for ( z in nl ) {
     ## get lambda and iteration seed based on maximum accuracy
     patient_labels<- levels(y)[z]
     max_accuracy <- df %>%
-        filter(patients == patient_labels) %>%
+        filter(featureGrouping == patient_labels) %>%
         filter(accuracy == max(accuracy)) %>%
         filter(regNgenes == max(regNgenes))
 
@@ -704,7 +711,7 @@ for (l in 1:nrow(results)) {
     ed <- results$seed[[l]]
     bestlam <- results$lambda[[l]]
     set.seed(results$seed[[l]])
-    patient_labels <- results$group[[l]]
+    patient_labels <- results$featureGrouping[[l]]
 
     # get lasso coefficients
     index="grouped"
@@ -741,10 +748,10 @@ for (l in 1:nrow(results)) {
         ## used below for venn diagram 
         if ( l == 1 ){
             selgenes <- list(rownames(t(lasso.select)))
-            names(selgenes)[l] <- as.character(results$group[[l]])
+            names(selgenes)[l] <- as.character(results$featureGrouping[[l]])
         } else {
             selgenes <- c(selgenes, list(rownames(t(lasso.select))))
-            names(selgenes)[l] <- as.character(results$group[[l]])
+            names(selgenes)[l] <- as.character(results$featureGrouping[[l]])
         }
 
     } else {
@@ -804,22 +811,9 @@ colnames(associations) <- levels(y)
 ## chi-squared data fitted into unweighted linear regression
 ## on constraining variables (sample groups)
 ## fitted values are then transformed by singular value decomposition
+##rda.results <- vegan::rda( dat[, -1] ~ ., associations[, nl], scale = TRUE )
 rda.results <- vegan::rda( adj.x ~ ., associations[, nl], scale = TRUE )
 rda.scores <- vegan::scores(rda.results)$species
-
-## create color palette
-available.colors <- brewer.pal(6, name = "RdYlBu")
-selected.colors <- colorRampPalette(available.colors)(n = max(nl))
-selected.forms <- c(15:19)
-
-
-## experimental
-xcol <- length(unique(ids2modules[, clustering.strategy]))
-available.colors <- brewer.pal(12, name = "Set3")
-selected.colors <- colorRampPalette(available.colors)(n = xcol)
-selected.forms <- c(15:19)
-
-
 
 ## variance inflation factor to identify collinearity
 ## higher the value of the R squared value of the regression between variables, higher the collinearity
@@ -831,7 +825,6 @@ tv <- rda.results$CCA$tot.chi / rda.results$tot.chi
 ana <- anova(rda.results, step=2000)
 ena <- envfit(rda.results ~ ., associations[, nl], perm=2000, dis="lc", scaling=2)
 
-
 ## Akaike information criterion
 ## AIC estimates relative quality of models
 ## quality of each model relative to each other is used to select the best one
@@ -842,9 +835,15 @@ reduce
 max.aic <- round(max(reduce$anova$AIC),2)
 min.aic <- round(min(reduce$anova$AIC),2)
 
-## CHART 1
+## chart 1
 ## for scaling check ?biplot.rda {vegan}
 ## here the scores are scaled symmetrically by square root of eigenvalues
+## create color palette
+xcol <- length(unique(ids2modules[, clustering.strategy]))
+available.colors <- brewer.pal(12, name = "Paired")
+selected.colors <- colorRampPalette(available.colors)(n = xcol)
+selected.forms <- c(15:19)
+
 pdf(paste0("rda.bestLassoLambda.seed.pdf"))
 par(mar=c(1,1,1,1), fig = c(.05,1,.05,1))
 plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=3, type="n", bty = "n")
@@ -853,25 +852,40 @@ plot(rda.results, dis=c("cn","sp"), yaxt="n", scaling=3, type="n", bty = "n")
 axis(2, las = 1)
 points(rda.scores, pch=1, col="grey", cex=.5)
 
-## distinguish genes selected by best lambda by minimizing the least squares
-for ( sp in nl ) {
-    genes2modules <- ids2modules[ ids2modules$ids %in% selgenes[[sp]], c(1, clustering.strategy)]
-    ## add +1 to offset module 0
-    vcol <- (unique(genes2modules[, 2]) + 1)
-
-    points(rda.scores[rownames(rda.scores) %in% selgenes[[levels(y)[sp]]],],
-           pch = selected.forms[[sp]],
-           col = selected.colors[vcol], cex=c(2-(sp * 0.5)))
-}
-
 ## add vectors
 ## add centroids of factor constraints
 ##text(rda.results, dis="cn", col="chocolate", font=4)
 plot(ena, add = TRUE, col = "chocolate")
 
+## ## show each gene association to a class (form and color)
+## for ( sp in nl ) {
+##     genes2modules <- ids2modules[ ids2modules$ids %in% selgenes[[sp]], c(1, clustering.strategy)]
+##     ## add +1 to offset module 0
+##     vcol <- (unique(genes2modules[, 2]) + 1)
+
+##     points(rda.scores[rownames(rda.scores) %in% selgenes[[levels(y)[sp]]],],
+##            pch = selected.forms[[sp]],
+##            col = selected.colors[vcol], cex=c(2-(sp * 0.5)))
+## }
+
+## gene association to classes (colors only)
+## distinguish genes selected by best lambda by minimizing the least squares
+sel.mods <- colnames(dat[, -1])
+genes2modules <- ids2modules[ ids2modules$ids %in% sel.mods, c(1, clustering.strategy)]
+colnames(genes2modules) <- c("handle", "mods")
+## add +1 to offset module 0
+vcol <- (unique(genes2modules[, 2]) + 1)
+
+for (co in vcol) {
+    sg <- genes2modules %>%
+        filter(mods == co)
+    points(rda.scores[rownames(rda.scores) %in% sg$handle, ],
+           pch = 16,
+           col = selected.colors[vcol])
+}
+
 ## content of the legend from tests of significance
-##legend("bottomleft", colnames(associations), fill = selected.colors, cex = .8, bty = "n")
-legend("bottomleft", colnames(associations), pch = selected.forms[nl], cex = .8, bty = "n")
+##legend("bottomleft", colnames(associations), pch = selected.forms[nl], cex = .8, bty = "n")
 legend("topleft",
        inset = -.01,
        title = "Sample-wise gene expression statistics",
@@ -896,7 +910,62 @@ try(venn(selgenes), silent = TRUE)
 dev.off()
 try(dev.off(), silent = TRUE)
 
-## CHART 2
+
+
+## Chart 2
+## principal component analysis of gene distribution
+## get singular value deomposition which retains
+## a reduced number of orthogonal covariates
+## that explain as much variance as possibl
+genes.pca <- prcomp(t(dat[, -1]), scale = TRUE, center = TRUE)
+genes.scores <- as.data.frame(genes.pca$x)[,c(1:3)]
+genes.scores$handle <- rownames(genes.scores)
+
+## get pcs
+pcs <- t(data.frame(summary(genes.pca)$importance)[2, 1:3])
+
+## plot of observations from networks output
+sel.mods <- colnames(dat[, -1])
+genes2modules <- ids2modules[ ids2modules$ids %in% sel.mods, c(1, clustering.strategy)]
+colnames(genes2modules) <- c("handle", "mods")
+genes2modules$handle <- as.character(genes2modules$handle)
+
+pdf("pca.genes2D.bestLassoLambda.pdf")
+full_join(genes.scores, genes2modules, by = "handle") %>% 
+    ggplot(aes(x = PC1, y = PC2, colour = as.factor(mods))) +
+    geom_hline(yintercept = 0, colour = "gray65") +
+    geom_vline(xintercept = 0, colour = "gray65") +
+    geom_point() +
+    xlab(paste0("PC1 (",round(pcs[1]*100,2),"%)")) +
+    ylab(paste0("PC2 (",round(pcs[2]*100,2),"%)")) +
+    theme(legend.position = "none") +
+    theme_minimal()
+dev.off()
+
+
+## Chart 3
+## principal component analysis of sample distribution
+## get singular value deomposition
+class.pca <- prcomp(dat[, -1], scale = TRUE)
+class.scores <- as.data.frame(class.pca$x)[,c(1,2)]
+class.scores$handle <- rownames(class.scores)
+class.scores$ids <- dat[, 1]
+pcs <- t(data.frame(summary(class.pca)$importance)[2, 1:3])
+
+pdf("pca.class2D.bestLassoLambda.pdf")
+class.scores %>%
+    ggplot(aes(x = PC1, y = PC2, shape = as.factor(ids), color = as.factor(ids))) +
+    geom_hline(yintercept = 0, colour = "gray65") +
+    geom_vline(xintercept = 0, colour = "gray65") +
+    geom_point() +
+    xlab(paste0("PC1 (",round(pcs[1]*100,2),"%)")) +
+    ylab(paste0("PC2 (",round(pcs[2]*100,2),"%)")) +
+    theme(legend.position = "top") +
+    theme_minimal()
+dev.off()
+
+
+## CHART 4
 ## Correlation matrices for each group
 ## show correlation for selected genes from Lasso
 ## create heatmaps for genes specific for each sample class
@@ -958,7 +1027,7 @@ dev.off()
 try(dev.off(), silent = TRUE)
 
 
-## CHART 3
+## CHART 5
 ## box plot all selected genes
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
@@ -1021,7 +1090,7 @@ try(dev.off(), silent = TRUE)
 
 
 
-## CHART 4
+## CHART 6
 ## gene expression from lmfit data from limma eBayes empirical analysis
 pdf("bars.classifier.genes.pdf", onefile = TRUE)
 for ( g in grouping ) {
@@ -1060,7 +1129,7 @@ try(dev.off(), silent = TRUE)
 
 
 
-## CHART 5
+## CHART 7
 ##  RMA expressions
 pdf("boxplots.classifier.genes.pdf")
 for ( lev in 1:length(selgenes) ) {
@@ -1097,7 +1166,7 @@ try(dev.off(), silent = TRUE)
 
 
 
-## CHART 6
+## CHART 8
 ## RMA expression without contrast grouping
 pdf("boxplots.genes2groups.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
@@ -1134,7 +1203,7 @@ dev.off()
 try(dev.off(), silent = TRUE)
 
 
-## CHART 7
+## CHART 9
 ## clustering and bootstrap of lasso selected genes
 ## get adjusted pvalues of similar genes
 ## analysis will generate heatmaps for each contrast
@@ -1286,13 +1355,17 @@ parameter_counts <- c(
     1
 )
 
-######### debugging ##########
+## debugging single models
 model_types="svmPoly"
 parameter_counts=3
 
+
+##########################
 ######## STEP I ##########
+##########################
+## setting baseline metrics
 ## performance metrics for best model without hyperparameter optimization
-# create an index for the iteration holder below
+## create an index for the iteration holder below
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
 modet=ite=NULL
 ite=icc()
@@ -1354,11 +1427,14 @@ if ( file.exists(paste0("performance1.multianalysis.seed",ed)) ) {
 
 
 
-
+###########################
 ######## STEP II ##########
+###########################
+## improving the baseline metrics
 ## Classification across models with hyperparameter optimization
 ## with hyperparameter tuning
 systems.metrics <- NULL
+confusion.metrics <- NULL
 
 if ( classification == TRUE & grouped == TRUE ) {
     for ( m in 1:length(model_types) ) {
@@ -1375,7 +1451,7 @@ if ( classification == TRUE & grouped == TRUE ) {
         ## predicted output is saved
         model.name <- paste0(mods,"|",param)
 
-        model.metrics <- modelTune.clas(dat,training,method=mods,folds=10,r=5,tune=30, grid=TRUE)
+        model.metrics <- modelTune.clas(dat,training,method=mods,folds=10,r=5, grid=TRUE)
 
         ## aggregate all performance metrics
         ## only for predicted features
@@ -1442,10 +1518,11 @@ if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
 
 
 
-
+#####################
 ##### debugging #####
-
-modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TRUE){
+### new functions ###
+#####################
+modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confusion.metrics=NULL, systems.metrics=NULL){
     trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=rep,summaryFunction=defaultSummary)
     if ( grid == TRUE ) {
         if ( method == "gbm_h2o" ) {
@@ -1463,8 +1540,6 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                        .scale=10^seq(-1,-3,length=10),
                                        .C=seq(.1,2, length=20))
         } 
-
-
         lapsed <- system.time(modelTrain <- train(y~.,
                                                   data=dat[train,],
                                                   method=method,
@@ -1472,51 +1547,68 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, tune=10, grid=TR
                                                   preProc=c("center","scale"),
                                                   tuneGrid=grid_models,
                                                   weights = model_weights,
-                                                  tuneLength=tune))
-        
+                                                  tuneLength=c(folds*3)))
     } else if ( grid == FALSE ) {
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,trControl= trainCtrl,
                                                   preProc=c("center","scale")))  }
-    
     results <- modelTrain$results
-
-
-
-
     Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
-
-
-
-
-
     conf.m <- confusionMatrix(data=Predd, dat[-train,1])
     output <- list(timeLapsed=lapsed,bestModel=modelTrain,
                    Results=results,Hyperparameters=modelTrain$bestTune,
                    ConfusionMatrix=conf.m)
+
+    for ( iterations in c(1: c(folds * 2)) ) {
+        ## iterative prediction test for model performance
+        ## iterate over the same seed !!
+        set.seed(ed)
+        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
+        start <- format(Sys.time(), "%a-%d %X")
+        cat("\n  >> Sub-iteration", iterations, "on model", mods, "started at", start)
+        model.name <- paste0(mods,"|",iterations,"|",param)
+        ## predict over best hyperparameters
+        Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw")
+        conf.m <- confusionMatrix(data=Predd, dat[-subtrain,1])
+        
+        ## aggregate all prediction metrics
+        confusion.metrics <- rbind(confusion.metrics,
+                                   data.frame(model=model.name,
+                                              iteration=iterations,
+                                              conf.m$byClass,
+                                              accuracy=conf.m$overall[[1]],
+                                              accLow=conf.m$overall[[3]],
+                                              accHigh=conf.m$overll[[4]],
+                                              kappa=conf.m$overall[[2]],
+                                              accPval=conf.m$overall[[6]]))
+        
+        end <- format(Sys.time(), "%a-%d %X")
+        cat(". >>", mods, "execution successful at", end)
+    }
+
     return(output)
 }
 
-##unbalance.class <- table(y[training])/length(y[training])
-##model_weights <- as.numeric(1 - unbalance.class[y[training]])
+## unbalance.class <- table(y[training])/length(y[training])
+## model_weights <- as.numeric(1 - unbalance.class[y[training]])
 
 
-##model_weights <- ifelse(dat$y == "NOREL",
-##(1/table(dat$y)[1]) * 0.35,
-##(1/table(dat$y)[3]) * 0.5)
+## model_weights <- ifelse(dat$y == "NOREL",
+## (1/table(dat$y)[1]) * 0.35,
+## (1/table(dat$y)[3]) * 0.5)
 
-##mm.svm <- modelTune.clas(dat,training,method="svmPoly",folds=2,r=1,tune=1, grid=FALSE)
-##model_list <- list(original = mm.o$bestModel,
+mm.svm <- modelTune.clas(dat,training,method="svmPoly",folds=2,r=1,tune=1, grid=FALSE)
+## model_list <- list(original = mm.o$bestModel,
 ##                   weighted.nnet = mm.nnet$bestModel,
 ##                   weighted.linear = mm.linear$bestModel,
 ##                   weighted = mm.w$bestModel)
-##model_list %>% resamples %>% summary
+## model_list %>% resamples %>% summary
 
 
-###### experimental ######
-#compare_models(nnet0,rf1)
-#model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
-#modelTrain <- train(y~., data = dat, method = "glmnet_h2o", classProbs=TRUE)
+## #### experimental ######
+## compare_models(nnet0,rf1)
+## model.reg(dat,training,method="rf",folds=10,r=5,tune=10)
+## modelTrain <- train(y~., data = dat, method = "glmnet_h2o", classProbs=TRUE)
 
 
 
