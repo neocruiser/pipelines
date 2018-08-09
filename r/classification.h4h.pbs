@@ -41,7 +41,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## MUST DEFINE BEFORE EXECUTION
 _contrast=systemicRelapse
 _expressionJOBID=409794
-_networkJOBID=411094
+_networkJOBID=428684
 _geneRanking=FALSE
 
 ############
@@ -69,10 +69,6 @@ cp $project/networks/$_networkJOBID/summary/ids2description.summary.txt $output
 R CMD BATCH $output/script*/classification.R
 
 
-
-
-
-
 ##############
 ## PART III ##
 ##############
@@ -95,17 +91,9 @@ fi
 
 
 
-
-
-
-
 ## backup the expressions for the current job
 mv $output/expressions $output/expressions.NTWK$_networkJOBID.EXP$_expressionJOBID
 mv $output/*txt $output/summary
-
-
-
-
 
 
 #############
@@ -120,7 +108,7 @@ if [ ! -f "$_metrics" ]; then
     ## typically 10 iteractions, each resampled 25 times with the same seed
     ## and for all 25 models
     for m in Accuracy Kappa; do
-	cat $_metrics  | sed -n "/${m}/,/NA/p" |\
+	cat $_metrics | sed -n "/${m}/,/NA/p" |\
 	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\titeration\tparameters\tMin/g' \
 		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
 		> $output/log.$m.$(basename $_metrics)."${pbs}".txt
@@ -134,7 +122,7 @@ _metrics=$output/performance2*
 if [ ! -f "$_metrics" ]; then
     ## get model metrics for tuning parameters
     for m in Accuracy ; do
-	cat $_metrics  | sed -n "/${m}/,/NA/p" |\
+	cat $_metrics | sed -n "/${m}/,/NA/p" |\
 	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\tparameters\tMin/g' \
 		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
 		> $output/log.$m.$(basename $_metrics)."${pbs}".txt
@@ -148,7 +136,29 @@ fi
 _metrics=$output/performance3*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
-    cat $_metrics  | sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
+    cat $_metrics | sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
+			 > $output/log.$(basename $_metrics)."${pbs}".txt
+    rm $_metrics
+else
+    echo -e "\nPerformance analysis with parameter tuning unsuccessful"
+fi
+
+
+_metrics=$output/performance4*
+if [ ! -f "$_metrics" ]; then
+    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    cat $_metrics | sed -e 's/^Class..//g' -e 's/^iteration/group\titeration/g' \
+			 > $output/log.$(basename $_metrics)."${pbs}".txt
+    rm $_metrics
+else
+    echo -e "\nPerformance analysis with parameter tuning unsuccessful"
+fi
+
+
+_metrics=$output/performance5*
+if [ ! -f "$_metrics" ]; then
+    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    cat $_metrics | sed -e 's/.hg.../\t/g' -e 's/^CNS/genes\tCNS/g' \
 			 > $output/log.$(basename $_metrics)."${pbs}".txt
     rm $_metrics
 else

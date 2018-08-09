@@ -213,7 +213,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
                                        .activation=c("relu"))
         } else if ( method == "dnn" ) {
             ## stacked autoencoder deep neural network
-            grid_models <- expand.grid(.layer1=seq(1:15),.layer2=seq(1:3),.layer3=seq(1:2),
+            grid_models <- expand.grid(.layer1=seq(1:5),.layer2=seq(1:10),.layer3=seq(1:10),
                                        .hidden_dropout=10^seq(-1,-7,length=10),
                                        .visible_dropout=10^seq(-1,-7,length=10))
         }
@@ -414,7 +414,7 @@ sink()
 ## this is due to the unbalanced nature of cross validation
 ## SOLUTION: the while condition will repeat the test until success
 success=FALSE
-epochs=20
+epochs=40
 
 while (success == FALSE) {
     pdf(paste0("cvROC.shrinking.epochs",epochs,".",response,".pdf"))
@@ -991,11 +991,6 @@ try(dev.off(), silent = TRUE)
 ## box plot all selected genes
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
-## sample grouping based on available labels
-metalabels <- list(groups = metadata$Groups,
-                   nodes = metadata$Nodes,
-                   coo = metadata$Prediction)
-
 pdf("boxplots.groups2genes.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(selgenes) ) {
     ## get the genes that intersect
@@ -1308,8 +1303,8 @@ parameter_counts <- c(
 )
 
 ## debugging single models
-model_types="svmPoly"
-parameter_counts=3
+##model_types="svmPoly"
+##parameter_counts=3
 
 
 ##########################
@@ -1363,7 +1358,9 @@ for ( epochs in c(1:10) ) {
     }
 }
 
-## summary 1
+###############
+## summary 1 ##
+###############
 ## performance metrics between models with repeated iterations
 sink(paste0("performance1.multianalysis.seed",ed))
 performance_summary %>% resamples %>% summary
@@ -1386,6 +1383,7 @@ if ( file.exists(paste0("performance1.multianalysis.seed",ed)) ) {
 ## Classification across models with hyperparameter optimization
 ## with hyperparameter tuning
 if ( classification == TRUE & grouped == TRUE ) {
+    importance <- NULL
     for ( m in 1:length(model_types) ) {
 
         gc()
@@ -1402,6 +1400,12 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         model.metrics <- modelTune.clas(dat,training,method=mods,folds=10,r=5, grid=TRUE)
 
+        ## get predictor importance
+        ## accuracy of a predictor is calculated to detect a decrease after permutation without it
+        ## reported as class-specific decreases in accuracy
+        bestmod <- varImp(model.metrics$bestModel)
+        importance <- rbind(importance, round(bestmod[[1]], 2))
+
         ## aggregate all performance metrics
         ## only for predicted features
         ## contains results and tuned/selected parameters per model
@@ -1410,7 +1414,7 @@ if ( classification == TRUE & grouped == TRUE ) {
             names(performance_summaryFull)[m] <- model.name
         } else if ( m > 1 ) {
             performance_summaryFull <- c(performance_summaryFull, list(model.metrics$bestModel))
-            names(performance_summaryFull)[m] <- model.name        
+            names(performance_summaryFull)[m] <- model.name
         }
 
         ## get iteration speed
@@ -1426,7 +1430,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## end logging
         end <- format(Sys.time(), "%a-%d %X")
-        cat(paste0(". >> ",mods," execution successful at ", end,
+        cat(paste0(">> ",mods," execution successful at ", end,
                    " - Duration: ",durationMinutes,"min",
                    " (",round(durationMinutes/60,2),"H)"))
     }
@@ -1441,16 +1445,36 @@ if ( classification == TRUE & grouped == TRUE ) {
 
 }
 
-## summary 2
+###############
+## summary 2 ##
+###############
 ## performance metrics for best model while hyperparameters tuning
 sink(paste0("performance2.hyperTuning.seed",ed))
 performance_summaryFull %>% resamples %>% summary
 sink()
 
-## summary 3
+###############
+## summary 3 ##
+###############
 ## performance metrics for best classifier
 write.table(systems.metrics,
             paste0("performance3.full.hyperTuning.seed",ed),
+            sep = "\t", quote = FALSE)
+
+###############
+## summary 4 ##
+###############
+## performance metrics for best classifier
+write.table(model.metrics$metrics,
+            paste0("performance4.iterated.prediction.seed",ed),
+            sep = "\t", quote = FALSE)
+
+###############
+## summary 5 ##
+###############
+## performance metrics for best classifier
+write.table(importance,
+            paste0("performance5.importance.seed",ed),
             sep = "\t", quote = FALSE)
 
 ## save classification output
@@ -1462,9 +1486,6 @@ if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
     sink("model.training.w.tuning.ok")
     sink()
 }
-
-
-
 
 
 #####################
@@ -1543,7 +1564,13 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, rep=5, grid=TRUE,
 ## (1/table(dat$y)[1]) * 0.35,
 ## (1/table(dat$y)[3]) * 0.5)
 
-##mm.svm <- modelTune.clas.debug(dat,training,method="svmPoly",folds=2,r=1, grid=FALSE)
+mm.svm <- modelTune.clas.debug(dat,training,method="svmPoly",folds=2,r=1, grid=FALSE)
+
+## bestmod <- varImp(mm.svm$bestModel)
+## pdf("test.pdf")
+## plot(bestmod, size =.5)
+## dev.off()
+
 ## model_list <- list(original = mm.o$bestModel,
 ##                   weighted.nnet = mm.nnet$bestModel,
 ##                   weighted.linear = mm.linear$bestModel,
