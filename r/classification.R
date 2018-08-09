@@ -24,6 +24,10 @@ lasso.std=FALSE
 ## choose between methods of normalization and correlation
 ## variable will be extracted from ids2modules
 ## the latter is generated from gene networks
+## which correlation, power, normalization methods used from network analysis
+## 3 is >> Genes per Module = 215 (variable, usually mean network size),
+## Power = 4, TH = 0.5,
+## STD = hellinger, CLU = complete, COR = pearson
 clustering.strategy = 3
 
 ## choose contrasts
@@ -39,6 +43,7 @@ ids <- read.table("summary/sampleIDs")
 ids2modules <- read.table("./ids2modules.summary.txt", header = TRUE)
 ids2description <- read.table("./ids2description.summary.txt", header = FALSE, fill = TRUE)
 colnames(ids2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
+
 
 
 ##########################
@@ -213,15 +218,6 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
                                        .visible_dropout=10^seq(-1,-7,length=10))
         }
 
-##        ## reassign weights for imbalanced samples
-##        ## some model do not accept weights though
-##        if ( sample.classes == "Groups" ) {
-##            ## up-weighting imbalanced samples
-##            model_weights <- ifelse(dat$y == "NOREL",
-##            (1/table(dat$y)[1]) * 0.35,
-##            (1/table(dat$y)[3]) * 0.5)
-##            }
-
         ## train the model
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,
@@ -242,7 +238,28 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
 
     ## get performance scores from out-of-bag observations
     ## after cross validation during hyperparameter tuning
-    results <- modelTrain$results
+    for ( iterations in c(1: c(folds * 2)) ) {
+        ## iterative prediction test for model performance
+        ed <- floor(abs(rnorm(1) * 10000000))
+        set.seed(ed)
+        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
+
+        cat("\n  >> Sub-iteration", iterations, "on model", method, "started")
+        ## predict over best hyperparameters
+        end <- system.time(Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw"))
+        conf.m <- confusionMatrix(data=Predd, dat[-subtrain,1])
+        ## aggregate all prediction metrics
+        confusion.metrics <- rbind(confusion.metrics,
+                                   data.frame(iteration=iterations,
+                                              seed=ed,
+                                              conf.m$byClass,
+                                              accuracy=conf.m$overall[[1]],
+                                              accLow=conf.m$overall[[3]],
+                                              accHigh=conf.m$overall[[4]],
+                                              kappa=conf.m$overall[[2]],
+                                              accPval=conf.m$overall[[6]]))
+        cat(" >", method, "validated successfully in (s)", end[[1]], "@accuracy", conf.m$overall[[1]])
+    }
 
     ## get prediction accuracy
     ## confusion matrix for classification
@@ -254,9 +271,10 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
     ## tuning accuracy per parameter
     output <- list(timeLapsed=lapsed,
                    bestModel=modelTrain,
-                   Results=results,
+                   Results=modelTrain$results,
                    Hyperparameters=modelTrain$bestTune,
-                   ConfusionMatrix=conf.m)
+                   ConfusionMatrix=conf.m,
+                   metrics=confusion.metrics)
     return(output)
 }
 
@@ -392,9 +410,9 @@ sink()
      ##  |   |-- plot final accuracy at this lambda cutoff                       ##
      ##############################################################################
 
-# WARNING: sometimes LOGNET throws an error of 0 or 1 observations
-# this is due to the unbalanced nature of cross validation
-# SOLUTION: the while condition will repeat the test until success
+## WARNING: sometimes LOGNET throws an error of 0 or 1 observations
+## this is due to the unbalanced nature of cross validation
+## SOLUTION: the while condition will repeat the test until success
 success=FALSE
 epochs=20
 
@@ -435,24 +453,6 @@ while (success == FALSE) {
             tr <- length(training)
             print(round((table(y[training])/tr) * 100),2)
 
-            ## make sure all sample categories are included
-            ## in the training and testing sets
-            ## if not, errors occur during training
-            ## for missing observations in certain classes
-            ## while (
-            ## (length(unique(y[training])) != nlevels(y))
-            ## &
-            ## (length(unique(y[-training])) != nlevels(y))
-            ## ) {
-            ##     ede <- floor(abs(rnorm(1) * 10000000))
-            ##     set.seed(ede)
-            ##     # split 70% of the data
-            ##     randomize <- sample(nrow(adj.x))
-            ##     training <- sample(randomize, nrow(adj.x)/1.429)
-            ##     #table(y[-training])
-            ##     tr <- length(training)
-            ## }
-
             ## fit a generalized linear model via penalized maximum likelihood
             ## if alpha 1 then lasso L1 penality and discard genes
             ## if alpha 0 then ridge regression then L2 and rank genes
@@ -461,46 +461,6 @@ while (success == FALSE) {
                 ncv=10
                 setalpha=1
                 nfold <- 10
-
-                ## ## treating sample imbalances
-                ## ## by manually assigning CV folds
-                ## ## and by up-weithing over represented samples for shrinkage
-                ## if ( sample.classes == "Groups" ) {
-                ##     ## assign folds evenly using the modulus operator
-                ##     foldid <- as.numeric(length(y[training]))
-                ##     fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
-                ##     fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
-                ##     fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
-                ##     foldid[ y[training] == "CNS" ] <- fold0
-                ##     foldid[ y[training] == "SYST" ] <- fold1
-                ##     foldid[ y[training] == "NOREL" ] <- fold2
-                ##     foldid.custom <- foldid + 1
-
-                ##     ## assign weights
-                ##     unbalance.class <- table(y[training])/length(y[training])
-                ##     weights.class <- 1 - unbalance.class[y[training]]
-
-                ## } else if ( sample.classes == "Contrast2" ) {
-                ##     ## assign folds evenly using the modulus operator
-                ##     foldid <- as.numeric(length(y[training]))
-                ##     fold0 <- sample.int(sum(y[training] == "CNS.EN")) %% nfold
-                ##     fold1 <- sample.int(sum(y[training] == "SYST.EN")) %% nfold
-                ##     fold2 <- sample.int(sum(y[training] == "NOREL.EN")) %% nfold
-                ##     fold3 <- sample.int(sum(y[training] == "CNS.LN")) %% nfold    
-                ##     fold4 <- sample.int(sum(y[training] == "SYST.LN")) %% nfold    
-                ##     fold5 <- sample.int(sum(y[training] == "NOREL.LN")) %% nfold    
-                ##     foldid[ y[training] == "CNS.EN" ] <- fold0
-                ##     foldid[ y[training] == "SYST.EN" ] <- fold1
-                ##     foldid[ y[training] == "NOREL.EN" ] <- fold2
-                ##     foldid[ y[training] == "CNS.LN" ] <- fold3
-                ##     foldid[ y[training] == "SYST.LN" ] <- fold4
-                ##     foldid[ y[training] == "NOREL.LN" ] <- fold5
-                ##     foldid.custom <- foldid + 1
-
-                ##     ## assign weights
-                ##     unbalance.class <- table(y[training])/length(y[training])
-                ##     weights.class <- 1 - unbalance.class[y[training]]
-                ## }
 
                 ## fitting a symmetric multinomial model,
                 grid <- 10^seq(5, -5, length=100)
@@ -1031,14 +991,6 @@ try(dev.off(), silent = TRUE)
 ## box plot all selected genes
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
-vints <- attr(venn(selgenes), "intersections")
-
-## which correlation, power, normalization methods used from network analysis
-## 3 is >> Genes per Module = 215 (variable, usually mean network size),
-## Power = 4, TH = 0.5,
-## STD = hellinger, CLU = complete, COR = pearson
-clustering.strategy = 3
-
 ## sample grouping based on available labels
 metalabels <- list(groups = metadata$Groups,
                    nodes = metadata$Nodes,
@@ -1433,9 +1385,6 @@ if ( file.exists(paste0("performance1.multianalysis.seed",ed)) ) {
 ## improving the baseline metrics
 ## Classification across models with hyperparameter optimization
 ## with hyperparameter tuning
-systems.metrics <- NULL
-confusion.metrics <- NULL
-
 if ( classification == TRUE & grouped == TRUE ) {
     for ( m in 1:length(model_types) ) {
 
@@ -1522,7 +1471,7 @@ if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
 ##### debugging #####
 ### new functions ###
 #####################
-modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confusion.metrics=NULL, systems.metrics=NULL){
+modelTune.clas.debug <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confusion.metrics=NULL, systems.metrics=NULL){
     trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=rep,summaryFunction=defaultSummary)
     if ( grid == TRUE ) {
         if ( method == "gbm_h2o" ) {
@@ -1540,52 +1489,49 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
                                        .scale=10^seq(-1,-3,length=10),
                                        .C=seq(.1,2, length=20))
         } 
+
         lapsed <- system.time(modelTrain <- train(y~.,
                                                   data=dat[train,],
                                                   method=method,
                                                   trControl= trainCtrl,
                                                   preProc=c("center","scale"),
                                                   tuneGrid=grid_models,
-                                                  weights = model_weights,
+##                                                  weights = model_weights,
                                                   tuneLength=c(folds*3)))
     } else if ( grid == FALSE ) {
         lapsed <- system.time(modelTrain <- train(y~., data=dat[train,],
                                                   method=method,trControl= trainCtrl,
                                                   preProc=c("center","scale")))  }
-    results <- modelTrain$results
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
-    conf.m <- confusionMatrix(data=Predd, dat[-train,1])
-    output <- list(timeLapsed=lapsed,bestModel=modelTrain,
-                   Results=results,Hyperparameters=modelTrain$bestTune,
-                   ConfusionMatrix=conf.m)
 
     for ( iterations in c(1: c(folds * 2)) ) {
         ## iterative prediction test for model performance
-        ## iterate over the same seed !!
+        ed <- floor(abs(rnorm(1) * 10000000))
         set.seed(ed)
         subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
-        start <- format(Sys.time(), "%a-%d %X")
-        cat("\n  >> Sub-iteration", iterations, "on model", mods, "started at", start)
-        model.name <- paste0(mods,"|",iterations,"|",param)
+        cat("\n  >> Sub-iteration", iterations, "on model", method, "started")
         ## predict over best hyperparameters
-        Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw")
+        end <- system.time(Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw"))
         conf.m <- confusionMatrix(data=Predd, dat[-subtrain,1])
-        
         ## aggregate all prediction metrics
         confusion.metrics <- rbind(confusion.metrics,
-                                   data.frame(model=model.name,
-                                              iteration=iterations,
+                                   data.frame(iteration=iterations,
+                                              seed=ed,
                                               conf.m$byClass,
                                               accuracy=conf.m$overall[[1]],
                                               accLow=conf.m$overall[[3]],
-                                              accHigh=conf.m$overll[[4]],
+                                              accHigh=conf.m$overall[[4]],
                                               kappa=conf.m$overall[[2]],
                                               accPval=conf.m$overall[[6]]))
         
-        end <- format(Sys.time(), "%a-%d %X")
-        cat(". >>", mods, "execution successful at", end)
+        cat(" >", method, "validated successfully in (s)", end[[1]], "@accuracy", conf.m$overall[[1]])
     }
 
+    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+    conf.m <- confusionMatrix(data=Predd, dat[-train,1])
+    output <- list(timeLapsed=lapsed,bestModel=modelTrain,
+                   Results=modelTrain$results,Hyperparameters=modelTrain$bestTune,
+                   ConfusionMatrix=conf.m,
+                   metrics=confusion.metrics)
     return(output)
 }
 
@@ -1597,7 +1543,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
 ## (1/table(dat$y)[1]) * 0.35,
 ## (1/table(dat$y)[3]) * 0.5)
 
-mm.svm <- modelTune.clas(dat,training,method="svmPoly",folds=2,r=1,tune=1, grid=FALSE)
+##mm.svm <- modelTune.clas.debug(dat,training,method="svmPoly",folds=2,r=1, grid=FALSE)
 ## model_list <- list(original = mm.o$bestModel,
 ##                   weighted.nnet = mm.nnet$bestModel,
 ##                   weighted.linear = mm.linear$bestModel,
@@ -1623,3 +1569,82 @@ sessionInfo()
 sink()
 
 ##load("EnsembleMethods.Rdata", .GlobalEnv)
+
+
+
+
+############## add the gist to the modelTune.clas function before training the model
+############## the following will assign weights to samples (method 1)
+##        ## reassign weights for imbalanced samples
+##        ## some model do not accept weights though
+##        if ( sample.classes == "Groups" ) {
+##            ## up-weighting imbalanced samples
+##            model_weights <- ifelse(dat$y == "NOREL",
+##            (1/table(dat$y)[1]) * 0.35,
+##            (1/table(dat$y)[3]) * 0.5)
+##            }
+
+
+############## add the gist to the while loop before weighting
+## make sure all sample categories are included
+## in the training and testing sets
+## if not, errors occur during training
+## for missing observations in certain classes
+## while (
+## (length(unique(y[training])) != nlevels(y))
+## &
+## (length(unique(y[-training])) != nlevels(y))
+## ) {
+##     ede <- floor(abs(rnorm(1) * 10000000))
+##     set.seed(ede)
+##     # split 70% of the data
+##     randomize <- sample(nrow(adj.x))
+##     training <- sample(randomize, nrow(adj.x)/1.429)
+##     #table(y[-training])
+##     tr <- length(training)
+## }
+
+
+
+############### add it to the while loop before regularization
+############### the following will assign weights to imbalanced samples (method 2)
+## ## treating sample imbalances
+## ## by manually assigning CV folds
+## ## and by up-weithing over represented samples for shrinkage
+## if ( sample.classes == "Groups" ) {
+##     ## assign folds evenly using the modulus operator
+##     foldid <- as.numeric(length(y[training]))
+##     fold0 <- sample.int(sum(y[training] == "CNS")) %% nfold
+##     fold1 <- sample.int(sum(y[training] == "SYST")) %% nfold
+##     fold2 <- sample.int(sum(y[training] == "NOREL")) %% nfold
+##     foldid[ y[training] == "CNS" ] <- fold0
+##     foldid[ y[training] == "SYST" ] <- fold1
+##     foldid[ y[training] == "NOREL" ] <- fold2
+##     foldid.custom <- foldid + 1
+
+##     ## assign weights
+##     unbalance.class <- table(y[training])/length(y[training])
+##     weights.class <- 1 - unbalance.class[y[training]]
+
+## } else if ( sample.classes == "Contrast2" ) {
+##     ## assign folds evenly using the modulus operator
+##     foldid <- as.numeric(length(y[training]))
+##     fold0 <- sample.int(sum(y[training] == "CNS.EN")) %% nfold
+##     fold1 <- sample.int(sum(y[training] == "SYST.EN")) %% nfold
+##     fold2 <- sample.int(sum(y[training] == "NOREL.EN")) %% nfold
+##     fold3 <- sample.int(sum(y[training] == "CNS.LN")) %% nfold    
+##     fold4 <- sample.int(sum(y[training] == "SYST.LN")) %% nfold    
+##     fold5 <- sample.int(sum(y[training] == "NOREL.LN")) %% nfold    
+##     foldid[ y[training] == "CNS.EN" ] <- fold0
+##     foldid[ y[training] == "SYST.EN" ] <- fold1
+##     foldid[ y[training] == "NOREL.EN" ] <- fold2
+##     foldid[ y[training] == "CNS.LN" ] <- fold3
+##     foldid[ y[training] == "SYST.LN" ] <- fold4
+##     foldid[ y[training] == "NOREL.LN" ] <- fold5
+##     foldid.custom <- foldid + 1
+
+##     ## assign weights
+##     unbalance.class <- table(y[training])/length(y[training])
+##     weights.class <- 1 - unbalance.class[y[training]]
+## }
+
