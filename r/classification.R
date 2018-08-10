@@ -1,7 +1,8 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
           'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan',
-          'reshape2', 'ggplot2', 'tidyr', 'plyr')
+          'reshape2', 'ggplot2', 'tidyr', 'plyr',
+          'plot3D')
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging
@@ -933,13 +934,44 @@ full_join(genes.scores, genes2modules, by = "handle") %>%
     theme(legend.position = "none") +
     theme_minimal()
 dev.off()
+try(dev.off(), silent = TRUE)
+
+
+## Chart 2.1
+## 3D PCAp
+dpf <- full_join(genes.scores, genes2modules, by = "handle")
+fit <- lm(dpf$PC3 ~ dpf$PC1 + dpf$PC2)
+# predict values on regular xy grid
+grid.lines = 4
+x.pred <- seq(min(dpf$PC1), max(dpf$PC1), length.out = grid.lines)
+y.pred <- seq(min(dpf$PC2), max(dpf$PC2), length.out = grid.lines)
+xy <- expand.grid( x = x.pred, y = y.pred)
+z.pred <- matrix(predict(fit, newdata = xy), 
+                 nrow = grid.lines, ncol = grid.lines)
+fitpoints <- predict(fit)
+
+pdf("pca.genes3D.bestLassoLambda.pdf")
+scatter3D(dpf$PC1, dpf$PC2, dpf$PC3,
+          col.var = dpf$mods,
+          col = selected.colors,
+          pch = 19, cex = 1,
+          bty = "g", colkey = FALSE,
+          theta = 60,
+          phi = 5,
+          xlab = paste0("PC1 (",round(pcs[1]*100,2),"%)"),
+          ylab = paste0("PC2 (",round(pcs[2]*100,2),"%)"),
+          zlab = paste0("PC3 (",round(pcs[3]*100,2),"%)"),
+          surf = list(x = x.pred, y = y.pred, z = z.pred,  
+                      facets = NA, fit = fitpoints))
+dev.off()
+try(dev.off(), silent = TRUE)
 
 
 ## Chart 3
 ## principal component analysis of sample distribution
 ## get singular value deomposition
 class.pca <- prcomp(dat[, -1], scale = TRUE)
-class.scores <- as.data.frame(class.pca$x)[,c(1,2)]
+class.scores <- as.data.frame(class.pca$x)[,c(1:3)]
 class.scores$handle <- rownames(class.scores)
 class.scores$ids <- dat[, 1]
 pcs <- t(data.frame(summary(class.pca)$importance)[2, 1:3])
@@ -955,6 +987,7 @@ class.scores %>%
     theme(legend.position = "top") +
     theme_minimal()
 dev.off()
+try(dev.off(), silent = TRUE)
 
 
 ## CHART 4
