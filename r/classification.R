@@ -87,7 +87,7 @@ miniBatch.balancedSampling <- function (meta.selected, y, adj.x, batch = 65, min
 
 
 ## Multi model classification
-modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confusion.metrics=NULL, systems.metrics=NULL){
+modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.metrics=NULL){
     ## requires caret
     ## GRID search HYPERPARAMETERS tuning
     ## Cross validation for parameter tuning
@@ -96,7 +96,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
     ## output are logged under different formats for different performance summarizations
     trainCtrl <- trainControl(method="repeatedcv",
                               number=folds,
-                              repeats=rep,
+                              repeats=c(folds/2),
                               summaryFunction=defaultSummary)
     
     ## Choosing the right Hyper-parameters. GRID ANALYSIS
@@ -244,13 +244,14 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
         set.seed(ed)
         subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
 
-        cat("\n  >> Sub-iteration", iterations, "on model", method, "started")
+        cat("\n  >>> Sub-iteration", iterations, "on model", method, "started")
         ## predict over best hyperparameters
         end <- system.time(Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw"))
         conf.m <- confusionMatrix(data=Predd, dat[-subtrain,1])
         ## aggregate all prediction metrics
         confusion.metrics <- rbind(confusion.metrics,
                                    data.frame(iteration=iterations,
+                                              model=method,
                                               seed=ed,
                                               conf.m$byClass,
                                               accuracy=conf.m$overall[[1]],
@@ -258,7 +259,7 @@ modelTune.clas <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confu
                                               accHigh=conf.m$overall[[4]],
                                               kappa=conf.m$overall[[2]],
                                               accPval=conf.m$overall[[6]]))
-        cat(" >", method, "validated successfully in (s)", end[[1]], "@accuracy", conf.m$overall[[1]])
+        cat(" &", method, "validated successfully in (ms)", c(end[[1]]*1000), "@accuracy", conf.m$overall[[1]])
     }
 
     ## get prediction accuracy
@@ -414,7 +415,7 @@ sink()
 ## this is due to the unbalanced nature of cross validation
 ## SOLUTION: the while condition will repeat the test until success
 success=FALSE
-epochs=40
+epochs=5
 
 while (success == FALSE) {
     pdf(paste0("cvROC.shrinking.epochs",epochs,".",response,".pdf"))
@@ -1313,12 +1314,16 @@ parameter_counts <- c(
 ## setting baseline metrics
 ## performance metrics for best model without hyperparameter optimization
 ## create an index for the iteration holder below
+## Split the dataset
+set.seed(ed)
+training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
+
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
 modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( epochs in c(1:10) ) {
+for ( epochs in c(1:2) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
@@ -1333,7 +1338,7 @@ for ( epochs in c(1:10) ) {
         ## models are trained in succession
         ## output is saved
         start <- format(Sys.time(), "%a-%d %X")
-        cat("\n>> Iteration", ie, "on model", mods, "started at", start)
+        cat(">> Iteration", ie, "on model", mods, "started at", start)
         modnam=models()
         model.name <- paste0(mods,"|",ie,"|",param)
         
@@ -1354,7 +1359,7 @@ for ( epochs in c(1:10) ) {
             names(performance_summary)[modnam] <- model.name        
         }
         end <- format(Sys.time(), "%a-%d %X")
-        cat(". >>", mods, "execution successful at", end)
+        cat(". >", mods, "execution successful at", end, "\n")
     }
 }
 
@@ -1382,8 +1387,13 @@ if ( file.exists(paste0("performance1.multianalysis.seed",ed)) ) {
 ## improving the baseline metrics
 ## Classification across models with hyperparameter optimization
 ## with hyperparameter tuning
+set.seed(ed)
+training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
+
 if ( classification == TRUE & grouped == TRUE ) {
     importance <- NULL
+    systems.metrics <- NULL
+    subtrain.metrics <- NULL
     for ( m in 1:length(model_types) ) {
 
         gc()
@@ -1398,7 +1408,7 @@ if ( classification == TRUE & grouped == TRUE ) {
         ## predicted output is saved
         model.name <- paste0(mods,"|",param)
 
-        model.metrics <- modelTune.clas(dat,training,method=mods,folds=10,r=5, grid=TRUE)
+        model.metrics <- modelTune.clas(dat,training,method=mods,folds=10, grid=TRUE)
 
         ## get predictor importance
         ## accuracy of a predictor is calculated to detect a decrease after permutation without it
@@ -1410,15 +1420,22 @@ if ( classification == TRUE & grouped == TRUE ) {
         ## only for predicted features
         ## contains results and tuned/selected parameters per model
         if ( m == 1 ){
+            ## extract/aggregate best model accuracy counts
             performance_summaryFull <- list(model.metrics$bestModel)
             names(performance_summaryFull)[m] <- model.name
+            ## extract/aggregate best model hyperparameters
+            parameters_summaryFull <- list(model.metrics$Hyperparameters)
+            names(parameters_summaryFull)[m] <- model.name
         } else if ( m > 1 ) {
             performance_summaryFull <- c(performance_summaryFull, list(model.metrics$bestModel))
             names(performance_summaryFull)[m] <- model.name
+            parameters_summaryFull <- c(parameters_summaryFull, list(model.metrics$Hyperparameters))
+            names(parameters_summaryFull)[m] <- model.name
         }
 
         ## get iteration speed
-        ## get sensitivity, specificity, precision scores ...
+        ## get sensitivity, specificity, precision scores
+        ## for models trained and validated 
         durationMinutes <- round(model.metrics$timeLapsed[[3]]/60, 2)
         systems.metrics <- rbind(systems.metrics,
                                  data.frame(model=mods,
@@ -1427,12 +1444,14 @@ if ( classification == TRUE & grouped == TRUE ) {
                                             accuracy=model.metrics$ConfusionMatrix$overall[[1]],
                                             kappa=model.metrics$ConfusionMatrix$overall[[2]],
                                             accuracyPval=model.metrics$ConfusionMatrix$overall[[6]]))
-
+        ## for models validated (only) at iterated epochs
+        subtrain.metrics <- rbind(subtrain.metrics, model.metrics$metrics)
+        
         ## end logging
         end <- format(Sys.time(), "%a-%d %X")
-        cat(paste0(">> ",mods," execution successful at ", end,
+        cat(paste0("\n>> ",mods," execution successful at ", end,
                    " - Duration: ",durationMinutes,"min",
-                   " (",round(durationMinutes/60,2),"H)"))
+                   " (",round(durationMinutes/60,2),"H)\n"))
     }
 
 } else if ( classification == TRUE & binomial == TRUE ) {
@@ -1456,7 +1475,7 @@ sink()
 ###############
 ## summary 3 ##
 ###############
-## performance metrics for best classifier
+## recall, sensitivity, specificity, etc. for best parameters during training (only)
 write.table(systems.metrics,
             paste0("performance3.full.hyperTuning.seed",ed),
             sep = "\t", quote = FALSE)
@@ -1464,22 +1483,22 @@ write.table(systems.metrics,
 ###############
 ## summary 4 ##
 ###############
-## performance metrics for best classifier
-write.table(model.metrics$metrics,
+## recall, sensitivity, specificity, etc. for best parameters during sub-training (only)
+write.table(subtrain.metrics,
             paste0("performance4.iterated.prediction.seed",ed),
             sep = "\t", quote = FALSE)
 
 ###############
 ## summary 5 ##
 ###############
-## performance metrics for best classifier
+## importance of variables
 write.table(importance,
             paste0("performance5.importance.seed",ed),
             sep = "\t", quote = FALSE)
 
 ## save classification output
-save(list=ls(pattern="systems.metrics"),file="systemsMetrics.Rdata")
-save(list=ls(pattern="perf*Full"),file="performanceSummaryFull.Rdata")
+save(list=ls(pattern="*metrics"),file="systemsMetrics.Rdata")
+save(list=ls(pattern="*summaryFull"),file="performanceSummaryFull.Rdata")
 
 
 if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
@@ -1492,8 +1511,9 @@ if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
 ##### debugging #####
 ### new functions ###
 #####################
-modelTune.clas.debug <- function(dat, train, method, folds=10, rep=5, grid=TRUE, confusion.metrics=NULL, systems.metrics=NULL){
-    trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=rep,summaryFunction=defaultSummary)
+modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confusion.metrics=NULL){
+    ##    trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=rep,summaryFunction=defaultSummary)
+        trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=c(folds/2),classProbs=T)
     if ( grid == TRUE ) {
         if ( method == "gbm_h2o" ) {
             grid_models <- expand.grid(.ntrees=seq(2,30,length=2),
@@ -1544,7 +1564,7 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, rep=5, grid=TRUE,
                                               kappa=conf.m$overall[[2]],
                                               accPval=conf.m$overall[[6]]))
         
-        cat(" >", method, "validated successfully in (s)", end[[1]], "@accuracy", conf.m$overall[[1]])
+        cat(" >", method, "validated successfully in (ms)", c(end[[1]]*1000), "@accuracy", conf.m$overall[[1]])
     }
 
     Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
@@ -1564,12 +1584,43 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, rep=5, grid=TRUE,
 ## (1/table(dat$y)[1]) * 0.35,
 ## (1/table(dat$y)[3]) * 0.5)
 
-mm.svm <- modelTune.clas.debug(dat,training,method="svmPoly",folds=2,r=1, grid=FALSE)
+## mm.svm <- modelTune.clas.debug(dat,training,method="svmPoly",folds=2,r=1, grid=FALSE)
 
+## ## importance
 ## bestmod <- varImp(mm.svm$bestModel)
 ## pdf("test.pdf")
 ## plot(bestmod, size =.5)
 ## dev.off()
+
+
+svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
+    hp <- model.metrics$Hyperparameters["svmPoly"]
+    trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=c(folds/2),classProbs=T)
+    grid_models <- expand.grid(.degree=hp[[1]], .scale=hp[[2]], .C=hp[[3]])
+    cat("Model training initiated [ok]\n")
+    modelTrain <- train(y~.,
+                        data=dat[train,],
+                        method="svmPoly",
+                        trControl= trainCtrl,
+                        preProc=c("center","scale"),
+                        tuneGrid=grid_models,
+                        tuneLength=c(folds*3))
+    cat("Model training finished [ok]\n")    
+    for ( iterations in c(1: c(folds * 2)) ) {
+        cat(" --> iteration", iterations, "[ok]\n")
+        ## iterative prediction test for model performance
+        ed <- floor(abs(rnorm(1) * 10000000))
+        set.seed(ed)
+        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
+        Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="prob")
+        risk.prob <- rbind(risk.prob, data.frame(epochs = iterations, original = y[-subtrain], Predd))
+    }
+    cat("Model validation finished [ok]\n")    
+    return(risk.prob)
+}
+
+
+## output <- svmPoly.prob(dat, train)
 
 ## model_list <- list(original = mm.o$bestModel,
 ##                   weighted.nnet = mm.nnet$bestModel,
