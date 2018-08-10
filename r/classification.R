@@ -280,6 +280,37 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
 }
 
 
+## get probabilityy scores for support vector machines (used as best predictor)
+svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
+    ## requires previous functions
+    ## requires hyperparameter tuning on best model
+    ## execution will run on 100 epochs
+    hp <- parameters_summaryFull[["svmPoly"]]
+    trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=c(folds/2),classProbs=T)
+    grid_models <- expand.grid(.degree=hp[[1]], .scale=hp[[2]], .C=hp[[3]])
+    cat("Model training initiated [ok]\n")
+    modelTrain <- train(y~.,
+                        data=dat[train,],
+                        method="svmPoly",
+                        trControl= trainCtrl,
+                        preProc=c("center","scale"),
+                        tuneGrid=grid_models,
+                        tuneLength=c(folds*3))
+    cat("Model training finished [ok]\n")    
+    for ( iterations in c(1: c(folds * 10)) ) {
+        cat(" --> iteration", iterations, "[ok]\n")
+        ## iterative prediction test for model performance
+        ed <- floor(abs(rnorm(1) * 10000000))
+        set.seed(ed)
+        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
+        Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="prob")
+        risk.prob <- rbind(risk.prob, data.frame(epochs = iterations, original = y[-subtrain], Predd))
+    }
+    cat("Model validation finished [ok]\n")    
+    return(risk.prob)
+}
+
+
 ##########################
 ## Load expression data ##
 ##########################
@@ -1425,12 +1456,12 @@ if ( classification == TRUE & grouped == TRUE ) {
             names(performance_summaryFull)[m] <- model.name
             ## extract/aggregate best model hyperparameters
             parameters_summaryFull <- list(model.metrics$Hyperparameters)
-            names(parameters_summaryFull)[m] <- model.name
+            names(parameters_summaryFull)[m] <- mods
         } else if ( m > 1 ) {
             performance_summaryFull <- c(performance_summaryFull, list(model.metrics$bestModel))
             names(performance_summaryFull)[m] <- model.name
             parameters_summaryFull <- c(parameters_summaryFull, list(model.metrics$Hyperparameters))
-            names(parameters_summaryFull)[m] <- model.name
+            names(parameters_summaryFull)[m] <- mods
         }
 
         ## get iteration speed
@@ -1446,6 +1477,11 @@ if ( classification == TRUE & grouped == TRUE ) {
                                             accuracyPval=model.metrics$ConfusionMatrix$overall[[6]]))
         ## for models validated (only) at iterated epochs
         subtrain.metrics <- rbind(subtrain.metrics, model.metrics$metrics)
+
+        ## run best model and get probability scores
+        if ( mods == "svmPoly" ) {
+            class.prob.bestmod <- svmPoly.prob(dat, train)
+        }
         
         ## end logging
         end <- format(Sys.time(), "%a-%d %X")
@@ -1485,7 +1521,7 @@ write.table(systems.metrics,
 ###############
 ## recall, sensitivity, specificity, etc. for best parameters during sub-training (only)
 write.table(subtrain.metrics,
-            paste0("performance4.iterated.prediction.seed",ed),
+            paste0("performance4.mini-batch.metrics.seed",ed),
             sep = "\t", quote = FALSE)
 
 ###############
@@ -1494,6 +1530,14 @@ write.table(subtrain.metrics,
 ## importance of variables
 write.table(importance,
             paste0("performance5.importance.seed",ed),
+            sep = "\t", quote = FALSE)
+
+###############
+## summary 6 ##
+###############
+## probabilities for each predicted sample by class
+write.table(class.prob.bestmod,
+            paste0("performance6.class_probabilities.seed",ed),
             sep = "\t", quote = FALSE)
 
 ## save classification output
@@ -1591,33 +1635,6 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confus
 ## pdf("test.pdf")
 ## plot(bestmod, size =.5)
 ## dev.off()
-
-
-svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
-    hp <- model.metrics$Hyperparameters["svmPoly"]
-    trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=c(folds/2),classProbs=T)
-    grid_models <- expand.grid(.degree=hp[[1]], .scale=hp[[2]], .C=hp[[3]])
-    cat("Model training initiated [ok]\n")
-    modelTrain <- train(y~.,
-                        data=dat[train,],
-                        method="svmPoly",
-                        trControl= trainCtrl,
-                        preProc=c("center","scale"),
-                        tuneGrid=grid_models,
-                        tuneLength=c(folds*3))
-    cat("Model training finished [ok]\n")    
-    for ( iterations in c(1: c(folds * 2)) ) {
-        cat(" --> iteration", iterations, "[ok]\n")
-        ## iterative prediction test for model performance
-        ed <- floor(abs(rnorm(1) * 10000000))
-        set.seed(ed)
-        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
-        Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="prob")
-        risk.prob <- rbind(risk.prob, data.frame(epochs = iterations, original = y[-subtrain], Predd))
-    }
-    cat("Model validation finished [ok]\n")    
-    return(risk.prob)
-}
 
 
 ## output <- svmPoly.prob(dat, train)
