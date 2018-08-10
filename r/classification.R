@@ -1,7 +1,7 @@
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
           'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan',
-          'reshape2', 'ggplot2', 'tidyr')
+          'reshape2', 'ggplot2', 'tidyr', 'plyr')
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging
@@ -223,7 +223,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
                                                   method=method,
                                                   trControl= trainCtrl,
                                                   preProc=c("center","scale"),
-##                                                  weights = model_weights,
+                                                  ## weights = model_weights,
                                                   tuneGrid=grid_models,
                                                   tuneLength=c(folds*3)))
 
@@ -238,7 +238,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
 
     ## get performance scores from out-of-bag observations
     ## after cross validation during hyperparameter tuning
-    for ( iterations in c(1: c(folds * 2)) ) {
+    for ( iterations in c(1: c(folds * 3)) ) {
         ## iterative prediction test for model performance
         ed <- floor(abs(rnorm(1) * 10000000))
         set.seed(ed)
@@ -249,7 +249,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
         end <- system.time(Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw"))
         conf.m <- confusionMatrix(data=Predd, dat[-subtrain,1])
         ## aggregate all prediction metrics
-        confusion.metrics <- rbind(confusion.metrics,
+        confusion.metrics <- rbind.fill(confusion.metrics,
                                    data.frame(iteration=iterations,
                                               model=method,
                                               seed=ed,
@@ -258,7 +258,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
                                               accLow=conf.m$overall[[3]],
                                               accHigh=conf.m$overall[[4]],
                                               kappa=conf.m$overall[[2]],
-                                              accPval=conf.m$overall[[6]]))
+                                              accPval=conf.m$overall[[6]]), fill = TRUE)
         cat(" &", method, "validated successfully in (ms)", c(end[[1]]*1000), "@accuracy", conf.m$overall[[1]])
     }
 
@@ -288,7 +288,7 @@ svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
     hp <- parameters_summaryFull[["svmPoly"]]
     trainCtrl <- trainControl(method="repeatedcv",number=folds,repeats=c(folds/2),classProbs=T)
     grid_models <- expand.grid(.degree=hp[[1]], .scale=hp[[2]], .C=hp[[3]])
-    cat("Model training initiated [ok]\n")
+    cat("\nModel training initiated [ok]\n")
     modelTrain <- train(y~.,
                         data=dat[train,],
                         method="svmPoly",
@@ -298,7 +298,7 @@ svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
                         tuneLength=c(folds*3))
     cat("Model training finished [ok]\n")    
     for ( iterations in c(1: c(folds * 10)) ) {
-        cat(" --> iteration", iterations, "[ok]\n")
+        cat("  --> iteration", iterations, "[ok]\n")
         ## iterative prediction test for model performance
         ed <- floor(abs(rnorm(1) * 10000000))
         set.seed(ed)
@@ -306,7 +306,7 @@ svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
         Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="prob")
         risk.prob <- rbind(risk.prob, data.frame(epochs = iterations, original = y[-subtrain], Predd))
     }
-    cat("Model validation finished [ok]\n")    
+    cat("Model validation finished [ok]")    
     return(risk.prob)
 }
 
@@ -1354,7 +1354,7 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( epochs in c(1:2) ) {
+for ( epochs in c(1:10) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
     ie=ite()
@@ -1445,7 +1445,8 @@ if ( classification == TRUE & grouped == TRUE ) {
         ## accuracy of a predictor is calculated to detect a decrease after permutation without it
         ## reported as class-specific decreases in accuracy
         bestmod <- varImp(model.metrics$bestModel)
-        importance <- rbind(importance, round(bestmod[[1]], 2))
+        importance <- rbind(importance, data.frame(model = mods,
+                                                   round(bestmod[[1]][, levels(y)], 2)))
 
         ## aggregate all performance metrics
         ## only for predicted features
@@ -1480,7 +1481,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## run best model and get probability scores
         if ( mods == "svmPoly" ) {
-            class.prob.bestmod <- svmPoly.prob(dat, train)
+            class.prob.bestmod <- svmPoly.prob(dat, training)
         }
         
         ## end logging
@@ -1742,4 +1743,3 @@ sink()
 ##     unbalance.class <- table(y[training])/length(y[training])
 ##     weights.class <- 1 - unbalance.class[y[training]]
 ## }
-

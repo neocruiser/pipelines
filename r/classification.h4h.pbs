@@ -132,7 +132,6 @@ else
     echo -e "\nTuning parameters unsuccessful"
 fi
 
-
 _metrics=$output/performance3*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
@@ -142,7 +141,6 @@ if [ ! -f "$_metrics" ]; then
 else
     echo -e "\nPerformance analysis with parameter tuning unsuccessful"
 fi
-
 
 _metrics=$output/performance4*
 if [ ! -f "$_metrics" ]; then
@@ -154,12 +152,21 @@ else
     echo -e "\nPerformance analysis with parameter tuning unsuccessful"
 fi
 
-
 _metrics=$output/performance5*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
-    cat $_metrics | sed -e 's/.hg.../\t/g' -e 's/^CNS/genes\tCNS/g' \
-			 > $output/log.$(basename $_metrics)."${pbs}".txt
+    cat $_metrics | sed -e 's/.hg.../\t/g' -e 's/^model/genes\tmodel/g' \
+			> $output/log.$(basename $_metrics)."${pbs}".txt
+    rm $_metrics
+else
+    echo -e "\nPerformance analysis with parameter tuning unsuccessful"
+fi
+
+_metrics=$output/performance6*
+if [ ! -f "$_metrics" ]; then
+    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    cat $_metrics | sed -e 's/^epochs/rwn\tepochs/g' \
+			> $output/log.$(basename $_metrics)."${pbs}".txt
     rm $_metrics
 else
     echo -e "\nPerformance analysis with parameter tuning unsuccessful"
