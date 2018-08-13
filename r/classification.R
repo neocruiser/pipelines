@@ -250,7 +250,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
         end <- system.time(Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw"))
         conf.m <- confusionMatrix(data=Predd, dat[-subtrain,1])
         ## aggregate all prediction metrics
-        confusion.metrics <- rbind.fill(confusion.metrics,
+        confusion.metrics <- rbind(confusion.metrics,
                                    data.frame(iteration=iterations,
                                               model=method,
                                               seed=ed,
@@ -259,7 +259,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
                                               accLow=conf.m$overall[[3]],
                                               accHigh=conf.m$overall[[4]],
                                               kappa=conf.m$overall[[2]],
-                                              accPval=conf.m$overall[[6]]), fill = TRUE)
+                                              accPval=conf.m$overall[[6]]))
         cat(" &", method, "validated successfully in (ms)", c(end[[1]]*1000), "@accuracy", conf.m$overall[[1]])
     }
 
@@ -765,9 +765,9 @@ dim(dat)
 cat("\nGroup imabalances across available all samples: ")
 round(table(dat$y)/length(dat$y)*100, 2)
 
-set.seed(ed)
-gc()
- 
+## get gene names
+gene.names <-  ids2description[ ids2description$genes %in% colnames(dat), c(4:5)]
+write.table(gene.names, "gene.names_bestLambda", sep = '\t', row.names = FALSE, quote = FALSE)
 
 # plot lambda iterations
 #par(mfrow = c(3,4))
@@ -792,6 +792,7 @@ gc()
 ## Helmert regressors compare each level with the average of the preceding ones
 ## first coefficient is the mean of the first two levels minus the first level
 ## coefficient is the mean of all three levels minus the mean of the first two levels
+set.seed(ed)
 associations <- y
 contrasts(associations) <- "contr.helmert"
 contrasts(associations)
@@ -1477,9 +1478,14 @@ if ( classification == TRUE & grouped == TRUE ) {
         ## get predictor importance
         ## accuracy of a predictor is calculated to detect a decrease after permutation without it
         ## reported as class-specific decreases in accuracy
+        if ( mods != "bagFDA" && mods != "fda" &&
+             mods != "bagFDAGCV" && mods != "gbm" &&
+             mods != "mlpSGD" && mods != "rf" &&
+             mods != "RRF" && mods != "multinom") {
         bestmod <- varImp(model.metrics$bestModel)
         importance <- rbind(importance, data.frame(model = mods,
                                                    round(bestmod[[1]][, levels(y)], 2)))
+        }
 
         ## aggregate all performance metrics
         ## only for predicted features
@@ -1526,11 +1532,11 @@ if ( classification == TRUE & grouped == TRUE ) {
 
 } else if ( classification == TRUE & binomial == TRUE ) {
 
-    output_summary <- modelTune.clas(dat,training,method="rf",folds=10,r=10,tune=30, grid=FALSE)
+    output_summary <- modelTune.clas(dat,training,method="rf",folds=10, grid=FALSE)
 
 } else if ( regression == TRUE & bionomial == TRUE ) {
 
-    output_summary <- modelTune.reg(dat,training,method="nnet",folds=10,r=10,tune=30,ctl)
+    output_summary <- modelTune.reg(dat,training,method="nnet",folds=10,ctl)
 
 }
 
@@ -1607,7 +1613,10 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confus
             grid_models <- expand.grid(.degree=seq(0,10,.5),
                                        .scale=10^seq(-1,-3,length=10),
                                        .C=seq(.1,2, length=20))
-        } 
+        } else if ( method == "LogitBoost" ) {
+            ## Boosted logistic regression
+            grid_models <- expand.grid(.nIter=seq(1,100,length=2))
+        }
 
         lapsed <- system.time(modelTrain <- train(y~.,
                                                   data=dat[train,],
@@ -1662,7 +1671,7 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confus
 ## (1/table(dat$y)[1]) * 0.35,
 ## (1/table(dat$y)[3]) * 0.5)
 
-## mm.svm <- modelTune.clas.debug(dat,training,method="svmPoly",folds=2,r=1, grid=FALSE)
+## mm.svm <- modelTune.clas.debug(dat,training,method="svmPoly",folds=2, grid=FALSE)
 
 ## ## importance
 ## bestmod <- varImp(mm.svm$bestModel)
