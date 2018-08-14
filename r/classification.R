@@ -26,10 +26,8 @@ lasso.std=FALSE
 ## variable will be extracted from ids2modules
 ## the latter is generated from gene networks
 ## which correlation, power, normalization methods used from network analysis
-## 3 is >> Genes per Module = 215 (variable, usually mean network size),
-## Power = 4, TH = 0.5,
-## STD = hellinger, CLU = complete, COR = pearson
-clustering.strategy = 3
+## choose from ids2modules colnames
+clustering.strategy = 8
 
 ## choose contrasts
 ## choose summary file with all FDR adjusted pvalues
@@ -42,6 +40,7 @@ ids <- read.table("summary/sampleIDs")
 ## ids2modules is a summary file generated from the weighted nets script
 ## ids2description is an annotation file of the selected genes from the networks
 ids2modules <- read.table("./ids2modules.summary.txt", header = TRUE)
+colnames(ids2modules)
 ids2description <- read.table("./ids2description.summary.txt", header = FALSE, fill = TRUE)
 colnames(ids2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
 
@@ -138,7 +137,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
             grid_models <- expand.grid(.trials=seq(1:200), .model=c("rules","tree"), .winnow=c(TRUE,FALSE))
         } else if ( method == "LogitBoost" ) {
             ## Boosted logistic regression
-            grid_models <- expand.grid(.nIter=seq(1,100,length=200))
+            grid_models <- expand.grid(.nIter=seq(1,100,length=100))
         } else if ( method == "regLogistic" ) {
             ## Regularized logistic regression
             ## the loss parameter triggers L1 and L2 loss regularizations
@@ -214,7 +213,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
                                        .activation=c("relu"))
         } else if ( method == "dnn" ) {
             ## stacked autoencoder deep neural network
-            grid_models <- expand.grid(.layer1=seq(1:5),.layer2=seq(1:10),.layer3=seq(1:10),
+            grid_models <- expand.grid(.layer1=seq(1:10),.layer2=seq(1:3),.layer3=seq(1:2),
                                        .hidden_dropout=10^seq(-1,-7,length=10),
                                        .visible_dropout=10^seq(-1,-7,length=10))
         }
@@ -239,10 +238,10 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
 
     ## get performance scores from out-of-bag observations
     ## after cross validation during hyperparameter tuning
-    for ( iterations in c(1: c(folds * 3)) ) {
+    for ( iterations in c(1: c(folds * 20)) ) {
         ## iterative prediction test for model performance
-        ed <- floor(abs(rnorm(1) * 10000000))
-        set.seed(ed)
+        edd <- floor(abs(rnorm(1) * 10000000))
+        set.seed(edd)
         subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
 
         cat("\n  >>> Sub-iteration", iterations, "on model", method, "started")
@@ -253,7 +252,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
         confusion.metrics <- rbind(confusion.metrics,
                                    data.frame(iteration=iterations,
                                               model=method,
-                                              seed=ed,
+                                              seed=edd,
                                               conf.m$byClass,
                                               accuracy=conf.m$overall[[1]],
                                               accLow=conf.m$overall[[3]],
@@ -298,11 +297,11 @@ svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
                         tuneGrid=grid_models,
                         tuneLength=c(folds*3))
     cat("Model training finished [ok]\n")    
-    for ( iterations in c(1: c(folds * 10)) ) {
+    for ( iterations in c(1: c(folds * 20)) ) {
         cat("  --> iteration", iterations, "[ok]\n")
         ## iterative prediction test for model performance
-        ed <- floor(abs(rnorm(1) * 10000000))
-        set.seed(ed)
+        edx <- floor(abs(rnorm(1) * 10000000))
+        set.seed(edx)
         subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
         Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="prob")
         risk.prob <- rbind(risk.prob, data.frame(epochs = iterations, original = y[-subtrain], Predd))
@@ -403,7 +402,7 @@ tr <- length(training)
 
 ##  proportions (in percentages) of imbalanced samples
 print(round((table(y[training])/tr) * 100),2)
-sink("expression.data.loaded.ok")
+sink("1-expression.data.loaded.ok")
 sink()
 
 ########################
@@ -447,7 +446,7 @@ sink()
 ## this is due to the unbalanced nature of cross validation
 ## SOLUTION: the while condition will repeat the test until success
 success=FALSE
-epochs=5
+epochs=50
 
 while (success == FALSE) {
     pdf(paste0("cvROC.shrinking.epochs",epochs,".",response,".pdf"))
@@ -648,7 +647,7 @@ if ( exists('dm') && exists('df') ) {
     write.table(df, paste0("logSummary.lambda.epochs",epochs,".",response,".accuracies.txt"), sep="\t", quote=F)
     write.table(gpd, paste0("logSummary.lambda.epochs",epochs,".",response,".densities.txt"), sep="\t", quote=F)
     
-    sink("feature.extraction.ok")
+    sink("2-feature.extraction.ok")
     sink()
 }
 
@@ -767,7 +766,7 @@ round(table(dat$y)/length(dat$y)*100, 2)
 
 ## get gene names
 gene.names <-  ids2description[ ids2description$genes %in% colnames(dat), c(4:5)]
-write.table(gene.names, "gene.names_bestLambda", sep = '\t', row.names = FALSE, quote = FALSE)
+write.table(gene.names, "gene.names_bestLambda.txt", sep = '\t', row.names = FALSE, quote = FALSE)
 
 # plot lambda iterations
 #par(mfrow = c(3,4))
@@ -1342,11 +1341,10 @@ try(dev.off(), silent = TRUE)
 ############################
 # machine learning models used
 model_types <- c(
-    "LogitBoost",
     "nnet", "pcaNNet",
     "dnn",
     "kernelpls", "svmLinear", "svmPoly", "svmRadialSigma", "svmLinear3",
-    "lda2", "bagFDA", "fda", "pda", "loclda", "bagFDAGCV",
+    "lda2", "bagFDA", "fda", "pda", "bagFDAGCV",
     "kknn", "naive_bayes", "gbm",
     "monmlp", "mlpSGD",
     "rf", "RRF",
@@ -1357,11 +1355,10 @@ model_types <- c(
 # the deep network used in this step is an automated model
 # hence the low number of parameters to adjust
 parameter_counts <- c(
-    1,
     2,2,
     5,
     1,1,3,2,2,
-    1,2,2,1,1,1,
+    1,2,2,1,1,
     3,3,4,
     2,8,
     1,3,
@@ -1380,19 +1377,18 @@ parameter_counts <- c(
 ## performance metrics for best model without hyperparameter optimization
 ## create an index for the iteration holder below
 ## Split the dataset
-set.seed(ed)
-training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
-
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
 modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( epochs in c(1:10) ) {
+for ( epochs in c(1:2) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
+    set.seed(ed)
+    training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
+
     ie=ite()
-    gc()
 
     for ( m in 1:length(model_types) ) {
 
@@ -1440,7 +1436,7 @@ sink()
 save(list=ls(pattern="perf*summary"),file="performanceSummaryNoTune.Rdata")
 
 if ( file.exists(paste0("performance1.multianalysis.seed",ed)) ) {
-    sink("model.training.wo.tuning.ok")
+    sink("3-baseline.training.wo.tuning.ok")
     sink()
 }
 
@@ -1452,16 +1448,15 @@ if ( file.exists(paste0("performance1.multianalysis.seed",ed)) ) {
 ## improving the baseline metrics
 ## Classification across models with hyperparameter optimization
 ## with hyperparameter tuning
-set.seed(ed)
-training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
-
 if ( classification == TRUE & grouped == TRUE ) {
     importance <- NULL
     systems.metrics <- NULL
     subtrain.metrics <- NULL
     for ( m in 1:length(model_types) ) {
 
-        gc()
+        set.seed(ed)
+        training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
+
         mods=model_types[[m]]
         param=parameter_counts[[m]]
 
@@ -1473,6 +1468,8 @@ if ( classification == TRUE & grouped == TRUE ) {
         ## predicted output is saved
         model.name <- paste0(mods,"|",param)
 
+        ## multimodel analysis
+        ## with summary output
         model.metrics <- modelTune.clas(dat,training,method=mods,folds=10, grid=TRUE)
 
         ## get predictor importance
@@ -1586,7 +1583,7 @@ save(list=ls(pattern="*summaryFull"),file="performanceSummaryFull.Rdata")
 
 
 if ( file.exists(paste0("performance2.hyperTuning.seed",ed)) ) {
-    sink("model.training.w.tuning.ok")
+    sink("4-model.training.w.tuning.ok")
     sink()
 }
 
@@ -1633,8 +1630,8 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confus
 
     for ( iterations in c(1: c(folds * 2)) ) {
         ## iterative prediction test for model performance
-        ed <- floor(abs(rnorm(1) * 10000000))
-        set.seed(ed)
+        edx <- floor(abs(rnorm(1) * 10000000))
+        set.seed(edx)
         subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
         cat("\n  >> Sub-iteration", iterations, "on model", method, "started")
         ## predict over best hyperparameters
@@ -1643,7 +1640,7 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confus
         ## aggregate all prediction metrics
         confusion.metrics <- rbind(confusion.metrics,
                                    data.frame(iteration=iterations,
-                                              seed=ed,
+                                              seed=edx,
                                               conf.m$byClass,
                                               accuracy=conf.m$overall[[1]],
                                               accLow=conf.m$overall[[3]],
@@ -1651,7 +1648,7 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confus
                                               kappa=conf.m$overall[[2]],
                                               accPval=conf.m$overall[[6]]))
         
-        cat(" >", method, "validated successfully in (ms)", c(end[[1]]*1000), "@accuracy", conf.m$overall[[1]])
+        cat(" >", method, "validated successfully in", c(end[[1]]*1000), "ms @accuracy", conf.m$overall[[1]])
     }
 
     Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")

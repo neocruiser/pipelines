@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=16,walltime=168:00:00,vmem=60g,mem=220g
+#PBS -l nodes=1:ppn=8,walltime=168:00:00,vmem=60g,mem=220g
 #PBS -N classification
 #PBS -q himem
 #PBS -V
@@ -93,7 +93,6 @@ fi
 
 ## backup the expressions for the current job
 mv $output/expressions $output/expressions.NTWK$_networkJOBID.EXP$_expressionJOBID
-mv $output/*txt $output/summary
 
 
 #############
@@ -177,6 +176,11 @@ fi
 cd $output
 mv *pdf graph
 mv log* logs
+mv *txt summary
+
+sleep 120
+
 mv *Rdata backups
+rm .RData
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
