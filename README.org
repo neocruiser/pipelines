@@ -20,24 +20,22 @@
 #+EXPORT_SELECT_TAGS: export
 #+EXPORT_EXCLUDE_TAGS: noexport
 
-This git repository contains RNA-seq and microarray pipelines for transcriptome
-assembly, gene expression, gene annotation, and other. Scripts dated
+The following repository contains RNA-seq and microarray pipelines for transcriptome
+assembly, gene expression, gene annotation, genomic mutation calling, and other. Scripts dated
 between 2015 and 2017 are running on [[https://www.xsede.org/][XSEDE]] supercomputers and [[http://www.iacs.stonybrook.edu/resources/handy-accounts#overlay-context=resources/accounts][LIred]] cluster in
 the US, including Greenfield, Bridges, and LIred servers. All others
-are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]].
-
+are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]], in Toronto Canada.
 
 Licence: MIT Licence
 
-
-Algorithms below include:
+* Algorithms below include:
    - Feature engineering & regularization (lasso, ridge, elastic)
    - Data subsetting, extraction, reformating
-   - Subsampling & mini-batch sampling
+   - Subsampling, mini-batch sampling & bagging
    - Data spliting (binomial and multiclass)
    - Unsupervised learning (fuzzy, hierarchical clustering)
    - Grid search for normalization & standardization methods
-   - Bayesian linear models
+   - Bayesian inferential models
    - Similarity & adjacency matrices
    - Multi-iterative module allocations for gene expressions
    - Weighted genetic networks
@@ -46,69 +44,46 @@ Algorithms below include:
    - Logging & performance metrics (ROC, AUROC, 95% CI, kappa)
    - Various descriptive and performance plotting
    - Nested cross-validation & iterative resampling structures
+   - Multi-class area under the ROC curve
+   - Feature importance scoring
+   - Confusion matrices & multi-prediction validation
    - Redundancy and descriptive analyses
    - Machine learning optimizations
    - Random seeding optimizations
    - Over 20 machine learning models
-   - Deep learning (Mxnet, DNN, Keras)
+   - Deep learning (Mxnet, H2O, Keras)
 
 
-* Systemic Analytical Pipelines 
+* Systemic Analytical Pipelines
 =scripts can be scaled while adjusted for any sample size. Majority
 reproducible on other data sets=
-1. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][Microarray sample preprocessing & automation]] in bash (Bassim 2018)
-2. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.2.0.R][Microarray normalization & expression analyses]] in R (Bassim 2018)
-3. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.summary.h4h.sh][Automation to create summary report of all expression analyses]] in
-   bash (Bassim 2018)
-4. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][Clustering and network automation]] in bash (Bassim 2018)
-5. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][Network
-   inference, iterated grid tuning on weighted scoring, correlation &
-   data transformation]] in R (Bassim 2018)
-6. [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][Clustering automation with different expression aggregation methods
-   & bootstrapping]] in R (Bassim 2018)
-7. [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Machine learning & deep learning models]] for cancer risk factor
-   predictions in R (Bassim 2018)
-8. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][Two species reads separation from dual RNA sequencing of host & parasite]] in
-   bash (Bassim 2017)
-9. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug4.slurm][Sequence abundance and expression from dual RNA-seq]] in R
-   (Bassim 2017)
-10. [[https://github.com/neocruiser/pipelines/blob/master/expression/filter-bridges.slurm][Reducing transcriptome size and noise]] by correcting for read
-    abundance]] in bash (Bassim 2017)
-11. [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][Aggregating and optimizing data structure for large scale
-    annotation of cDNA sequences with over 13 databases, GO-terms,
-    KEGG, reactome]] in bash (Bassim 2016) 
-12. [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][Transcriptome assembly of RNA-seq data optimized on high
-    performance clusters]] in bash (Bassim 2016)
-13. [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][Genome-guided assembly of RNA-seq data for new gene discovery]] in
-    bash (Bassim 2016)
-14. [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][Differential
-    gene expression for RNA-seq data using multi-method approach with
-    summary report aggregation]] in bash and R (Bassim 2016)
-15. [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][Read classification for virus or most microbes identification from
-    shotgun sequencing data]] in bash (bash 2016)
-16. [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][Fast sequence annotation against NCBI databases using blast and
-    diamond]] in bash (Bassim 2016)
-17. [[https://github.com/neocruiser/pipelines/blob/master/annotation/interproscan-bridges.slurm][Functional
-    annotation of sequences by protein domains interrogating over 10
-    databases]] in bash (Bassim 2016)
-18. [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][Functional annotation with Hidden Markov models using HMM profiles]]
-    in bash (Bassim 2015)
-19. [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][Sequence annotation of sequencing data against NCBI databases with
-    more metadata per gene]] in bash (Bassim 2016)
-20. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.cross.species.slurm][Creating genetic cross-talk networks from host and pathogen
-    RNA-seq interactions]] in bash (Bassim 2016)
-21. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.cross.species.R][Calculating correlations and network scores from RNA-seq
-    host-pathogen data]] in R (Bassim 2016)
-22. [[https://github.com/neocruiser/pipelines/blob/master/calling/mappingV6.5.sh][Filtering and variant calling with indel correction on sequencing
-    data]] in bash (Bassim 2015)
-23. [[https://github.com/neocruiser/pipelines/blob/master/calling/mapNoCount.sh][Sorting, duplicate removal, and QC on variant calls]] in bash
-    (Bassim 2015)
-24. [[https://github.com/neocruiser/thesis2014/blob/master/ebdbn/ebdbn%2520-%2520W2.R][Bayesian network inference from Agilent micrarray timeseries data]]
-    in R (Bassim 2013)
-25. [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Regularization with lasso and ensemble learning build on top ANN,
-    generalized linear model, and bagging]] in R (Bassim 2014)
-26. [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy clustering on Agilent microarray timeseries data for
-    biomarker discovery]] in R (Bassim 2013)
-27. [[https://github.com/neocruiser/thesis2014/blob/master/ordination/rda%2520-%2520W2.R][Ordination analyses of timeseries microarray data]] in R (Bassim 2013)
-28. [[https://github.com/neocruiser/thesis2014/blob/master/microarrays/preProcessing_detailed.R][Agilent timeseries data processing and pattern extraction]] in R
-    (Bassim 2012)
+1. [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Machine & Deep learning multi-model]] analyses for cancer prediction in R (Bassim 2018)
+2. [[https://github.com/neocruiser/pipelines/blob/master/r/line.ranking.R][Gene ranking]] in R & [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.extract.genes.sh][multi-output wrangling]] in shell from transcriptional data (Bassim 2018)
+3. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.expression.distribution.R][Polygenic]] & [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.pval.distribution.R][probability distributions]] reported by batch visualization in R (Bassim 2018)
+4. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][Microarray sample preprocessing & automation]] in shell (Bassim 2018)
+5. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.2.0.R][Microarray multi-contrast & batch logging]] in R (Bassim 2018)
+6. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.summary.h4h.sh][Aggregated performance metrics]] for transcriptional analyses in shell (Bassim 2018)
+7. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.h4h.pbs][Data restructuring & mining]] for network automation in shell (Bassim 2018)
+8. [[Https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][Multi-grid search approch with data-driven gene networks]] in R (Bassim 2018)
+9. [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][Clustering & gene expression with bootstrapped approach & metric aggregation]] in R (Bassim 2018)
+10. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][Two species reads separation from dual RNA sequencing of host & parasite]] in shell (Bassim 2017)
+11. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug4.slurm][Sequence abundance and expression from dual RNA-seq]] in R (Bassim 2017)
+12. [[https://github.com/neocruiser/pipelines/blob/master/expression/filter-bridges.slurm][Reducing transcriptome size]] by correcting for read abundance in shell (Bassim 2017)
+13. [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][Aggregating and optimizing data structure ]]& large scale annotation or pathway discovery in shell (Bassim 2016) 
+14. [[https://github.com/neocruiser/pipelines/blob/master/assembly/trinity-bridges.slurm][Transcriptome assembly of RNA-seq data optimized on high performance clusters]] in shell (Bassim 2016)
+15. [[https://github.com/neocruiser/pipelines/blob/master/mapping/genome_guided_assemblies.pbs][Genome-guided assembly of RNA-seq data for new gene discovery]] in shell (Bassim 2016)
+16. [[https://github.com/neocruiser/pipelines/blob/master/expression/degs-bridges.slurm][RNA-seq gene expression multi-approach & metric aggregation]] in shell and R (Bassim 2016)
+17. [[https://github.com/neocruiser/pipelines/blob/master/annotation/kraken.db-bridges.slurm][Shotgun sequencing pipeline]] & virus classification or microbes identification in shell (Bassim 2016)
+18. [[https://github.com/neocruiser/pipelines/blob/master/annotation/diamond-bridges.slurm][Fast sequence annotation against NCBI databases]] with Blast & Diamond in shell (Bassim 2016)
+19. [[https://github.com/neocruiser/pipelines/blob/master/annotation/interproscan-bridges.slurm][Protein sequence annotation & data aggregation]] with multi-database mining in shell (Bassim 2016)
+20. [[https://github.com/neocruiser/pipelines/blob/master/annotation/blast-iacs.split.pbs][RNA-seq gene annotation & sequence discovery]] with multi-database mining in shell (Bassim 2016)
+21. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.cross.species.slurm][Transcriptional cross-talk & gene networks]] in shell (Bassim 2016)
+22. [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.cross.species.R][Decorrelating network scores from RNA-seq]] dual RNA-seq data in R (Bassim 2016)
+23. [[https://github.com/neocruiser/pipelines/blob/master/annotation/hmmscan-iacs.pbs][Gene annotation with Hidden Markov models]] using HMM profiles in shell (Bassim 2015)
+24. [[https://github.com/neocruiser/pipelines/blob/master/calling/mappingV6.5.sh][Genomic filtering & variant calling with indel correction]] in shell (Bassim 2015)
+25. [[https://github.com/neocruiser/pipelines/blob/master/calling/mapNoCount.sh][Genomic bam processing & variant calling QCs]] in shell (Bassim 2015)
+26. [[https://github.com/neocruiser/thesis2014/blob/master/Paper3/paper3.R][Regularization & Ensemble learning]] on top of neural nets, GLMs & bagging in R (Bassim 2014)
+27. [[https://github.com/neocruiser/thesis2014/blob/master/ebdbn/ebdbn%2520-%2520W2.R][Bayesian network inference from microarrays & timeseries data]] in R (Bassim 2013)
+28. [[https://github.com/neocruiser/thesis2014/blob/master/mfuzz/mfuzz.R][Fuzzy clustering on Agilent microarray timeseries]] data for biomarker discovery in R (Bassim 2013)
+29. [[https://github.com/neocruiser/thesis2014/blob/master/ordination/rda%2520-%2520W2.R][Ordination analyses of timeseries microarray data]] in R (Bassim 2013)
+30. [[https://github.com/neocruiser/thesis2014/blob/master/microarrays/preProcessing_detailed.R][Agilent timeseries data processing and pattern extraction]] in R (Bassim 2012)
