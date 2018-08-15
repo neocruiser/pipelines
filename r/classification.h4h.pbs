@@ -47,7 +47,7 @@ _geneRanking=FALSE
 ############
 ## PART I ##
 ############
-mkdir -p $output/graph $output/summary $output/scripts $output/selected $output/backups $output/logs
+mkdir -p $output/graph $output/summary $output/scripts $output/selected $output/backups $output/reports
 cd $output
 
 
@@ -175,7 +175,7 @@ fi
 ## organize output files
 cd $output
 mv *pdf graph
-mv log* logs
+mv log* reports
 mv *txt summary
 
 sleep 120

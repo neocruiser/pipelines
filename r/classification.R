@@ -8,19 +8,34 @@ lapply(pkgs, require, character.only = TRUE)
 ## logging
 source("./scripts/lsos.R")
 
+
+##############
+## SWITCHES ##
+##############
 ### DEFINE DATA FITTING MODEL
-classification=TRUE
-regression=FALSE
+classification = TRUE
+regression = FALSE
 
 ## define feature structure
-grouped=TRUE
-binomial=FALSE
+grouped = TRUE
+binomial = FALSE
 
 ## apply normalization methods within samples
 ## applying a regularization transformation
 ## increases the number of selected genens
-standardization=TRUE
-lasso.std=FALSE
+standardization = TRUE
+lasso.std = FALSE
+
+## how many iterations during feature selection
+## how many iterations during baseline calculation of model testing
+## how many CV folds during model validation
+## use grid tuning or not for model optimization
+## length of the training data set (percent)
+lambda.epochs = 5
+baseline.epochs = 5
+validate.folds = 2
+validate.tune = FALSE
+train.size = 80
 
 ## choose between methods of normalization and correlation
 ## variable will be extracted from ids2modules
@@ -242,7 +257,7 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
         ## iterative prediction test for model performance
         edd <- floor(abs(rnorm(1) * 10000000))
         set.seed(edd)
-        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
+        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(train.size/100)) )
 
         cat("\n  >>> Sub-iteration", iterations, "on model", method, "started")
         ## predict over best hyperparameters
@@ -302,7 +317,7 @@ svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
         ## iterative prediction test for model performance
         edx <- floor(abs(rnorm(1) * 10000000))
         set.seed(edx)
-        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
+        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(train.size/100)) )
         Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="prob")
         risk.prob <- rbind(risk.prob, data.frame(epochs = iterations, original = y[-subtrain], Predd))
     }
@@ -397,7 +412,7 @@ ed <- floor(abs(rnorm(1) * 10000000))
 set.seed(ed)
 
 ## Split the dataset
-training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
+training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(train.size/100)) )
 tr <- length(training)
 
 ##  proportions (in percentages) of imbalanced samples
@@ -446,10 +461,9 @@ sink()
 ## this is due to the unbalanced nature of cross validation
 ## SOLUTION: the while condition will repeat the test until success
 success=FALSE
-epochs=50
 
 while (success == FALSE) {
-    pdf(paste0("cvROC.shrinking.epochs",epochs,".",response,".pdf"))
+    pdf(paste0("cvROC.shrinking.epochs",lambda.epochs,".",response,".pdf"))
     couleurs <- brewer.pal(nlevels(y), name = 'Dark2')
     dm=NULL
     df=NULL
@@ -474,14 +488,13 @@ while (success == FALSE) {
     for (nid in nl) {
         gc()
         
-        for (e in 1:epochs) {
+        for (e in 1:lambda.epochs) {
             ## set seed for reproducibility
             ede <- floor(abs(rnorm(1) * 10000000))
             set.seed(ede)
 
             ## Split the dataset into 65% training data
-            training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = 80, rep = FALSE)
-##            training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(85/100)) )
+            training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = train.size, rep = FALSE)
             tr <- length(training)
             print(round((table(y[training])/tr) * 100),2)
 
@@ -643,9 +656,9 @@ while (success == FALSE) {
 if ( exists('dm') && exists('df') ) {
 
     ## extract regularization metrics for all iterations
-    write.table(dm, paste0("logSummary.lambda.epochs",epochs,".",response,".probabilities.txt"), sep="\t", quote=F)
-    write.table(df, paste0("logSummary.lambda.epochs",epochs,".",response,".accuracies.txt"), sep="\t", quote=F)
-    write.table(gpd, paste0("logSummary.lambda.epochs",epochs,".",response,".densities.txt"), sep="\t", quote=F)
+    write.table(dm, paste0("logSummary.lambda.epochs",lambda.epochs,".",response,".probabilities.txt"), sep="\t", quote=F)
+    write.table(df, paste0("logSummary.lambda.epochs",lambda.epochs,".",response,".accuracies.txt"), sep="\t", quote=F)
+    write.table(gpd, paste0("logSummary.lambda.epochs",lambda.epochs,".",response,".densities.txt"), sep="\t", quote=F)
     
     sink("2-feature.extraction.ok")
     sink()
@@ -655,7 +668,7 @@ if ( exists('dm') && exists('df') ) {
 
 
 ## CHART 0
-pdf(paste0("density.shrinking.epochs",epochs,".",response,".pdf"))
+pdf(paste0("density.shrinking.epochs",lambda.epochs,".",response,".pdf"))
 gpd %>%
 ##    filter(classes == c("CNS", "SYST", "NOREL")) %>%
     ggplot(aes(x = probabilities,
@@ -707,8 +720,7 @@ for (l in 1:nrow(results)) {
 
     # get lasso coefficients
     index="grouped"
-##  training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(85/100)) )
-    training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = 80, rep = FALSE)
+    training <- miniBatch.balancedSampling(meta.selected, y, adj.x, batch = 70, miniBch = train.size, rep = FALSE)
     lasso.trained <- glmnet(adj.x[training,],
                             y[training],
                             alpha=setalpha,
@@ -729,7 +741,7 @@ for (l in 1:nrow(results)) {
         lasso.select <- adj.x[ , selected.final ]
         print(dim(lasso.select))
         write.table(t(lasso.select), paste0("expressions.",patient_labels,
-                                         ".epochs",epochs,".cv",ncv,
+                                         ".epochs",lambda.epochs,".cv",ncv,
                                          ".lambda_",sprintf("%.5f", bestlam),
                                          "_",response,".regularization",setalpha,
                                          ".",index,".genes",len,".seed",ed,".txt"),
@@ -1382,17 +1394,15 @@ modet=ite=NULL
 ite=icc()
 models=icc()
 
-for ( epochs in c(1:2) ) {
+for ( epochs in c(1:baseline.epochs) ) {
     ## as many iterations will be executed for each model
     ## iterations are done in addition to 25 resampling for each model
-    set.seed(ed)
-    training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
-
     ie=ite()
+    edp <- floor(abs(rnorm(1) * 10000000))
+    set.seed(edp)
+    base.training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(train.size/100)) )
 
     for ( m in 1:length(model_types) ) {
-
-        gc()
         mods=model_types[[m]]
         param=parameter_counts[[m]]
 
@@ -1404,11 +1414,11 @@ for ( epochs in c(1:2) ) {
         model.name <- paste0(mods,"|",ie,"|",param)
         
         trainCtrl <- trainControl(method="cv",
-                                  number=10)
-
+                                  number=c(validate.folds / 2))
         trained.model <- train( y ~ .,
-                               data = dat,
+                               data = dat[base.training, ],
                                trControl= trainCtrl,
+                               preProc=c("center","scale"),
                                method = mods )
 
         # aggregate all performance metrics
@@ -1452,10 +1462,11 @@ if ( classification == TRUE & grouped == TRUE ) {
     importance <- NULL
     systems.metrics <- NULL
     subtrain.metrics <- NULL
-    for ( m in 1:length(model_types) ) {
 
-        set.seed(ed)
-        training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(80/100)) )
+    set.seed(ed)
+    training <- sample(1:nrow(adj.x), c(nrow(adj.x) * c(train.size/100)) )
+
+    for ( m in 1:length(model_types) ) {
 
         mods=model_types[[m]]
         param=parameter_counts[[m]]
@@ -1470,7 +1481,8 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## multimodel analysis
         ## with summary output
-        model.metrics <- modelTune.clas(dat,training,method=mods,folds=10, grid=TRUE)
+        model.metrics <- modelTune.clas(dat, training, method=mods,
+                                        folds=validate.folds, grid=validate.tune)
 
         ## get predictor importance
         ## accuracy of a predictor is calculated to detect a decrease after permutation without it
@@ -1632,7 +1644,7 @@ modelTune.clas.debug <- function(dat, train, method, folds=10, grid=TRUE, confus
         ## iterative prediction test for model performance
         edx <- floor(abs(rnorm(1) * 10000000))
         set.seed(edx)
-        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(80/100)) )
+        subtrain <- sample( 1:nrow(dat), c(nrow(dat) * c(train.size/100)) )
         cat("\n  >> Sub-iteration", iterations, "on model", method, "started")
         ## predict over best hyperparameters
         end <- system.time(Predd <- predict(modelTrain, newdata=dat[-subtrain,], type="raw"))
