@@ -2,7 +2,7 @@ pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
           'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan',
           'reshape2', 'ggplot2', 'tidyr', 'plyr',
-          'plot3D', 'ggrepel', 'ggdendro')
+          'plot3D', 'ggrepel', 'ggdendro', 'grid')
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging

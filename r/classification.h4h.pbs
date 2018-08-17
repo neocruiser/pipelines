@@ -41,7 +41,7 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 ## MUST DEFINE BEFORE EXECUTION
 _contrast=systemicRelapse
 _expressionJOBID=409794
-_networkJOBID=428684
+_networkJOBID=437006
 _geneRanking=FALSE
 
 ############
