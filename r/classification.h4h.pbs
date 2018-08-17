@@ -77,12 +77,26 @@ R CMD BATCH $output/script*/classification.R
 if [ $_geneRanking == "TRUE" ]; then
 
     ## network.csv contains clusters with minimum 4 nodes
-    grep -Fwf <(cat ~/expressions/network.csv | sed 's/","/ /g' | cut -f5 -d' ' | sed 's/"//g' | awk 'NR>1') $project/expression/summary/CNSvsNOREL.systemicRelapse.moderated-tstat-bayes.limma.txt | sed -e '1d' -e 's/ /./g' | cut -f1,3,20-25 > $output/summary/ranking.lmfit
+    grep -Fwf <(cat ~/expressions/network.csv \
+		    | sed 's/","/ /g' \
+		    | cut -f5 -d' ' \
+		    | sed 's/"//g' \
+		    | awk 'NR>1') $project/expression/summary/CNSvsNOREL.systemicRelapse.moderated-tstat-bayes.limma.txt \
+	| sed -e '1d' -e 's/ /./g' \
+	| cut -f1,3,20-25 \
+	      > $output/summary/ranking.lmfit
+
     sed -i "1i$(head -n1 $project/expression/summary/CNSvsNOREL.systemicRelapse.moderated-tstat-bayes.limma.txt | sed 's/ /./g' | cut -f1,3,20-25)" $output/summary/ranking.lmfit
 
     ## the csv was exported from cytoscape
     ## contains degrees of the clusters with minimum 4 nodes
-    cat ranking.network.csv | cut -f 7,11,12 -d',' | sed -e 's/"//g' -e 's/,/\t/g' | cut -f1,3 | sed '1d' | sort -nr -k1 > $output/summary/ranking.degree
+    cat ranking.network.csv \
+	| cut -f 7,11,12 -d',' \
+	| sed -e 's/"//g' -e 's/,/\t/g' \
+	| cut -f1,3 \
+	| sed '1d' \
+	| sort -nr -k1 \
+	       > $output/summary/ranking.degree
 
     cd $output
 
@@ -107,8 +121,9 @@ if [ ! -f "$_metrics" ]; then
     ## typically 10 iteractions, each resampled 25 times with the same seed
     ## and for all 25 models
     for m in Accuracy Kappa; do
-	cat $_metrics | sed -n "/${m}/,/NA/p" |\
-	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\titeration\tparameters\tMin/g' \
+	cat $_metrics \
+	    | sed -n "/${m}/,/NA/p" \
+	    | sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\titeration\tparameters\tMin/g' \
 		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
 		> $output/log.$m.$(basename $_metrics)."${pbs}".txt
     done
@@ -121,8 +136,9 @@ _metrics=$output/performance2*
 if [ ! -f "$_metrics" ]; then
     ## get model metrics for tuning parameters
     for m in Accuracy ; do
-	cat $_metrics | sed -n "/${m}/,/NA/p" |\
-	    sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\tparameters\tMin/g' \
+	cat $_metrics \
+	    | sed -n "/${m}/,/NA/p" \
+	    | sed -e '1d' -e '$ d' -e 's/|/\t/g' -e 's/^.*Min./model\tparameters\tMin/g' \
 		-e 's/1st Q/1stQ/g' -e 's/3rd Q/3rdQ/g' \
 		> $output/log.$m.$(basename $_metrics)."${pbs}".txt
     done
@@ -134,7 +150,8 @@ fi
 _metrics=$output/performance3*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
-    cat $_metrics | sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
+    cat $_metrics \
+	| sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
 			 > $output/log.$(basename $_metrics)."${pbs}".txt
     rm $_metrics
 else
@@ -144,7 +161,8 @@ fi
 _metrics=$output/performance4*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
-    cat $_metrics | sed -e 's/^Class..//g' -e 's/^iteration/group\titeration/g' \
+    cat $_metrics \
+	| sed -e 's/^Class..//g' -e 's/^iteration/group\titeration/g' \
 			 > $output/log.$(basename $_metrics)."${pbs}".txt
     rm $_metrics
 else
@@ -154,7 +172,8 @@ fi
 _metrics=$output/performance5*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
-    cat $_metrics | sed -e 's/.hg.../\t/g' -e 's/^model/genes\tmodel/g' \
+    cat $_metrics \
+	| sed -e 's/.hg.../\t/g' -e 's/^model/genes\tmodel/g' \
 			> $output/log.$(basename $_metrics)."${pbs}".txt
     rm $_metrics
 else
@@ -164,7 +183,8 @@ fi
 _metrics=$output/performance6*
 if [ ! -f "$_metrics" ]; then
     ## get classifiers accuracy and pvalues with otpimum tuned parameter
-    cat $_metrics | sed -e 's/^epochs/rwn\tepochs/g' \
+    cat $_metrics \
+	| sed -e 's/^epochs/rwn\tepochs/g' \
 			> $output/log.$(basename $_metrics)."${pbs}".txt
     rm $_metrics
 else

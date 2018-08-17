@@ -2,7 +2,7 @@ pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
           'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan',
           'reshape2', 'ggplot2', 'tidyr', 'plyr',
-          'plot3D')
+          'plot3D', 'ggrepel', 'ggdendro')
 lapply(pkgs, require, character.only = TRUE)
 
 ## logging
@@ -26,14 +26,14 @@ binomial = FALSE
 standardization = TRUE
 lasso.std = FALSE
 
-## how many iterations during feature selection
-## how many iterations during baseline calculation of model testing
-## how many CV folds during model validation
+## how many iterations during feature selection (max 50)
+## how many iterations during baseline calculation of model testing (max 10)
+## how many CV folds during model validation (max 10)
 ## use grid tuning or not for model optimization
-## length of the training data set (percent)
+## length of the training data set (percent, max 85)
 lambda.epochs = 5
 baseline.epochs = 5
-validate.folds = 2
+validate.folds = 10
 validate.tune = FALSE
 train.size = 80
 
@@ -329,18 +329,34 @@ svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
 ##########################
 ## Load expression data ##
 ##########################
-# optimized for t-statistics microarray expressions
-# rows=genes
-# col=samples
-cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n")
-
+## optimized for t-statistics microarray expressions
+## rows are genes & col are samples
 ## remove controls (imbalanced samples)
+## append gene names instead of transcript numbers
+cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n")
 means <- read.table("expressions", sep="\t", header=T, row.names=1) %>%
     select(-matches("CNR800.T1")) %>%
     select(-matches("CNR900.T1")) 
-dim(means)
+pre.annot <- dim(means)[2]
+
+gene.names <-  ids2description[ ids2description$genes %in% rownames(means), c(1:2,4:5)]
+gene.names$chromosome <- as.factor(gsub("_.*","",gene.names$chromosome))
+write.table(gene.names, "log.gene.names_allnetworks.txt", sep = '\t', row.names = FALSE, quote = FALSE)
+
+idx <- gene.names[, -4] %>%
+    mutate(id = paste0(symbol,"-",gsub(".hg.1","",genes)))
+
+means$genes <- rownames(means)
+new.means <- full_join(means, idx, by = "genes")
+rownames(new.means) <- new.means$id
+means <- new.means %>%
+    select(-genes, -id, -symbol, -chromosome)
+post.annot <- dim(means)[2]
+
+if ( pre.annot != post.annot ) { stop("Can't continue, newly indexed data differ from the original") }
 
 
+## normalization of gene expression
 cat("\n\nStandardized transformed scores: Genes are columns and samples are rows\n")
 if ( standardization == TRUE ) {
     adj.x <- t(decostand(means, "standardize"))
@@ -777,19 +793,19 @@ cat("\nGroup imabalances across available all samples: ")
 round(table(dat$y)/length(dat$y)*100, 2)
 
 ## get gene names
-gene.names <-  ids2description[ ids2description$genes %in% colnames(dat), c(4:5)]
-write.table(gene.names, "gene.names_bestLambda.txt", sep = '\t', row.names = FALSE, quote = FALSE)
+gene.names[ gene.names$genes %in% colnames(dat), ] %>%
+    write.table("log.gene.names_bestLambda.txt", sep = '\t', row.names = FALSE, quote = FALSE)
 
-# plot lambda iterations
-#par(mfrow = c(3,4))
-#pdf(paste0("grid.lambda.",patient_labels,response,
-#           ".regularization",setalpha,".",index,
-#           ".genes",len,".seed",ed,".pdf"))
-#plot(lasso.trained, xvar="lambda", label=T)
-## fraction deviance explained =R2
-#plot(lasso.trained, xvar="dev", label=T)
-#plot(cv.out)
-#dev.off()
+## # plot lambda iterations
+## par(mfrow = c(3,4))
+## pdf(paste0("grid.lambda.",patient_labels,response,
+##            ".regularization",setalpha,".",index,
+##            ".genes",len,".seed",ed,".pdf"))
+## plot(lasso.trained, xvar="lambda", label=T)
+## # fraction deviance explained =R2
+## plot(lasso.trained, xvar="dev", label=T)
+## plot(cv.out)
+## dev.off()
 
 #####################################
 ## Visualization of selected genes ##
@@ -1009,7 +1025,6 @@ try(dev.off(), silent = TRUE)
 vints <- attr(venn(selgenes), "intersections")
 save(list=ls(pattern="vints"),file="venn.intersections.Rdata")
 
-
 pdf("correlation.matrices4venn.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(selgenes) ) {
     ## get the genes that intersect
@@ -1028,7 +1043,6 @@ for ( lev in 1:length(selgenes) ) {
     hc <- hclust(dd)
     cordf <-cordf[hc$order, hc$order]
 
-    
     ## plot correlation matrix
     corplot <- get_upper_tri(cordf) %>%
         melt(na.rm = TRUE) %>%
@@ -1054,15 +1068,34 @@ for ( lev in 1:length(selgenes) ) {
         guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
                                      title.position = "top", title.hjust = 0.5)) +
         theme(axis.text.x = element_text(angle = 45, vjust = 1, 
-                                         size = 8, hjust = 1)) +
+                                         size = 5, hjust = 1)) +
         ggtitle(paste0("Classifier genes for ",names(selgenes)[lev]))
 
-    print(corplot)
+    ## create dendrograms
+    dendro.data <-  as.dendrogram(hc) %>%
+        dendro_data 
+    dendro.plot <- ggplot(segment(dendro.data)) + 
+        geom_segment(aes(x=x, y=y, xend=xend, yend=yend)) + 
+        theme_minimal()
 
+    ## add dendrograms to the correlation matrices
+    grid.newpage()
+    print(corplot, vp=viewport(0.8, 0.8, x=0.4, y=0.4))
+    print(dendro.plot, vp=viewport(0.665, 0.17, x=0.488, y=0.85))
+    print(dendro.plot + coord_flip(), vp=viewport(0.17, 0.667, x=0.85, y=0.435))
 }
 dev.off()
 try(dev.off(), silent = TRUE)
 
+
+
+
+pdf("test2.pdf")
+    grid.newpage()
+    print(corplot, vp=viewport(0.8, 0.8, x=0.4, y=0.4))
+    print(dendro.plot, vp=viewport(0.665, 0.17, x=0.488, y=0.85))
+    print(dendro.plot + coord_flip(), vp=viewport(0.17, 0.667, x=0.85, y=0.435))
+dev.off()
 
 ## CHART 5
 ## box plot all selected genes
