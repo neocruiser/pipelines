@@ -117,7 +117,12 @@ if [ $_strategy == "total" ]; then
 
 	# get transcript IDs for differentially expressed genes based on B-statistics confidence score
 	# remove NAs
-	cat $files | sed -e '1d' -e 's/ /./g' | awk -vb=$_bstatistics '{if($25>=b) print $0}' | cut -f1 | sort - | uniq -u >> $output/ids.total.tmp
+	cat $files \
+	    | sed -e '1d' -e 's/ /./g' \
+	    | awk -vb=$_bstatistics '{if($25>=b) print $0}' \
+	    | cut -f1 \
+	    | sort - \
+	    | uniq -u >> $output/ids.total.tmp
 
     done
 
@@ -127,7 +132,10 @@ if [ $_strategy == "total" ]; then
 
 elif [ $_strategy == "fdradj" ]; then
     
-    cat $_lmfit | awk -vc=$_contrast -vp=$_pval '{if($2 == c && $9 <= p) print$3}' | sort - | uniq >> $output/ids.fdradj.tmp
+    cat $_lmfit \
+	| awk -vc=$_contrast -vp=$_pval '{if($2 == c && $9 <= p) print$3}' \
+	| sort - \
+	| uniq >> $output/ids.fdradj.tmp
     _counts=$(cat $output/ids.$_strategy.tmp | wc -l)
     
 
@@ -137,9 +145,10 @@ elif [ $_strategy == "clusters" ]; then
     ## ids of the probes
     _preset="tc0"
     
-    grep -i $_preset $_networkDir/network.POW${power}.Th0.5.GEN${modulelength}.STD${standardize}.SSIZE*.CLU${clustering}.var-CORR${correlation}.graphml | \
-	sed -e 's/.*<data.*name.>//g' -e 's/<.data.*$//g' | \
-	sort - | uniq >> $output/ids.clusters.tmp
+    grep -i $_preset $_networkDir/network.POW${power}.Th0.5.GEN${modulelength}.STD${standardize}.SSIZE*.CLU${clustering}.var-CORR${correlation}.graphml \
+	| sed -e 's/.*<data.*name.>//g' -e 's/<.data.*$//g' \
+	| sort - \
+	| uniq >> $output/ids.clusters.tmp
 
     _counts=$(cat $output/ids.$_strategy.tmp | wc -l)
 
@@ -155,7 +164,9 @@ elif [ $_strategy == "up" ]; then
     touch $output/ids.up.tmp
 
     ## Get upregulated genes COUNTS
-    _counts=$(cat $_workingDir/summary/summary.full*.txt | awk -vb=$_bstatistics '/avgex/ && /up/ {if($9>=1 && $5>=b)print $9}'| awk '{sum+=$1} END {print sum}')
+    _counts=$(cat $_workingDir/summary/summary.full*.txt \
+		  | awk -vb=$_bstatistics '/avgex/ && /up/ {if($9>=1 && $5>=b)print $9}' \
+		  | awk '{sum+=$1} END {print sum}')
 
 
 
@@ -164,7 +175,10 @@ elif [ $_strategy == "up" ]; then
 	_bstatistics=0
 
 	## Get the MODEL/design based on both average expression and b-statisitics thresholds
-	_contrast=$(cat $_workingDir/summary/summary.full*.txt | awk -vb=$_bstatistics '/avgex/ && /up/ {if($9>=1 && $5>=b)print $1}'| sort - | uniq -)
+	_contrast=$(cat $_workingDir/summary/summary.full*.txt \
+			| awk -vb=$_bstatistics '/avgex/ && /up/ {if($9>=1 && $5>=b)print $1}' \
+			| sort - \
+			| uniq -)
 
 	for _index in $_contrast; do
 
@@ -174,11 +188,12 @@ elif [ $_strategy == "up" ]; then
 		
 		## Get gene IDs based on adjusted Pvalue and B-statistics values
 		## the uniq -u will remove redundant NAs
-		cat $files | sed -e '1d' -e 's/ /./g' | \
-		    awk -vb=$_bstatistics '{if($25>=b) print $0}' | \
-		    awk -vp=$_adjPval '{if($24<=p) print $0}' | \
-		    awk -vh=$_foldchange '{if($20>=h) print $1}' | \
-		    sort - | uniq -u >> $output/ids.up.tmp
+		cat $files | sed -e '1d' -e 's/ /./g' \
+		    | awk -vb=$_bstatistics '{if($25>=b) print $0}' \
+		    | awk -vp=$_adjPval '{if($24<=p) print $0}' \
+		    | awk -vh=$_foldchange '{if($20>=h) print $1}' \
+		    | sort - \
+		    | uniq -u >> $output/ids.up.tmp
 		
 	    done
 
@@ -192,7 +207,10 @@ elif [ $_strategy == "up" ]; then
 	_bstatistics="12-80p"
 	
 	## Get the MODEL/design based on average expression threshold alone
-	_contrast=$(cat $_workingDir/summary/summary.full*.txt | awk '/avgex/ && /up/ {if($9>=1)print $1}'| sort - | uniq -)
+	_contrast=$(cat $_workingDir/summary/summary.full*.txt \
+			| awk '/avgex/ && /up/ {if($9>=1)print $1}' \
+			| sort - \
+			| uniq -)
 
 	for _index in $_contrast; do
 
@@ -202,11 +220,12 @@ elif [ $_strategy == "up" ]; then
 		
 		## Get gene IDs based on adjusted Pvalue and B-statistics values
 		## the uniq -u will remove redundant NAs
-		cat $files | sed -e '1d' -e 's/ /./g' | \
-		    awk -vb=$_bstatistics '{if($25>=b) print $0}' | \
-		    awk -vp=$_adjPval '{if($24<=p) print $0}' | \
-		    awk -vh=$_foldchange '{if($20>=h) print $1}' | \
-		    sort - | uniq -u >> $output/ids.up.tmp
+		cat $files | sed -e '1d' -e 's/ /./g' \
+		    | awk -vb=$_bstatistics '{if($25>=b) print $0}' \
+		    | awk -vp=$_adjPval '{if($24<=p) print $0}' \
+		    | awk -vh=$_foldchange '{if($20>=h) print $1}' \
+		    | sort - \
+		    | uniq -u >> $output/ids.up.tmp
 
 	    done
 
@@ -223,20 +242,30 @@ fi
 #      <(printf "%s$(sed -e '2, $d' $_affymetrix)") | sed 's/\t\t/\t/g' \
 #      > $output/expressions
 # get expression of only annotated genes (NAs are discarded)
-cat $_affymetrix | grep -Fwf <(cat $output/ids.$_strategy.tmp | sort - | uniq -) > $output/expressions
+cat $_affymetrix \
+    | grep -Fwf <(cat $output/ids.$_strategy.tmp \
+		      | sort - \
+		      | uniq -) > $output/expressions
 sed -i "1iids$(head -n1 $_affymetrix)" $output/expressions
 
 
 ## get annotations for the selected genes with significant expressions
-grep -Fwf <(cat $output/expressions | cut -f1 | sed '1d') \
-     $output/annotated.normalized.systemic.expression.array.txt | cut -f1,3,8 | \
-    sed -e 's/ \/\/ /\t/g' -e 's/ /./g' | cut -f1,2,3,4,5,6,8 | \
-    sort - | uniq > $output/ids2description.summary.txt
+grep -Fwf <(cat $output/expressions \
+		| cut -f1 \
+		| sed '1d') $output/annotated.normalized.systemic.expression.array.txt \
+    | cut -f1,3,8 \
+    | sed -e 's/ \/\/ /\t/g' -e 's/ /./g' \
+    | cut -f1,2,3,4,5,6,8 \
+    | sort - \
+    | uniq > $output/ids2description.summary.txt
 
 
 ## for verification, output the dimensions (rows x columns) of the expression file
 ## number of rows, or genes, must be equal to the number of genes being selected based on their B-stats and average expession
-_selected=$(cat $output/expressions | sed '1d' | wc -l && awk '{ if(NF>max) max=NF } END {print max}' $output/expressions | sed '1d')
+_selected=$(cat $output/expressions \
+		| sed '1d' \
+		| wc -l && awk '{ if(NF>max) max=NF } END {print max}' $output/expressions \
+		    | sed '1d')
 echo -e "\n\nNumber of selected genes x Number of sample cases: "
 echo "$_selected"
 echo -e "\nNumber of significant genes based on their Bstats >= 0 and average expression >= 10: "

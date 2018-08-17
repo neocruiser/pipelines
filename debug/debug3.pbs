@@ -1,12 +1,16 @@
 #!/bin/bash
-#PBS -l nodes=2:ppn=16,walltime=48:00:00
-#PBS -N PARA_GG5
-#PBS -q long
+#PBS -l nodes=1:ppn=8,walltime=168:00:00,vmem=60g,mem=220g
+#PBS -N classification
+#PBS -q himem
 #PBS -V
-#PBS -M sleiman.bassim@stonybrook.edu
 #PBS -j oe
 #PBS -m abe
+#PBS -M slei.bass@gmail.com
 
+set -eux
+
+module load R
+module load samtools
 
 # __CHANGE__
 transcriptome=5
@@ -28,4 +32,59 @@ _REF=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*fna")
 _INDEX=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*sa")
 mkdir -p $_DIR
 
-$home/trinityrnaseq-2.2.0/Trinity --genome_guided_bam $workdir/all.reads.sorted.bam --genome_guided_max_intron 1000 --output $_DIR --CPU 15 --max_memory 50G
+
+## get the full size of the genome sequence
+samtools view -H mutations/A61960/merge21239_bwa-0.5.7/125nt/hg19a/A61960_3_lanes_dupsFlagged.bam | grep -P '^@SQ' | cut -f 3 -d ':' | awk '{sum+=$1} END {print "Full length of the genome" sum}'
+
+## get the average coverage of the whole genome
+samtools depth -a mutations/A61960/merge21239_bwa-0.5.7/125nt/hg19a/A61960_3_lanes_dupsFlagged.bam  |  awk '{sum+=$3} END { print "Average target coverage =",sum/NR,"X"}'
+
+# counting only mapped (primary aligned) reads
+samtools view -c -F 260 file.bam
+
+## get the bam file sorting info
+## get genome used for alignment
+samtools view -H bam >& output
+
+## generate coverage file
+
+## compare bam to bed output with exomeCQA
+
+
+
+## One can use the UCSC Genome Browser's MySQL database to extract
+## chromosome sizes. For example, H. sapiens:
+
+mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from hg19.chromInfo" > hg19.genome
+
+
+
+
+sample[1]=A1
+sample[2]=A2
+sample[3]=A3
+
+ir=./trimmed/
+dir=mapping5
+ddir=rmdup5
+
+extension=.trimmed.P.fastq.gz
+reference=./genomeSRv015/QPX_v015.fasta
+count=./genomeSRv015/QPX_v015.gff3
+
+for i in 1 2 3
+do
+    sample=${sample[${i}]}
+    bwa mem ${reference} \
+        ${ir}${sample}R1${extension} \
+        ${ir}${sample}R2${extension} | \
+        samtools view -Shu - | \
+        samtools sort - ./${dir}/${sample}.sorted
+
+    htseq-count --format=bam \
+        --stranded=no \
+        --type=CDS --order=pos \
+        --idattr=Name ./${dir}/${sample}.sorted.bam ${count} \
+        > ./${ddir}/${sample}.htseq.counts.txt
+
+done
