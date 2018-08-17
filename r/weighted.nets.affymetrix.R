@@ -6,15 +6,37 @@ lapply(pkgs, require, character.only = TRUE)
 
 source("./convertMatrix2graph.R")
 
+## gene ids generated in the PART I of the network analysis pipe
+ids2description <- read.table("./ids2description.summary.txt", header = FALSE, fill = TRUE)
+colnames(ids2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
+
 ## LOAD DATA
-counts <- as.matrix(read.table("./expressions", header = T, row.names = 1))
-tbl_df(counts)
+counts <- read.table("./expressions", sep="\t", header=T, row.names=1) %>%
+    select(-matches("CNR800.T1")) %>%
+    select(-matches("CNR900.T1")) 
+counts[1:3,1:3]
 
-dim(counts)
+pre.annot <- dim(counts)[2]
 
-nco <- dim(counts)[1]
+gene.names <-  ids2description[ ids2description$genes %in% rownames(counts), c(1:2,4:5)]
+gene.names$chromosome <- as.factor(gsub("_.*","",gene.names$chromosome))
+write.table(gene.names, "log.gene.names_alldifferential.txt", sep = '\t', row.names = FALSE, quote = FALSE)
+
+idx <- gene.names[, -4] %>%
+    mutate(id = paste0(symbol,".",gsub(".hg.1","",genes)))
+
+counts$genes <- rownames(counts)
+new.counts <- full_join(counts, idx, by = "genes")
+rownames(new.counts) <- new.counts$id
+counts <- new.counts %>%
+    select(-genes, -id, -symbol, -chromosome)
+post.annot <- dim(counts)[2]
+
+if ( pre.annot != post.annot ) { stop("Can't continue, newly indexed data differ from the original") }
+
 
 ## INCREASING THE POWER AND THRESHOLD REDUCES THE NUMBER OF NETWORKS
+nco <- dim(counts)[1]
 if ( nco >= 500 ) {
     pow <- seq(4, 12, 2)
     th <- seq(.1, .6, .1)
@@ -62,7 +84,7 @@ networks.summary=NULL
 ## Initialize variable that will contain differnt module/gene iterations
 dm <- NULL
 ## create data frame to export module associations per gene across iterations
-gene2module <- data.frame(ids = rownames(counts))
+gene2module <- data.frame(genes = rownames(counts))
 ## create an iterative counter and initialize it
 icc <- function(){ i=0; function(){ i <<- i + 1;  i }}
 ite <- icc()
@@ -84,7 +106,7 @@ for ( s in standardize_df ) {
 
     allowWGCNAThreads()
 
-                                        #create similarity matrix
+    ## create similarity matrix
     cordist <- function(dat) {
         cor_matrix  <- cor(t(dat))
 

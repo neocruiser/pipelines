@@ -43,7 +43,6 @@ _lmfit=$_workingDir/summary/summary.lmfit.all.txt
 ## execute pipeline: clusters, networks, all
 run_pipe=networks
 
-
 ## total, up or clusters
 ## either run network analysis on all significant dataset (total)
 ## analysis on upregulated genes (up)
@@ -372,6 +371,7 @@ cd $output
 cp $home/script*/r/convertMatrix2graph.R $output
 
 execute_pipeline $run_pipe
+
 
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time

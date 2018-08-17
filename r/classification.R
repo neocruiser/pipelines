@@ -31,10 +31,10 @@ lasso.std = FALSE
 ## how many CV folds during model validation (max 10)
 ## use grid tuning or not for model optimization
 ## length of the training data set (percent, max 85)
-lambda.epochs = 5
+lambda.epochs = 50
 baseline.epochs = 5
 validate.folds = 10
-validate.tune = FALSE
+validate.tune = TRUE
 train.size = 80
 
 ## choose between methods of normalization and correlation
@@ -42,13 +42,15 @@ train.size = 80
 ## the latter is generated from gene networks
 ## which correlation, power, normalization methods used from network analysis
 ## choose from ids2modules colnames
-clustering.strategy = 8
+clustering.strategy = 11
 
 ## choose contrasts
 ## choose summary file with all FDR adjusted pvalues
 ## file generated from expression analysis
 grouping = c("systemicRelapse", "systemicRelapseNodes", "systemicRelapseCOOprediction")
-pvals <- read.table("summary/summary.lmfit.all.txt", header = TRUE, fill = TRUE)
+pvals <- read.table("summary/summary.lmfit.all.txt", header = TRUE, fill = TRUE) %>%
+    mutate(genes = paste0(Symbol,".",gsub(".hg.1","",ID)))
+
 ## names of each sample files
 ids <- read.table("summary/sampleIDs")
  
@@ -58,7 +60,6 @@ ids2modules <- read.table("./ids2modules.summary.txt", header = TRUE)
 colnames(ids2modules)
 ids2description <- read.table("./ids2description.summary.txt", header = FALSE, fill = TRUE)
 colnames(ids2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
-
 
 
 ##########################
@@ -344,7 +345,7 @@ gene.names$chromosome <- as.factor(gsub("_.*","",gene.names$chromosome))
 write.table(gene.names, "log.gene.names_allnetworks.txt", sep = '\t', row.names = FALSE, quote = FALSE)
 
 idx <- gene.names[, -4] %>%
-    mutate(id = paste0(symbol,"-",gsub(".hg.1","",genes)))
+    mutate(id = paste0(symbol,".",gsub(".hg.1","",genes)))
 
 means$genes <- rownames(means)
 new.means <- full_join(means, idx, by = "genes")
@@ -683,7 +684,7 @@ if ( exists('dm') && exists('df') ) {
 
 
 
-## CHART 0
+## CHART 0 (density distribution)
 pdf(paste0("density.shrinking.epochs",lambda.epochs,".",response,".pdf"))
 gpd %>%
 ##    filter(classes == c("CNS", "SYST", "NOREL")) %>%
@@ -793,7 +794,7 @@ cat("\nGroup imabalances across available all samples: ")
 round(table(dat$y)/length(dat$y)*100, 2)
 
 ## get gene names
-gene.names[ gene.names$genes %in% colnames(dat), ] %>%
+idx[ idx$id %in% colnames(dat), ] %>%
     write.table("log.gene.names_bestLambda.txt", sep = '\t', row.names = FALSE, quote = FALSE)
 
 ## # plot lambda iterations
@@ -856,7 +857,7 @@ reduce
 max.aic <- round(max(reduce$anova$AIC),2)
 min.aic <- round(min(reduce$anova$AIC),2)
 
-## chart 1
+## chart 1 (RDA)
 ## for scaling check ?biplot.rda {vegan}
 ## here the scores are scaled symmetrically by square root of eigenvalues
 ## create color palette
@@ -892,7 +893,7 @@ plot(ena, add = TRUE, col = "chocolate")
 ## gene association to classes (colors only)
 ## distinguish genes selected by best lambda by minimizing the least squares
 sel.mods <- colnames(dat[, -1])
-genes2modules <- ids2modules[ ids2modules$ids %in% sel.mods, c(1, clustering.strategy)]
+genes2modules <- ids2modules[ ids2modules$genes %in% sel.mods, c(1, clustering.strategy)]
 colnames(genes2modules) <- c("handle", "mods")
 ## add +1 to offset module 0
 vcol <- (unique(genes2modules[, 2]) + 1)
@@ -933,7 +934,7 @@ try(dev.off(), silent = TRUE)
 
 
 
-## Chart 2
+## Chart 2 (PCA)
 ## principal component analysis of gene distribution
 ## get singular value deomposition which retains
 ## a reduced number of orthogonal covariates
@@ -947,25 +948,33 @@ pcs <- t(data.frame(summary(genes.pca)$importance)[2, 1:3])
 
 ## plot of observations from networks output
 sel.mods <- colnames(dat[, -1])
-genes2modules <- ids2modules[ ids2modules$ids %in% sel.mods, c(1, clustering.strategy)]
+genes2modules <- ids2modules[ ids2modules$genes %in% sel.mods, c(1, clustering.strategy)]
 colnames(genes2modules) <- c("handle", "mods")
 genes2modules$handle <- as.character(genes2modules$handle)
 
 pdf("pca.genes2D.bestLassoLambda.pdf")
-full_join(genes.scores, genes2modules, by = "handle") %>% 
-    ggplot(aes(x = PC1, y = PC2, colour = as.factor(mods))) +
+pcdf <- full_join(genes.scores, genes2modules, by = "handle")
+pcdf %>%
+    ggplot(aes(x = PC1, y = PC2, colour = as.factor(mods), label = handle)) +
     geom_hline(yintercept = 0, colour = "gray65") +
     geom_vline(xintercept = 0, colour = "gray65") +
     geom_point() +
     xlab(paste0("PC1 (",round(pcs[1]*100,2),"%)")) +
     ylab(paste0("PC2 (",round(pcs[2]*100,2),"%)")) +
     theme(legend.position = "none") +
-    theme_minimal()
+    theme_minimal() +
+    geom_label_repel(data = subset(pcdf, PC1 >= 20 | PC1 <= -20),
+                     nudge_y = -1, force = 7.5, segment.color = "grey50",
+                     direction = "y", segment.size = 0.1, size = 2) +
+    geom_label_repel(data = subset(pcdf, PC2 >= 3 | PC2 <= -3),
+                     nudge_y = 1, force = 7.5, segment.color = "grey50",
+                     direction = "y", segment.size = 0.1, size = 2)
+
 dev.off()
 try(dev.off(), silent = TRUE)
 
 
-## Chart 2.1
+## Chart 2.1 (PCA in 3D)
 ## 3D PCAp
 dpf <- full_join(genes.scores, genes2modules, by = "handle")
 fit <- lm(dpf$PC3 ~ dpf$PC1 + dpf$PC2)
@@ -995,7 +1004,7 @@ dev.off()
 try(dev.off(), silent = TRUE)
 
 
-## Chart 3
+## Chart 3 (PCA)
 ## principal component analysis of sample distribution
 ## get singular value deomposition
 class.pca <- prcomp(dat[, -1], scale = TRUE)
@@ -1018,7 +1027,7 @@ dev.off()
 try(dev.off(), silent = TRUE)
 
 
-## CHART 4
+## CHART 4 (heatmap)
 ## Correlation matrices for each group
 ## show correlation for selected genes from Lasso
 ## create heatmaps for genes specific for each sample class
@@ -1089,37 +1098,19 @@ try(dev.off(), silent = TRUE)
 
 
 
-
-pdf("test2.pdf")
-    grid.newpage()
-    print(corplot, vp=viewport(0.8, 0.8, x=0.4, y=0.4))
-    print(dendro.plot, vp=viewport(0.665, 0.17, x=0.488, y=0.85))
-    print(dendro.plot + coord_flip(), vp=viewport(0.17, 0.667, x=0.85, y=0.435))
-dev.off()
-
-## CHART 5
+## CHART 5 (boxplot)
 ## box plot all selected genes
 ## grouped by module from hierarchical analysis
 ## before inferring gene network associations
 pdf("boxplots.groups2genes.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(selgenes) ) {
-    ## get the genes that intersect
-    ## add module association from hierarchical clustering
-    ## add gene function to gene ids from annotated files generated from PBS script
-    genes2modules <- ids2modules[ ids2modules$ids %in% selgenes[[lev]], c(1, clustering.strategy)]
-    colnames(genes2modules) <- c("genes", "modules")
-    genes2description <- ids2description[ ids2description$genes %in% selgenes[[lev]], ]    
-
     full.list <- as.data.frame(adj.x[ , selgenes[[lev]] ]) %>%
         mutate(groups = metadata$Groups) %>%
         mutate(nodes = metadata$Nodes) %>%
         mutate(coo = metadata$Prediction) %>%            
-        mutate(samples = rownames(adj.x)) %>%
         mutate(category1 = paste0(coo,"-",nodes)) %>%
         gather("genes", "expressions", 1:length(selgenes[[lev]])) %>%
-        left_join(genes2modules, by = "genes") %>%
-        left_join(genes2description, by = "genes") %>%
-        ggplot(aes(x = reorder(paste0(genes,"-",symbol), expressions),
+        ggplot(aes(x = reorder(genes, expressions),
                    y = expressions,
                    color = groups)) +
         geom_jitter(aes(color = factor(groups)),
@@ -1128,8 +1119,8 @@ for ( lev in 1:length(selgenes) ) {
                     cex = .15) +
         geom_boxplot(outlier.colour = NA, lwd = .1) +
         coord_flip() +
-        facet_wrap(~ coo + nodes,
-                   ncol = 6) +
+        facet_wrap(~ category1,
+                   ncol = 4) +
         scale_color_brewer(palette="Dark2") +
         theme_minimal() +
         theme(legend.position = "top",
@@ -1147,38 +1138,38 @@ try(dev.off(), silent = TRUE)
 
 
 
-## CHART 6
+## CHART 6 (barplots)
 ## gene expression from lmfit data from limma eBayes empirical analysis
 pdf("bars.classifier.genes.pdf", onefile = TRUE)
 for ( g in grouping ) {
     for ( lev in 1:length(selgenes) ) {
-    gene.pvals <- pvals[ pvals$ID %in% selgenes[[lev]],  ]
-    print(dim(gene.pvals))
+        gene.pvals <- pvals[ pvals$genes %in% selgenes[[lev]],  ]
+        print(dim(gene.pvals))
 
-    gene.bars <- gene.pvals %>%
-        filter(Contrast == g) %>%
-        ggplot(aes(x = reorder(paste0(ID,"-",Symbol), LogFC),
-                   y = LogFC,
-                   fill = factor(Comparison))) +
-        geom_bar(stat = "identity",
-                 position = "dodge") +
-        coord_flip() +
-        scale_fill_brewer(palette="Set1") +
-        theme_minimal() +
-        theme(legend.position = "top",
-              text = element_text(size = 6),
-              axis.text.y = element_text(size = rel(1.5)),
-              axis.text.x = element_text(size = rel(1.5)),
-              strip.background = element_rect(linetype = "blank",
-                                              fill = "white"),
-              panel.border = element_rect(linetype = "blank",
-                                          fill = NA),
-              panel.grid.major = element_line(linetype = "blank")) +
-        ggtitle(paste0("Differential genes for\n",g, " with classifier genes for ", names(selgenes)[lev])) +
-        xlab("") +
-        ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
+        gene.bars <- gene.pvals %>%
+            filter(Contrast == g) %>%
+            ggplot(aes(x = reorder(paste0(ID,"-",Symbol), LogFC),
+                       y = LogFC,
+                       fill = factor(Comparison))) +
+            geom_bar(stat = "identity",
+                     position = "dodge") +
+            coord_flip() +
+            scale_fill_brewer(palette="Set1") +
+            theme_minimal() +
+            theme(legend.position = "top",
+                  text = element_text(size = 6),
+                  axis.text.y = element_text(size = rel(1.5)),
+                  axis.text.x = element_text(size = rel(1.5)),
+                  strip.background = element_rect(linetype = "blank",
+                                                  fill = "white"),
+                  panel.border = element_rect(linetype = "blank",
+                                              fill = NA),
+                  panel.grid.major = element_line(linetype = "blank")) +
+            ggtitle(paste0("Differential genes for\n",g, " with classifier genes for ", names(selgenes)[lev])) +
+            xlab("") +
+            ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
 
-    print(gene.bars)
+        print(gene.bars)
     }
 }
 dev.off()
@@ -1186,50 +1177,10 @@ try(dev.off(), silent = TRUE)
 
 
 
-## CHART 7
-##  RMA expressions
-pdf("boxplots.classifier.genes.pdf")
-for ( lev in 1:length(selgenes) ) {
-    ## get gene annotations
-    genes2description <- ids2description[ ids2description$genes %in% selgenes[[lev]], ]    
-    colnames(genes2description) <- c("ID", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
-    ## merge expression and annotations
-    rma.selected <- means[ rownames(means) %in% selgenes[[lev]], ]
-    rma.selected$ID <- rownames(rma.selected)
-    dm <- left_join(rma.selected, genes2description, by = "ID")
-    rownames(rma.selected) <- paste0(dm$ID,"-", dm$symbol)
-    ## plot
-    selgenes.box <- data.frame(y, t(rma.selected[, -c(dim(means)[2]+1)])) %>%
-        gather("id", "expression", 2:dim(rma.selected)[1]+1) %>%
-        ggplot(aes(x = reorder(paste0(id), expression),
-                   y = expression,
-                   fill = y)) +
-        geom_boxplot(outlier.colour = NA, lwd = .1) +
-        coord_flip() +
-        scale_color_brewer(palette="Dark2") +
-        theme_minimal() +
-        theme(legend.position = "top",
-              text = element_text(size = 7),
-              axis.text.y = element_text(size = rel(.5))) +
-        ggtitle(paste0("Classifier genes for ", names(selgenes[lev]))) +
-        xlab("") +
-        ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
-
-    print(selgenes.box)
-}
-dev.off()
-try(dev.off(), silent = TRUE)
-
-
-
-
-## CHART 8
+## CHART 7 (boxplots)
 ## RMA expression without contrast grouping
 pdf("boxplots.genes2groups.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(vints) ) {
-    genes2description <- ids2description[ ids2description$genes %in% vints[[lev]], ]    
-    colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site", "symbol2")
-
     full.list <- as.data.frame(adj.x[ , vints[[lev]] ]) %>%
         mutate(groups = metadata$Groups) %>%
         mutate(nodes = metadata$Nodes) %>%
@@ -1237,19 +1188,17 @@ for ( lev in 1:length(vints) ) {
         mutate(samples = rownames(adj.x)) %>%
         mutate(category1 = paste0(coo,"-",nodes)) %>%
         gather("genes", "expressions", 1:length(vints[[lev]])) %>%
-        left_join(genes2modules, by = "genes") %>%
-        left_join(genes2description, by = "genes") %>%
         ggplot(aes(x = reorder(category1, expressions),
                    y = expressions)) +
         geom_boxplot(aes(fill = groups), outlier.colour = NA, lwd = .1) +
-        facet_wrap(~ paste0(genes,"-",symbol),
-                   ncol = 10) +
+        facet_wrap(~ genes,
+                   ncol = 3) +
         coord_flip() +
         theme_minimal() +
         scale_color_brewer(palette = "Dark2") +            
         theme(legend.position = "top",
-              text = element_text(size = 4),
-              axis.text.y = element_text(size = rel(.5))) +
+              text = element_text(size = 6),
+              axis.text.y = element_text(size = rel(1))) +
         ggtitle(paste0("Intersection between ",names(vints)[lev]," genes")) +
         xlab("") +
         ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
@@ -1260,7 +1209,7 @@ dev.off()
 try(dev.off(), silent = TRUE)
 
 
-## CHART 9
+## CHART 8 (heatmaps)
 ## clustering and bootstrap of lasso selected genes
 ## get adjusted pvalues of similar genes
 ## analysis will generate heatmaps for each contrast
@@ -1282,14 +1231,9 @@ for ( lev in 1:length(selgenes) ) {
                 
                 df <- adj.x[ , selgenes[[lev]] ]
 
-                ## add gene function to gene ids
-                genes2description <- ids2description[ ids2description$genes %in% selgenes[[lev]], ]    
-                colnames(genes2description) <- c("genes", "chromosome", "ensembl", "symbol", "function", "site")
-
                 ## normalize
 #                scaledata <- t(decostand(df, method = normalize.genes))
                 scaledata <- t(df)
-                rownames(scaledata) <- paste0(genes2description$genes, "-", genes2description$symbol)
                 gct <- dim(df)[2]
 
                 ## Dissimilarity clustering and tree cutting
@@ -1356,7 +1300,7 @@ for ( lev in 1:length(selgenes) ) {
                           col=rev(palette.hc),
                           scale="row", trace="none",
                           RowSideColors = myrowhc, ColSideColors=mycolhc,
-                          margin=c(5, 30),
+                          margin=c(30, 5),
                           cexRow=.2, cexCol=.15,
                           key.title = c("Log2 fold change estimates"),
                           key.ylab = NA,
