@@ -1,0 +1,116 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=8,walltime=168:00:00,vmem=60g,mem=220g
+#PBS -N classification
+#PBS -q himem
+#PBS -V
+#PBS -j oe
+#PBS -m abe
+#PBS -M slei.bass@gmail.com
+
+set -eux
+
+module load R samtools bedtools HTSeq bwa bedops
+
+# __CHANGE__
+transcriptome=5
+lib=RF
+
+# IACS directories
+scratch=/gpfs/scratch/ballam
+home=/gpfs/home/ballam
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+
+# __DONT CHANGE__
+workdir=${scratch}/ganglia/blat/parasite.$transcriptome
+target=$workdir/parasite.$transcriptome.selected.500.fa
+cd ${workdir}
+
+## Map reads to REFERENCE GENOME
+_DIR=$workdir/mapped.reads.genome_trinity
+_REF=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*fna")
+_INDEX=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*sa")
+mkdir -p $_DIR
+
+
+threads=8
+compression=1
+
+sample=A61960_3_lanes_dupsFlagged.bam
+reference=reference/GRCh37-lite.fa
+
+## sampling from the raw data
+## purpose: pipeline testing 
+samtools view -uhs 0.01 -b "$sample" -@ $threads | samtools sort -l $compression -@ $threads - > sample.bam
+
+
+
+## get the full size of the genome sequence
+samtools view -H mutations/A61960/merge21239_bwa-0.5.7/125nt/hg19a/A61960_3_lanes_dupsFlagged.bam \
+    | grep -P '^@SQ' \
+    | cut -f 3 -d ':' \
+    | awk '{sum+=$1} END {print "Full length of the genome" sum}'
+
+## get the average coverage of the whole genome
+samtools depth -a mutations/A61960/merge21239_bwa-0.5.7/125nt/hg19a/A61960_3_lanes_dupsFlagged.bam \
+    |  awk '{sum+=$3} END { print "Average target coverage =",sum/NR,"X"}'
+
+# counting only mapped (primary aligned) reads
+samtools view -c -F 260 file.bam
+
+
+
+## get the bam file sorting info
+## get the number of reads sequenced by chromosome
+samtools view -H bam \
+    | grep -i "^@sq" \
+    | sed '26d' \
+    | awk '{print $2,"\t",$3}' \
+    | sed -e 's/SN://g' -e 's/LN://g' -e "s/$/\t$sample/g" \
+	  >> summary.reads.sequenced.by.chromosome.txt
+	  
+    
+## how many regions with different thresholds of target coverage
+for cov in {20,50,100,250}; do
+    regions.covered=$(bedtools genomecov -ibam A61960_3_lanes_dupsFlagged.bam -bg \
+			  | awk '$4 >= 200' \
+			  | wc -l)
+    paste regions.covered >> summary.regions.covered.txt
+done
+
+
+## index the reference genome used for read alignment
+samtools faidx $reference
+
+
+## summarize coverage and read quality
+## enable base alignment quality calculation for all reads aligned to a reference
+samtools view -uh -@ $threads -b $sample\
+    | samtools sort -l 0 -m 200G @ $threads - \
+	       | samtools mpileup -f $reference -d 3000 
+
+## generate coverage file
+## If the data are not sorted going in, then incorrect results may occur.
+## bam2bed script uses sort-bed
+bamToBed -i $sample \
+    | sort-bed - \
+    | bedops --merge - \
+	     > output.bed
+
+## compare bam to bed output with exomeCQA
+
+
+
+## One can use the UCSC Genome Browser's MySQL database to extract
+## chromosome sizes. For example, H. sapiens:
+
+mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from hg19.chromInfo" > hg19.genome
+
+
+
+
+    htseq-count --format=bam \
+        --stranded=no \
+        --type=CDS --order=pos \
+        --idattr=Name ./${dir}/${sample}.sorted.bam ${count} \
+        > ./${ddir}/${sample}.htseq.counts.txt
+
