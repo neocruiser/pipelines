@@ -1,6 +1,6 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=8,walltime=168:00:00,vmem=60g,mem=220g
-#PBS -N classification
+#PBS -l nodes=1:ppn=36,walltime=72:00:00,vmem=60g,mem=220g
+#PBS -N variantCalls
 #PBS -q himem
 #PBS -V
 #PBS -j oe
@@ -9,18 +9,24 @@
 
 set -eux
 
-module load R samtools bedtools HTSeq bwa bedops
+module load R samtools bedtools HTSeq bwa bedops picard gatk bamtools tabix
 
 # __CHANGE__
-transcriptome=5
-lib=RF
+sampling=FALSE
+sample=A61960_3_lanes_dupsFlagged.bam
+reference=reference/GRCh37-lite.fa
+agilent=padded.clean.bed
+ucsc=genes2index.ucsc.bed
 
-# IACS directories
+# H4H directories
 scratch=/gpfs/scratch/ballam
 home=/gpfs/home/ballam
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 
 # __DONT CHANGE__
+threads=36
+compression=0
+mapq=39
 workdir=${scratch}/ganglia/blat/parasite.$transcriptome
 target=$workdir/parasite.$transcriptome.selected.500.fa
 cd ${workdir}
@@ -31,86 +37,178 @@ _REF=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*fna")
 _INDEX=$(find $scratch/ganglia/genomes/parasite.$transcriptome -name "*sa")
 mkdir -p $_DIR
 
-
-threads=8
-compression=1
-
-sample=A61960_3_lanes_dupsFlagged.bam
-reference=reference/GRCh37-lite.fa
-
+##########
+# PART I #
+##########
 ## sampling from the raw data
 ## purpose: pipeline testing 
-samtools view -uhs 0.01 -b "$sample" -@ $threads | samtools sort -l $compression -@ $threads - > sample.bam
+if [ $sampling == TRUE ]; then
+    samtools view -uhs 0.01 -b "$sample" -@ $threads | samtools sort -l $compression -@ $threads - > sample.bam
+fi
 
+## index the reference genome used for read alignment
+## both for samtools mapping quality and gatk calling 
+if [ ! -e $reference.fai ]; then
+    samtools faidx $reference
+    gatk CreateSequenceDictionary -R $reference
+fi
 
+## index bam samples after merging
+## required for samtools and gatk workflows
+if [ ! -e *.bam.bai ]; then
+    samtools index $sample
+fi
 
+##########
+# PART 2 #
+##########
 ## get the full size of the genome sequence
-samtools view -H mutations/A61960/merge21239_bwa-0.5.7/125nt/hg19a/A61960_3_lanes_dupsFlagged.bam \
+samtools view -H $sample \
     | grep -P '^@SQ' \
     | cut -f 3 -d ':' \
     | awk '{sum+=$1} END {print "Full length of the genome" sum}'
 
-## get the average coverage of the whole genome
-samtools depth -a mutations/A61960/merge21239_bwa-0.5.7/125nt/hg19a/A61960_3_lanes_dupsFlagged.bam \
-    |  awk '{sum+=$3} END { print "Average target coverage =",sum/NR,"X"}'
+## generate a default interval list from available exome
+## Human exome capture library coordinates using reference genome GRCh37 from UCSC
+## http://hgdownload.cse.ucsc.edu/downloads.html#human
+## or agilent baits that serve as intervals for exon enrichment
+## all coding exons are annotated by the GENCODE project
+curl -s http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/refGene.txt.gz \
+    | gunzip -c \
+    | cut -f 3,5,6 \
+    | sort -t $'\t' -k1,1 -k2,2n \
+    | bedtools merge -i - \
+	       > exome.bed
 
-# counting only mapped (primary aligned) reads
-samtools view -c -F 260 file.bam
-
-
+## create bed file per exon/gene from UCSC    
+if [ ! -e genes.ucsc.bed ]; then
+    cat genes.ucsc.bed \
+	| sed '1d' \
+	| awk '{print $2,$4,$5,$6,$3,$7}' \
+	| sed 's/chr//g' \
+	| sort -t $'\t' -k1,1 -k2,2n \
+	| sed 's/ /\t/g' \
+	| sort -k1,1 -k2,2n \
+	       > genes.ucsc.bed
+fi
 
 ## get the bam file sorting info
 ## get the number of reads sequenced by chromosome
-samtools view -H bam \
+samtools view -H $sample \
     | grep -i "^@sq" \
     | sed '26d' \
     | awk '{print $2,"\t",$3}' \
     | sed -e 's/SN://g' -e 's/LN://g' -e "s/$/\t$sample/g" \
-	  >> summary.reads.sequenced.by.chromosome.txt
+	  >> summary.reads.sequenced_chromosome.txt
 	  
     
 ## how many regions with different thresholds of target coverage
 for cov in {20,50,100,250}; do
-    regions.covered=$(bedtools genomecov -ibam A61960_3_lanes_dupsFlagged.bam -bg \
-			  | awk '$4 >= 200' \
+    regions.covered=$(bedtools genomecov -ibam $sample -bg \
+			  | awk -vc=$cov '$4 >= c' \
 			  | wc -l)
-    paste regions.covered >> summary.regions.covered.txt
+    paste regions.covered >> summary.chromosome_coverage.txt
 done
 
 
-## index the reference genome used for read alignment
-samtools faidx $reference
-
-
-## summarize coverage and read quality
+##########
+# PART 3 #
+##########
+## summarize coverage and read quality (using coverage beds)
 ## enable base alignment quality calculation for all reads aligned to a reference
-samtools view -uh -@ $threads -b $sample\
-    | samtools sort -l 0 -m 200G @ $threads - \
-	       | samtools mpileup -f $reference -d 3000 
-
 ## generate coverage file
 ## If the data are not sorted going in, then incorrect results may occur.
 ## bam2bed script uses sort-bed
-bamToBed -i $sample \
-    | sort-bed - \
-    | bedops --merge - \
-	     > output.bed
+for fileCov in {1,2}; do
+    local file[1]=$agilent
+    local file[2]=$ucsc
 
-## compare bam to bed output with exomeCQA
+    if [ $fileCov == 1 ]; then
+	bamtools filter -tag XT:U -tag XM:0 -in $sample.bam \
+	    | samtools view -uq$mapq -b - -@$threads \
+	    | bamToBed -i - \
+	    | sort-bed - \
+	    | bedops --merge - \
+	    | bedtools coverage -a $file[$fileCov] -b - \
+	    | awk '{if($11>=.8)print$0}' \
+	    | awk '{sum+=$8} END { print "Average target coverage=",sum/NR,"X"}'
+    else
+	bamtools filter -tag XT:U -tag XM:0 -in $sample.bam \
+	    | samtools view -uq$mapq -b - -@$threads \
+	    | bamToBed -i - \
+	    | sort-bed - \
+	    | bedops --merge - \
+	    | bedtools coverage -a $file[$fileCov] -b - \
+	    | awk '{if($8>=.8)print$0}' \
+	    | awk '{sum+=$5} END { print "Average target coverage=",sum/NR,"X"}'
+done
+
+## summarize coverage and read quality (using default genome coverage)
+## MAPping Quality equals -10 log10 Pr {mapping position is wrong}
+## value of 255 indicates that the mapping quality is not available
+## MAPQ are produced by Smith-Waterman Alignment
+## MAPQ are similar to a Phred score of fastq
+## XT flags come from Burrows-Wheeler Transform search
+## keep mapped reads (or -F 260)
+for minCov in {10,20,30}; do
+    avg.coverage=$(bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
+		       | samtools view -uq$mapq -b - -@$threads \
+		       | genomeCoverageBed -ibam - -bg \
+		       | awk -vm=$minCov '{if($4>= m )print$0}' \
+		       | awk '{sum+=$4} END { print "Average target coverage=",sum/NR,"X"}')    
+    paste avg.coverage >> summary.average_coverage.txt
+done
+
+
+## generate multi-way pileup genotype likelihoods
+## max-depth is in effect when the -d 8000 default is passed
+## samtools mpileup produces stats
+## bcftools mpileup can be piped for calls
+## multiple samples can be used
+bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
+    | samtools view -uq39 -b - -@16 \
+    | samtools mpileup - -E --adjust-MQ 50 -d 5000 --positions padded.clean.bed --fasta-ref ../mutations/reference/GRCh37-lite.fa -o test.txt
+
+bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam | samtools view -uq39 -b - -@16 | bcftools mpileup -Ou -EC 50 -d 5000 -f ../mutations/reference/GRCh37-lite.fa - | bcftools call -vmO z -o test.vcf.gz
+
+sleep 120
+
+##########
+# PART 4 #
+##########
+## calling variants with GATK
+gatk HaplotypeCaller -R ../mutations/reference/GRCh37-lite.fa -I sample.a61960.bam -ERC GVCF -O output.raw.snps.indels.g.vcf
 
 
 
+
+
+
+
+
+################
+# experimental #
+################
 ## One can use the UCSC Genome Browser's MySQL database to extract
 ## chromosome sizes. For example, H. sapiens:
-
 mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from hg19.chromInfo" > hg19.genome
 
+## seq counts
+htseq-count --format=bam \
+            --stranded=no \
+            --type=CDS --order=pos \
+            --idattr=Name ./${dir}/${sample}.sorted.bam ${count} \
+            > ./${ddir}/${sample}.htseq.counts.txt
 
+## launch picard
+java -jar $picard_dir/picard.jar
 
+## get genes from public datasets
+wget -q0- http://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gff3.gz \
+    | gunzip --stdout \
+    | awk '$3 == "gene"' \
+    | convert2bed -i gff - \
+		  > genes.bed
 
-    htseq-count --format=bam \
-        --stranded=no \
-        --type=CDS --order=pos \
-        --idattr=Name ./${dir}/${sample}.sorted.bam ${count} \
-        > ./${ddir}/${sample}.htseq.counts.txt
-
+## parallelize with xargs
+samtools view -H yourFile.bam | grep "\@SQ" | sed 's/^.*SN://g' | cut -f 1 | xargs -I {} -n 1 -P 24 sh -c "samtools mpileup -BQ0 -d 100000 -uf yourGenome.fa -r {} yourFile.bam | bcftools view -vcg - > tmp.{}.vcf"
