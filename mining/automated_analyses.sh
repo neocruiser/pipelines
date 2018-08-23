@@ -219,20 +219,20 @@ function guidelines () {
             echo "NCBI protein accession numbers have been downloaded"
         fi
 
-## Append NCBIs gene information, gene ID, protein accession nb, and taxid to each contig
-            files $FILE__PATH txt
-            printf "a. Choose one DIAMOND txt file from the list above (number) -> "
-            read _FD
-            _diamond=$(awk -vf="$_FD" '{if ($1 == f) print $2}' blast.tmp)
-            rm blast.tmp
-            printf "b. Choose an E-value for an alignment score [e-0..35] -> "
-            read ED
-            ZD=$(seq -s. "$(echo "${ED}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
-            local _ev="0.${ZD}1"
+	## Append NCBIs gene information, gene ID, protein accession nb, and taxid to each contig
+        files $FILE__PATH txt
+        printf "a. Choose one DIAMOND txt file from the list above (number) -> "
+        read _FD
+        _diamond=$(awk -vf="$_FD" '{if ($1 == f) print $2}' blast.tmp)
+        rm blast.tmp
+        printf "b. Choose an E-value for an alignment score [e-0..35] -> "
+        read ED
+        ZD=$(seq -s. "$(echo "${ED}+1" | bc)" | tr -d '[:digit:]' | sed 's/./0/g')
+        local _ev="0.${ZD}1"
 
-            _addon=$(echo $(basename $_diamond))
-            _diamond_summary=NR-PTHR-IPS.$_addon.tmp
-            _output_summary=$FILENAME.id2description.NR-PTHR-IPS.diamond$ED.LEN$ALIGNMENT.EVAL$EVAL
+        _addon=$(echo $(basename $_diamond))
+        _diamond_summary=NR-PTHR-IPS.$_addon.tmp
+        _output_summary=$FILENAME.id2description.NR-PTHR-IPS.diamond$ED.LEN$ALIGNMENT.EVAL$EVAL
 
             if [ ! -f "$_diamond_summary" ]; then
 
