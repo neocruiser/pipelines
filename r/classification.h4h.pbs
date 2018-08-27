@@ -149,7 +149,7 @@ fi
 
 _metrics=$output/performance3*
 if [ ! -f "$_metrics" ]; then
-    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    ## get metrics for trained model
     cat $_metrics \
 	| sed -e 's/^Class..//g' -e 's/^model/group\tmodel/g' \
 			 > $output/log.$(basename $_metrics)."${pbs}".txt
@@ -160,7 +160,7 @@ fi
 
 _metrics=$output/performance4*
 if [ ! -f "$_metrics" ]; then
-    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    ## get sensitivity, specificity and other metrics (for optimized model)
     cat $_metrics \
 	| sed -e 's/^Class..//g' -e 's/^iteration/group\titeration/g' \
 			 > $output/log.$(basename $_metrics)."${pbs}".txt
@@ -171,7 +171,7 @@ fi
 
 _metrics=$output/performance5*
 if [ ! -f "$_metrics" ]; then
-    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    ## get gene importance score
     cat $_metrics \
 	| sed -e 's/.hg.../\t/g' -e 's/^model/genes\tmodel/g' \
 			> $output/log.$(basename $_metrics)."${pbs}".txt
@@ -182,7 +182,7 @@ fi
 
 _metrics=$output/performance6*
 if [ ! -f "$_metrics" ]; then
-    ## get classifiers accuracy and pvalues with otpimum tuned parameter
+    ## get classifiers class probability
     cat $_metrics \
 	| sed -e 's/^epochs/rwn\tepochs/g' \
 			> $output/log.$(basename $_metrics)."${pbs}".txt

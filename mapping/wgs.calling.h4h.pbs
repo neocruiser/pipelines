@@ -173,6 +173,9 @@ bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam | samtools view -uq39 
 
 sleep 120
 
+tabix -p vcf test.vcf.gz
+bcftools stats -F ../mutations/reference/GRCh37-lite.fa -s - test.vcf.gz > test.vcf.gz.stats
+bcftools filter -O z -o test_filtered.vcf.gz -s LOWQUAL -i '%QUAL>10' test.vcf.gz
 ##########
 # PART 4 #
 ##########
