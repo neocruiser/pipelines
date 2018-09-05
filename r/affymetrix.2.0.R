@@ -7,7 +7,7 @@ lapply(pkgs, require, character.only = TRUE)
 
 ## set boolean variable
 ## if TRUE outliers with high or low variance will be discarded
-remove.based.onVariance = TRUE
+remove.based.onVariance = FALSE
 
 ## apply normalization methods within samples
 standardization = FALSE
@@ -55,9 +55,10 @@ moderatedFit <- function(data=trx.normalized, contrasts=contrast.matrix, labels=
 
     for (f in coef) {
 
+        ## set proportion of differentially expression genes to 1% of the genome
         cel.fit <- lmFit(data, strategy) %>%
             contrasts.fit(contrasts) %>%
-            eBayes()
+            eBayes(proportion=0.01)
         ## Benjamini & Hochberg (1995) control the false discovery rate,
         ## the expected proportion of false discoveries amongst the rejected hypotheses
         ## p-values are adjusted for multiple testing (fdr-adjusted p-value)
@@ -507,8 +508,12 @@ sessionInfo()
 sink()
 
 
+## an adjusted p-value of 1 doesn't mean there is no differential expression
+## it just means that this particular data set does not show any evidence of differential expression
+## cel.fit <- lmFit(trx.normalized, strategy) %>%
+##    contrasts.fit(contrast.matrix) %>%
+##     eBayes(proportion=0.05)
+## topTable(cel.fit, coef=1, adjust="BH", sort.by="B", number=5)[, c("logFC", "AveExpr", "P.Value", "adj.P.Val", "B")]
 
-##cel.fit <- lmFit(trx.normalized, strategy) %>%
-##   contrasts.fit(contrast.matrix) %>%
-##    eBayes()
-##topTable(cel.fit, coef=1, adjust="fdr", sort.by="B", number=5)[, c("logFC", "AveExpr", "P.Value", "adj.P.Val", "B")]
+## tfit <- treat(cel.fit,lfc=log2(1.1))
+## topTreat(tfit,coef=2, number=5)[, c("logFC", "AveExpr", "P.Value", "adj.P.Val")]

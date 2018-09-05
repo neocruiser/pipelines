@@ -92,7 +92,7 @@ cd $output
 cp $project/summary/annotated.normalized.systemic.expression.array.txt $output
 
 ## already set thresholds based on the $_workingDir output
-_adjPval=0.05
+_adjPval=0.1
 _avgexpression=5
 _foldchange=1
 

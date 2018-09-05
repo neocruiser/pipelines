@@ -1167,7 +1167,7 @@ for ( g in grouping ) {
                   panel.grid.major = element_line(linetype = "blank")) +
             ggtitle(paste0("Differential genes for\n",g, " with classifier genes for ", names(selgenes)[lev])) +
             xlab("") +
-            ylab("Log2 scaling of expression after RMA quantile normalization (2 is 4-fold up)")
+            ylab("Log2 ratios of fold change after RMA quantile normalization (2 is 4-fold up)")
 
         print(gene.bars)
     }
@@ -1217,24 +1217,31 @@ cluster.samples <- c("pearson")
 cluster.genes <- c("pearson")
 normalize.genes <- c("standardize")
 dissimilar.genes <- c("ward.D2")
-n.bootstraps=2
-p.alpha=0.95
-tree.cut=1.8
+n.bootstraps=5000
+p.alpha=0.9
+tree.cut=2
 
 pdf("heatmaps.modules4venn.intersection.pdf", onefile = TRUE)
 for ( lev in 1:length(selgenes) ) {
     if ( length(selgenes[[lev]]) >= 10 ) {
         gc()
-        for ( i in normalize.genes ) {
+        for ( nor in normalize.genes ) {
             for ( it in dissimilar.genes ) {
-                cat(">> ",names(selgenes[lev]),"expression normalized with",i,"method &",it,"clustering >> ")
+                cat(">> ",names(selgenes[lev]),"expression normalized with",nor,"method &",it,"clustering >> ")
                 
-                df <- adj.x[ , selgenes[[lev]] ]
+                df.sel <- adj.x[ , selgenes[[lev]] ]
 
-                ## normalize
-#                scaledata <- t(decostand(df, method = normalize.genes))
-                scaledata <- t(df)
-                gct <- dim(df)[2]
+                scaledata <- data.frame(df.sel) %>%
+                    mutate(samples = paste0(rownames(df.sel),".",meta.selected$Groups)) %>% 
+                    gather("genes", "expression", 1:length(selgenes[[lev]])) %>%
+                    mutate(genes = gsub(".TC.*$","",genes)) %>% 
+                    spread(samples, expression)
+
+                row.names(scaledata) <- scaledata$genes
+                scaledata <- as.matrix(scaledata[, -1])
+
+
+                gct <- dim(scaledata)[2]
 
                 ## Dissimilarity clustering and tree cutting
                 palette.hc <- brewer.pal(11, name = "RdYlBu")
@@ -1294,6 +1301,11 @@ for ( lev in 1:length(selgenes) ) {
                 dend_colored.col <- dendrapply(as.dendrogram(pvData.col$hclust), dendroCol,
                                                keys=clsig.col, xPar="edgePar", bgr="black", fgr="red", pch=20)                
 
+                ## color branches
+                ## require(dendextend)
+                ## dend_colored.col <- as.dendrogram(pvData.col$hclust) %>%
+                ## set("branches_k_color", k = 3) %>% set("branches_lwd", 1)
+
                 par(cex.main=.8)
                 heatmap.2(scaledata,
                           Rowv=dend_colored.row, Colv=dend_colored.col,
@@ -1301,14 +1313,14 @@ for ( lev in 1:length(selgenes) ) {
                           scale="row", trace="none",
                           RowSideColors = myrowhc, ColSideColors=mycolhc,
                           margin=c(30, 5),
-                          cexRow=.2, cexCol=.15,
+                          cexRow=.2, cexCol=.25,
                           key.title = c("Log2 fold change estimates"),
                           key.ylab = NA,
                           key.xlab = c("Genes Z-scores"),
                           density.info = "none",
                           main = paste0(names(selgenes[lev]),'\n',
-                                        "expression normalized with ",i,'\n',
-                                        "method & ",it," clustering"),
+                                        "expression normalized with ",nor,'\n',
+                                        "method & ",it," clustering @",n.bootstraps," bootstraps"),
                           keysize = .9)
             }
         }
