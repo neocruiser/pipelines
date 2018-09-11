@@ -12,6 +12,7 @@ set -eux
 module load gatk/4.0.5.1 java/8 samtools/1.9 bedtools/2.27.1
 module load HTSeq/0.7.2 bwa/0.7.15 bedops/2.4.14 picard/2.10.9 
 module load bamtools/2.4.2 tabix/0.2.6 varscan/2.4.2 
+module load python3/3.6.5 CNVkit/0.9.3
 
 ## use the below exec when loading R
 ## java -jar $gatk_dir/gatk-package-4.0.5.1-local.jar HaplotypeCaller
@@ -178,17 +179,17 @@ bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
     | samtools mpileup - -E --adjust-MQ 50 -d 5000 --positions padded.clean.bed --fasta-ref ../mutations/reference/GRCh37-lite.fa -o test.txt
 
 
+## call with varscan
 if [ $pipeline == "varscan" ]; then
     module load samtools/1.3.1
 
-    ## call with varscan
     ## snps
     samtools mpileup -EC 50 --ignore-RG -l exons.ucsc.clean.bed -f ../mutations/reference/GRCh37-lite.fa sample.a61961.bam | java -jar $varscan_dir/VarScan.jar pileup2snp - --min-var-freq 0.01 --p-value 0.01 --output-vcf 1 > snp.a61961.varscan.vcf
 
     ## indels
     samtools mpileup -EC 50 --ignore-RG -l exons.ucsc.clean.bed -f ../mutations/reference/GRCh37-lite.fa sample.a61961.bam | java -jar $varscan_dir/VarScan.jar pileup2indel - --min-var-freq 0.01 --p-value 0.01 --output-vcf 1 > indel.a61961.varscan.vcf
 
-    ## multiple samples
+    ## multiple samples SNPs
     samtools mpileup -EC 50 --ignore-RG -l exons.ucsc.clean.bed -f ../mutations/reference/GRCh37-lite.fa *.bam | java -jar $varscan_dir/VarScan.jar mpileup2snp - --min-var-freq 0.01 --p-value 0.01 --output-vcf 1 > snp.multi.varscan.vcf
 fi
 
@@ -211,9 +212,25 @@ if [ $pipeline == "bcftools" ]; then
 fi
 
 
+
+
 ##########
-# PART 4 #
+# part 4 #
 ##########
+## detect copy number aberrations
+## without health tissue sequencing datasets
+
+if [ $cnvs == "cnvkit" ]; then
+cnvkit.py batch *.bam -n -t padded.clean.bed -f ../mutations/reference/GRCh37-lite.fa --short-names --output-reference cnv_flat_reference.cnn --annotate exons.ucsc.clean.bed -d cnvs.infer.cnvkit
+fi
+
+if [ $cnvs == "cnmops" ]; then
+    R CMD BATCH $output/script*/cnv.detection.R
+fi
+
+################
+# experimental #
+################
 
 if [ $pipeline == "gatk" ]; then
     ## calling variants with GATK
