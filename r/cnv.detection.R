@@ -23,6 +23,7 @@ bam.ranges <- getSegmentReadCountsFromBAM(raw.bam,
 ## cnv detection and segmentation
 ## https://www.rdocumentation.org/packages/cn.mops/versions/1.18.0/topics/exomecn.mops
 ## read counts are scaled within samples
+## segmentation algorithms: fast or DNAcopy
 cnv.estimation <- calcIntegerCopyNumbers(exomecn.mops(bam.ranges,
                                                       normType = "poisson",
                                                       segAlgorithm = "fast",
@@ -32,12 +33,23 @@ cnv.estimation <- calcIntegerCopyNumbers(exomecn.mops(bam.ranges,
 ## plotting
 ## Segment means in Red
 ## Zeroline in grey
+## plots configured based on DNAcopy R package
 pdf("cnvs.by.chromosome.pdf", onefile = TRUE)
 for(chr in c(seq(1:22), "X", "Y")) {
     sample.plots <- segplot(cnv.estimation, sampleIdx = 1, seqnames = chr)
     print(sample.plots)
 }
+dev.off()
+try(dev.off(), silent = TRUE)
 
+
+pdf("cnvs.by.samples.pdf", onefile = TRUE)
+for(samp in 1:2){
+    sample.plots <- segplot(cnv.estimation, sampleIdx = samp, plot.type = "w",
+                            pt.cols = c("#202556", "#A52A2A"),
+                            segcol = "#007BA7")
+    print(sample.plots)
+}
 dev.off()
 try(dev.off(), silent = TRUE)
 

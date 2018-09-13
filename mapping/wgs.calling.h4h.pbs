@@ -12,7 +12,8 @@ set -eux
 module load gatk/4.0.5.1 java/8 samtools/1.9 bedtools/2.27.1
 module load HTSeq/0.7.2 bwa/0.7.15 bedops/2.4.14 picard/2.10.9 
 module load bamtools/2.4.2 tabix/0.2.6 varscan/2.4.2 
-module load python3/3.6.5 CNVkit/0.9.3
+module load python3/3.6.5 CNVkit/0.9.3 pyclone/0.13.0
+module load snpEff/4.3
 
 ## use the below exec when loading R
 ## java -jar $gatk_dir/gatk-package-4.0.5.1-local.jar HaplotypeCaller
@@ -26,10 +27,13 @@ agilent=padded.clean.bed
 ucsc=genes2index.ucsc.bed
 ## varscan bcftools gatk
 pipeline=varscan
+cnvs=cnmops
 
 # H4H directories
-scratch=/gpfs/scratch/ballam
-home=/gpfs/home/ballam
+scratch=/cluster/projects/kridelgroup
+home=/cluster/home/sbassim
+admin_databases=/cluster/tools/data/genomes/human/hg19/variantcallingdata
+user_databases=$scratch/databases
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 
 # __DONT CHANGE__
@@ -168,18 +172,10 @@ for minCov in {10,20,30}; do
     paste avg.coverage >> summary.average_coverage.txt
 done
 
-
-## generate multi-way pileup genotype likelihoods
-## max-depth is in effect when the -d 8000 default is passed
-## samtools mpileup produces stats
-## bcftools mpileup can be piped for calls
-## multiple samples can be used
-bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
-    | samtools view -uq39 -b - -@16 \
-    | samtools mpileup - -E --adjust-MQ 50 -d 5000 --positions padded.clean.bed --fasta-ref ../mutations/reference/GRCh37-lite.fa -o test.txt
-
-
-## call with varscan
+##########
+# part 4 #
+##########
+## call SNPs with varscan
 if [ $pipeline == "varscan" ]; then
     module load samtools/1.3.1
 
@@ -194,13 +190,28 @@ if [ $pipeline == "varscan" ]; then
 fi
 
 
+## call snps with bcftools
 if [ $pipeline == "bcftools" ]; then
     module load samtools/1.9
+
+    ## generate multi-way pileup genotype likelihoods
+    ## max-depth is in effect when the -d 8000 default is passed
+    ## samtools mpileup produces stats
+    ## bcftools mpileup can be piped for calls
+    ## multiple samples can be used
+    bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
+	| samtools view -uq39 -b - -@16 \
+	| samtools mpileup - -E \
+		   --adjust-MQ 50 -d 5000 \
+		   --positions padded.clean.bed \
+		   --fasta-ref ../mutations/reference/GRCh37-lite.fa -o test.txt
+
 
     ## call snps using bcftools
     bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
 	| samtools view -uq39 -b - -@32 \
-	| bcftools mpileup -Ou -EC 50 -d 1000 --ignore-RG -f ../mutations/reference/GRCh37-lite.fa - \
+	| bcftools mpileup -Ou -EC 50 -d 1000 \
+		   --ignore-RG -f ../mutations/reference/GRCh37-lite.fa - \
 	| bcftools call -vmO z -o test.bcftools.vcf.gz
 
     sleep 120
@@ -215,7 +226,7 @@ fi
 
 
 ##########
-# part 4 #
+# part 5 #
 ##########
 ## detect copy number aberrations
 ## without health tissue sequencing datasets
@@ -227,6 +238,47 @@ fi
 if [ $cnvs == "cnmops" ]; then
     R CMD BATCH $output/script*/cnv.detection.R
 fi
+
+
+
+
+##########
+# part 6 #
+##########
+## clonal evolution
+## create input data for pyclone
+## https://bitbucket.org/aroth85/pyclone/wiki/Usage
+
+
+## annotate variants with human genome
+java -Xmx3g -jar $snpeff_dir/snpEff.jar eff -chr chr -noDownload -d -v -noLog -c /cluster/home/sbassim/snpEff/snpEff.config -stats test.multi.varscan.html GRCh37.75 snp.multi.varscan.vcf > test.snp.multi.snpeff.ann.vcf
+
+## annotate variants with dbsnp
+java -Xmx3g -jar $snpeff_dir/SnpSift.jar annotate -a -d -v -noLog -noDownload -c /cluster/home/sbassim/snpEff/snpEff.config -dbsnp snp.multi.varscan.vcf > test.snp.multi.snpeff.dbsnp.vcf
+
+## annotate variants with clinvar
+java -Xmx3g -jar $snpeff_dir/SnpSift.jar annotate -a -d -v -noLog -noDownload -c /cluster/home/sbassim/snpEff/snpEff.config -clinvar snp.multi.varscan.vcf > test.snp.multi.snpeff.clinvar.vcf
+
+
+java -Xmx3g -jar $snpeff_dir/SnpSift.jar annotate \
+     -a -d -v -noLog -noDownload \
+     -c /cluster/home/sbassim/snpEff/snpEff.config \
+     -clinvar \
+     snp.multi.varscan.vcf \
+    | java -Xmx3g -jar $snpeff_dir/SnpSift.jar annotate \
+	   -a -d -v -noLog -noDownload \
+	   -c /cluster/home/sbassim/snpEff/snpEff.config \
+	   -dbsnp - \
+    | java -Xmx3g -jar $snpeff_dir/snpEff.jar eff \
+	   -chr chr -noDownload -d -v -noLog \
+	   -c /cluster/home/sbassim/snpEff/snpEff.config \
+	   -stats test.multi.varscan.html \
+	   GRCh37.75 \
+	   > test.snp.multi.snpeff.ann.vcf
+
+
+
+
 
 ################
 # experimental #
@@ -240,10 +292,6 @@ if [ $pipeline == "gatk" ]; then
     ## include germline resource with population AF to remove common variants
     gatk Mutect2 -R ../mutations/reference/GRCh37-lite.fa -I sample.a61960.bam -tumor CNR1002T1 --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter -O output.a61960.mutect.vcf.gz
 fi
-
-
-
-
 
 
 ################
