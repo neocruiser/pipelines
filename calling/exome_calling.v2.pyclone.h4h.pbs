@@ -34,7 +34,7 @@ jobid=$pbs.exome_calling.multitool.annotated_pyclone
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 # __CHANGE__
-sampling=FALSE
+multi_sample=FALSE
 pipeline=varscan
 cnvs=cnmops
 
@@ -71,7 +71,24 @@ done
 
 ## get the total number of copy variants per sample
 cd $workdir
-R CMD BATCH $home/script*/r/cnv.detection.R
+
+if [ $cnvs == "cnvkit" ]; then
+    cnvkit.py batch *.bam -n \
+	      -t $agilent \
+	      -f $genome_reference \
+	      --short-names \
+	      --output-reference $workdir/cnvkit.index_reference.cnn \
+	      --annotate $ucsc \
+	      -d $workdir/output.2_bash.$cnvs.multi_samples.cnv.txt
+
+elif [ $cnvs == "cnmops" ]; then
+    R CMD BATCH $home/script*/r/cnv.detection.R
+
+else
+    echo "Copy number calling approach not specified!"
+    exit 0
+fi
+
 
 
 ## run analysis one sample at a time
