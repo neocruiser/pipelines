@@ -6,18 +6,27 @@ pkgs <- c('RColorBrewer', 'gplots',
 lapply(pkgs, require, character.only = TRUE)
 
 
+## number of parallel threads
+threads=32
+
 ## load baited capture exon and dna segments
-chromosome.segments <- read.table("padded.clean.bed",sep="\t",as.is=TRUE)
+chromosome.segments <- read.table("/cluster/projects/kridelgroup/relapse/mutations/targets/padded.clean.bed",sep="\t",as.is=TRUE)
 genomic.ranges <- GRanges(chromosome.segments[,1],
                           IRanges(chromosome.segments[,2],
                                   chromosome.segments[,3]))
 
 ## load aligned read to refernce bam files
-raw.bam <- list.files(pattern=".bam$")
+raw.bam <- list.files("/cluster/projects/kridelgroup/relapse/mutations/raw", pattern=".bam$", full.names = TRUE)
+raw.bam
+name.bam <- gsub("_.*$","",raw.bam)
+name.bam <- gsub("^.*A61","A61",name.bam)
+name.bam
+
+## read counts and stat aggregation
 bam.ranges <- getSegmentReadCountsFromBAM(raw.bam,
                                           GR = genomic.ranges,
-                                          sampleNames = paste0("S_",1:2),
-                                          parallel = 32)
+                                          sampleNames = paste0(name.bam),
+                                          parallel = threads)
 
 
 ## cnv detection and segmentation
@@ -27,7 +36,7 @@ bam.ranges <- getSegmentReadCountsFromBAM(raw.bam,
 cnv.estimation <- calcIntegerCopyNumbers(exomecn.mops(bam.ranges,
                                                       normType = "poisson",
                                                       segAlgorithm = "fast",
-                                                      parallel = 32))
+                                                      parallel = threads))
 
 
 ## plotting
@@ -56,10 +65,10 @@ try(dev.off(), silent = TRUE)
 
 ## data export
 as.data.frame(segmentation(cnv.estimation)) %>%
-    write.table("cnv.segmentation.cnmops.txt", sep = '\t', row.names = FALSE, quote = FALSE)
+    write.table("output.2_r.cnmops.multi_segmentation.cnv.txt", sep = '\t', row.names = FALSE, quote = FALSE)
 
 as.data.frame(cnvs(cnv.estimation)) %>%
-    write.table("cnv.samples.cnmops.txt", sep = '\t', row.names = FALSE, quote = FALSE)
+    write.table("output.2_r.cnmops.multi_samples.cnv.txt", sep = '\t', row.names = FALSE, quote = FALSE)
 
 as.data.frame(cnvr(cnv.estimation)) %>%
-    write.table("cnv.regions.cnmops.txt", sep = '\t', row.names = FALSE, quote = FALSE)
+    write.table("output.2_r.cnmops.multi_regions.cnv.txt", sep = '\t', row.names = FALSE, quote = FALSE)
