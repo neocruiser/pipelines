@@ -7,6 +7,17 @@
 #PBS -m abe
 #PBS -M slei.bass@gmail.com
 
+:'
+	This batch script accomplishes 4 separate tasks
+	- task 1: index merged bam files
+	- task 2: calculates the average genomic coverage
+	- task 3: calculates the average target coverage
+	- task 4: variant calling with two different tools
+	  + snp calling on single samples
+	  + snp calling on multiple samples
+	  + indel calling
+'
+
 set -eux
 
 module load java/8 samtools/1.9 bedtools/2.27.1
