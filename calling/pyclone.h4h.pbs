@@ -1,0 +1,126 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=32,walltime=120:00:00,vmem=60g,mem=220g
+#PBS -N variantCalls
+#PBS -q himem
+#PBS -V
+#PBS -j oe
+#PBS -m abe
+#PBS -M slei.bass@gmail.com
+
+:'
+	This batch script accomplishes the following:
+	- task 6: clonal evolution from same individual dual exome samples
+'
+
+set -eux
+
+module load java/8 samtools/1.9 bedtools/2.27.1
+module load HTSeq/0.7.2 bwa/0.7.15 bedops/2.4.14 picard/2.10.9 
+module load bamtools/2.4.2 tabix/0.2.6 varscan/2.4.2 
+module load snpEff/4.3
+module load R/3.5.0 python/2.7 
+#module load python3/3.6.5 CNVkit/0.9.3 gatk/4.0.5.1 
+
+## use the below exec when loading R
+## java -jar $gatk_dir/gatk-package-4.0.5.1-local.jar HaplotypeCaller
+
+
+## H4H directories
+## Misc tools parameters
+scratch=/cluster/projects/kridelgroup
+_storage=$scratch/relapse/mutations
+home=/cluster/home/sbassim
+user_databases=$scratch/databases
+genome_reference=$scratch/databases/GRCh37-lite.fa
+admin_databases=/cluster/tools/data/genomes/human/hg19/variantcallingdata
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+time=$home/time
+jobid=$pbs.exome_calling.multitool.annotated_pyclone
+start=$(date); echo "Job started at: $start" > $time/$jobid.time
+
+# __CHANGE__
+pipeline=varscan
+cnvs=cnmops
+minor_cnv=0
+normal_cnv=2
+
+# __DONT CHANGE__
+compression=0
+threads=32
+mapq=39
+snpeff_genome=GRCh37.75
+_data=$_storage/raw
+workdir=$_storage/pyclone_analysis/testing
+snpeff_config=$home/snpEff/snpEff.config
+agilent=$_storage/targets/padded.clean.bed
+ucsc=$_storage/targets/exons.ucsc.clean.bed
+_pyclone_config=$_storage/pyclone_configs
+
+
+## samples in pairs || same individual
+sample[1]=A61960
+sample[2]=A61961
+
+
+################
+# RUN ANALYSES #
+################
+mkdir -p $workdir/yaml/total_copy_number
+
+
+## preprocess VCF for assessement of clonal evolution
+## main tool: pyclone
+cd $workdir
+
+## run python 2.7
+## load pyclone 0.13.1 that I deployed
+## do not load h4h pyclone (not correctly installed)
+source activate pyclone
+
+
+for sample_label in ${sample[1]} ${sample[2]}; do
+
+    output[7]=output.7_bash.snpeff_annot.dbsnp.clean_pyclone.$sample_label
+    ## build mutation file
+    PyClone build_mutations_file \
+	    --in_file ${output[7]}.tsv \
+	    --out_file $workdir/yaml/total_copy_number/$sample_label.yaml \
+	    --prior total_copy_number
+
+done
+
+
+## run final clonal evolution analysis
+## MCMC 10,000 iterations
+_cfg=$(find $workdir -name "config*yaml")
+
+_ix=$(basename $_cfg | sed -e 's/config.//g' -e 's/.yaml//g')
+
+## build configuration file (manually)
+PyClone run_analysis --config_file $_cfg
+
+## summary table
+PyClone build_table --config_file $_cfg \
+	--out_file pyclone.$_ix.exome.summary_table.txt \
+	--table_type loci
+
+## plot
+PyClone plot_loci --config_file $_cfg \
+	--plot_file pyclone.$_ix.parallel.png \
+	--plot_type parallel_coordinates
+PyClone plot_loci --config_file $_cfg \
+	--plot_file pyclone.$_ix.similarity_matrix.png \
+	--plot_type similarity_matrix
+PyClone plot_loci --config_file $_cfg \
+	--plot_file pyclone.$_ix.density.png \
+	--plot_type density
+
+
+
+source deactivate
+
+
+
+
+end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
+
