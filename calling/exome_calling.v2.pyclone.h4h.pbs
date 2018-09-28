@@ -48,6 +48,7 @@ pipeline=varscan
 cnvs=cnmops
 minor_cnv=0
 normal_cnv=2
+_allel_freq=10
 
 # __DONT CHANGE__
 compression=0
@@ -170,6 +171,15 @@ for _idx in $_listingFiles; do
 	 > ${output[5]}.vcf
 
 
+
+    cat output.6_bash.snpeff_annot.dbsnp.clean.A61960.txt \
+	| awk 'match($3, /rs.*/) {print $0}' \
+	| awk 'match($7, /[a-z,A-Z]/) {print $0}' \
+	| sed 's/%//g' \
+	| awk '{if($15 <= 15) print $0}' \
+	| wc -l
+
+    
     output[6]=output.6_bash.snpeff_annot.dbsnp.clean.$sample_label
     output[7]=output.7_bash.snpeff_annot.dbsnp.clean_pyclone.$sample_label
     ## create personalized input for pyclone from annotated VCF
@@ -180,6 +190,10 @@ for _idx in $_listingFiles; do
 	| cut -f1-5,18,22,62 \
 	| sed -e 's/GENEINFO.//g' -e 's/|.*\t/\t/g' -e 's/:/\t/g' \
 	| tee ${output[6]}.txt \
+	| awk 'match($3, /rs.*/) {print $0}' \
+	| awk 'match($7, /[a-z,A-Z]/) {print $0}' \
+	| sed 's/%//g' \
+	| awk -va=$_allel_freq '{if($15 <= a) print $0}' \
 	| awk -F"\t" '{print$7"_"$1":"$2,$13,$14}' \
 	| sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
 	| grep -v "%" \
