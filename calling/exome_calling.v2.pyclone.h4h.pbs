@@ -46,11 +46,11 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 # __CHANGE__
 pipeline=varscan
 cnvs=cnmops
-_protocol=removeFunction
+_protocol=removeFunctionV2
 minor_cnv=0
 normal_cnv=2
-_read_depth=25
-_allel_pval=10e-80
+_read_depth=120
+_allel_pval=10e-35
 _allel_freq=1
 
 # __DONT CHANGE__
@@ -67,19 +67,16 @@ _pyclone_config=$_storage/pyclone_configs
 ## idx created from ClinVar annotating current samples
 _variant_function=$_storage/variant_function.idx
 
-################
-# RUN ANALYSES #
-################
-mkdir -p $workdir/yaml/total_copy_number
 
 
-:'
-	> Indexing and calling copy number variants
-	> Batch sample CNV calling
-'
 
+#############################################
+# Indexing and calling copy number variants #
+# Batch sample CNV calling		    #
+#############################################
 ## index bam samples after merging
 ## required for samtools and gatk workflows
+mkdir -p $workdir/yaml/total_copy_number
 cd $_data
 _listingRaw=$(find . -name "*bam")
 
@@ -111,12 +108,11 @@ fi
 
 
 
-:'
-	> Single polymorphism on individual samples
-	> No batch sampling (because pyclone)
-	> Mutation annotation with ClinVar and dbSnp
-'
-
+##############################################
+# Single polymorphism on individual samples  #
+# No batch sampling (because pyclone)	     #
+# Mutation annotation with ClinVar and dbSnp #
+##############################################
 ## run analysis one sample at a time
 ## the following will create one annotated pileup VCF per sample
 ## one VCF per sample ensures correct execution of pyClone
@@ -264,11 +260,12 @@ for _idx in $_listingFiles; do
 		   > ${output[7]}.tsv
 
 
-    elif [ $_protocol == "removeFunction" ]; then
+    elif [ $_protocol == "removeFunctionV1" ]; then
 	
 	## output formatting based on clinvar and dbSnp annotation
 	## this will keep gene handles
 	## this will discard variants based on their functions (stop ..)
+	## uses allele pvalue to select high confidence variants
 	grep -v "#" ${output[3]}.vcf \
 	    | grep -v "rs" \
 	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
@@ -282,6 +279,29 @@ for _idx in $_listingFiles; do
 	    | grep -v "^\." \
 	    | grep -wv "FREQ" - \
 		   > ${output[7]}.tsv
+
+    elif [ $_protocol == "removeFunctionV2" ]; then
+	
+	## output formatting based on clinvar and dbSnp annotation
+	## this will keep gene handles
+	## this will discard variants based on their functions (stop ..)
+	## uses variant depth, allele freq, and variant/reference ratio to discard SNVs
+	grep -v "#" ${output[3]}.vcf \
+	    | grep -v "rs" \
+	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
+	    | cut -f1-2,4-5,8-10 \
+	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
+	    | tee ${output[6]}.txt \
+	    | grep -vFwf <(cat $_variant_function) - \
+	    | awk -vd=$_read_depth '{if($5 >= d) print $0}' \
+	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
+	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
+	    | awk '{if($2 > $3) print $0}' \
+	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
+	    | grep -v "^\." \
+	    | grep -wv "FREQ" - \
+		   > ${output[7]}.tsv
+
     else
 
 
@@ -298,7 +318,7 @@ for _idx in $_listingFiles; do
     ## descriptive statistics
     ## distribution of variant by function
     output[8]=output.8_bash.summary.snv_functions.txt
-    grep -v "#" ${output[6]}.vcf \
+    grep -v "#" ${output[6]}.txt \
 	| cut -f6 \
 	| sort - \
 	| uniq -c \
@@ -306,12 +326,25 @@ for _idx in $_listingFiles; do
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[8]}
 
-    ## pvalues and variant frequencies (VAF) by SNV position
-    output[9]=output.9_bash.summary.snv_distributions.txt
-    grep -v "#" ${output[6]}.vcf \
+    ## pvalues and variant frequencies (VAF) by all SNV position
+    output[9]=output.9_bash.summary.snv.preFilter_distributions.txt
+    grep -v "#" ${output[6]}.txt \
 	| cut -f1-2,15-16 \
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[9]}
+
+
+    ## pvalues and variant allele frequencies (VAF) by SNV position
+    ## after discarding based on filters
+    output[10]=output.10_bash.summary.snv.postFilter_VAFpval.txt
+    grep -v "#" ${output[6]}.txt \
+	| grep -vFwf <(cat $_variant_function) - \
+	| awk -vd=$_read_depth '{if($5 >= d) print $0}' \
+	| awk -F"\t" '{print$8"_"$1":"$2,$5,$13,$14,$15,$16}' \
+	| awk '{if($3 >= $4) print $0}' \
+	| awk -vp=$_allel_pval '{if($6 <= p) print $0}' \
+	| sed "s/$/\t$sample_label/g" \
+	      >> ${output[10]}
 
 
 
@@ -320,13 +353,13 @@ done
 ## add headers for summary reports
 sed -i "1i $(echo -e "function\tcount\tsample")" ${output[8]}
 sed -i "1i $(echo -e "function\tcount\tsample")" ${output[9]}
+sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[10]}
 
 
 
-:'
-	> Clonal evolution by pair samples (pyClone)
-'
-
+##############################################
+# Clonal evolution by pair samples (pyClone) #
+##############################################
 ## preprocess VCF for assessement of clonal evolution
 ## main tool: pyclone
 cd $workdir
@@ -358,7 +391,7 @@ for _idx in $_listingFiles; do
 
     sample_label=$(basename $_idx | cut -f1 -d'_')
 
-    output[7]=output.7_bash.snpeff_annot.dbsnp.clean_pyclone.$sample_label
+    output[7]=output.7_bash.snpeff_annot.$_protocol.reduced.clean_pyclone.$sample_label
     ## build mutation file
     PyClone build_mutations_file \
 	    --in_file ${output[7]}.tsv \
@@ -401,11 +434,11 @@ source deactivate
 ## repo organization
 sleep 300
 cd $workdir
-mkdir configs figures tsv reports vcf
+mkdir configs figures pyclone_input reports variants
 mv conf*yaml configs
-mv *pdf *png figures
-mv *tsv tsv
-mv *vcf vcf
+mv *pdf *png *html figures
+mv *tsv pyclone_input
+mv *vcf variants
 mv *txt *html reports
 
 
