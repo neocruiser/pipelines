@@ -36,7 +36,6 @@ scratch=/cluster/projects/kridelgroup
 _storage=$scratch/relapse/mutations
 home=/cluster/home/sbassim
 user_databases=$scratch/databases
-genome_reference=$scratch/databases/GRCh37-lite.fa
 admin_databases=/cluster/tools/data/genomes/human/hg19/variantcallingdata
 pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
 time=$home/time
@@ -46,12 +45,12 @@ start=$(date); echo "Job started at: $start" > $time/$jobid.time
 # __CHANGE__
 pipeline=varscan
 cnvs=cnmops
-_protocol=removeFunctionV2
+_protocol=removeFunctionV3
 minor_cnv=0
 normal_cnv=2
 _read_depth=120
 _allel_pval=10e-35
-_allel_freq=1
+_allel_freq=10
 
 # __DONT CHANGE__
 compression=0
@@ -66,7 +65,8 @@ ucsc=$_storage/targets/exons.ucsc.clean.bed
 _pyclone_config=$_storage/pyclone_configs
 ## idx created from ClinVar annotating current samples
 _variant_function=$_storage/variant_function.idx
-
+_EXAC=$user_databases/gnomad.rs_position.idx
+genome_reference=$user_databases/GRCh37-lite.fa
 
 
 
@@ -163,7 +163,7 @@ for _idx in $_listingFiles; do
 
     output[4]=output.4_bash.mining.snpeff_annot.$snpeff_genome.clinvar.dbsnp.$sample_label
     ## create personalized input for pyclone without annoated VCF
-    grep -v "#" ${output[1]}.vcf \
+    grep -v "^#" ${output[1]}.vcf \
 	| cut -f1-2,4-5,10 \
 	| sed 's/:/\t/g' \
 	| awk -F"\t" '{print$1":"$2,$9,$10}' \
@@ -208,7 +208,7 @@ for _idx in $_listingFiles; do
 
 	## based on dbSnp annotation formatting
 	## this will keep gene names and rs ID
-	grep -v "#" ${output[5]}.vcf \
+	grep -v "^#" ${output[5]}.vcf \
 	    | awk 'match($3, /rs.*/) {print $0}' \
 	    | sed -e 's/WT=.*GENEINFO=//g' -e 's/:.*ADR\t/\t/g' -e 's/PASS.*ADP=//g' \
 	    | grep -v "=" \
@@ -227,7 +227,7 @@ for _idx in $_listingFiles; do
 
 	## based on dbSnp annotation formatting
 	## this wont keep gene names
-	grep -v "#" ${output[5]}.vcf \
+	grep -v "^#" ${output[5]}.vcf \
 	    | grep -v "rs" \
 	    | cut -f1-5,10 \
 	    | sed -e 's/:/\t/g' -e 's/%//g' \
@@ -244,7 +244,7 @@ for _idx in $_listingFiles; do
 	
 	## output formatting based on clinvar and dbSnp annotation
 	## this will keep gene handles
-	grep -v "#" ${output[3]}.vcf \
+	grep -v "^#" ${output[3]}.vcf \
 	    | grep -v "rs" \
 	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
 	    | cut -f1-2,4-5,8-10 \
@@ -266,7 +266,7 @@ for _idx in $_listingFiles; do
 	## this will keep gene handles
 	## this will discard variants based on their functions (stop ..)
 	## uses allele pvalue to select high confidence variants
-	grep -v "#" ${output[3]}.vcf \
+	grep -v "^#" ${output[3]}.vcf \
 	    | grep -v "rs" \
 	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
 	    | cut -f1-2,4-5,8-10 \
@@ -286,13 +286,38 @@ for _idx in $_listingFiles; do
 	## this will keep gene handles
 	## this will discard variants based on their functions (stop ..)
 	## uses variant depth, allele freq, and variant/reference ratio to discard SNVs
-	grep -v "#" ${output[3]}.vcf \
+	grep -v "^#" ${output[3]}.vcf \
 	    | grep -v "rs" \
 	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
 	    | cut -f1-2,4-5,8-10 \
 	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
 	    | tee ${output[6]}.txt \
 	    | grep -vFwf <(cat $_variant_function) - \
+	    | awk -vd=$_read_depth '{if($5 >= d) print $0}' \
+	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
+	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
+	    | awk '{if($2 > $3) print $0}' \
+	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
+	    | grep -v "^\." \
+	    | grep -wv "FREQ" - \
+		   > ${output[7]}.tsv
+
+    elif [ $_protocol == "removeFunctionV3" ]; then
+	
+	## output formatting based on clinvar and dbSnp annotation
+	## this will keep gene handles
+	## this will discard variants based on their functions (stop ..)
+	## uses variant depth, allele freq, and variant/reference ratio to discard SNVs
+	## this will discard variants also found in exAC
+	grep -v "^#" ${output[3]}.vcf \
+	    | grep -v "rs" \
+	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
+	    | cut -f1-2,4-5,8-10 \
+	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
+	    | grep -vFwf >(cat $_EXAC) \
+	    | tee ${output[6]}.txt \
+	    | grep -vFwf <(cat $_variant_function) - \
+	    | awk -va=$_allel_freq '{if($15 > a) print $0}' \
 	    | awk -vd=$_read_depth '{if($5 >= d) print $0}' \
 	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
 	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
@@ -318,7 +343,7 @@ for _idx in $_listingFiles; do
     ## descriptive statistics
     ## distribution of variant by function
     output[8]=output.8_bash.summary.snv_functions.txt
-    grep -v "#" ${output[6]}.txt \
+    grep -v "^#" ${output[6]}.txt \
 	| cut -f6 \
 	| sort - \
 	| uniq -c \
@@ -328,7 +353,7 @@ for _idx in $_listingFiles; do
 
     ## pvalues and variant frequencies (VAF) by all SNV position
     output[9]=output.9_bash.summary.snv.preFilter_distributions.txt
-    grep -v "#" ${output[6]}.txt \
+    grep -v "^#" ${output[6]}.txt \
 	| cut -f1-2,15-16 \
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[9]}
@@ -337,12 +362,13 @@ for _idx in $_listingFiles; do
     ## pvalues and variant allele frequencies (VAF) by SNV position
     ## after discarding based on filters
     output[10]=output.10_bash.summary.snv.postFilter_VAFpval.txt
-    grep -v "#" ${output[6]}.txt \
+    grep -v "^#" ${output[6]}.txt \
 	| grep -vFwf <(cat $_variant_function) - \
+	| awk -va=$_allel_freq '{if($15 > a) print $0}' \
 	| awk -vd=$_read_depth '{if($5 >= d) print $0}' \
+	| awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
 	| awk -F"\t" '{print$8"_"$1":"$2,$5,$13,$14,$15,$16}' \
 	| awk '{if($3 >= $4) print $0}' \
-	| awk -vp=$_allel_pval '{if($6 <= p) print $0}' \
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[10]}
 
