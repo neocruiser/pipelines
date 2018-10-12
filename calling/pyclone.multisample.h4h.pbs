@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=32,walltime=168:00:00,vmem=60g,mem=220g
+#PBS -l nodes=1:ppn=12,walltime=24:00:00,vmem=60g,mem=220g
 #PBS -N variantCalls
 #PBS -q himem
 #PBS -V
@@ -48,6 +48,7 @@ cnvs=cnmops
 _protocol=removeFunctionV3
 normal_cnv=2
 minor_cnv=0
+total_cnv=2
 _priors=major_copy_number
 _read_depth=50
 _allel_pval=10e-25
@@ -71,120 +72,18 @@ genome_reference=$user_databases/GRCh37-lite.fa
 
 
 mkdir -p $workdir/yaml/$_priors
-
-#############################################
-# Indexing and calling copy number variants #
-# Batch sample CNV calling		    #
-#############################################
-## index bam samples after merging
-## required for samtools and gatk workflows
-cd $_data
-_listingRaw=$(find . -name "*bam")
-
-for _raw in $_listingRaw; do
-    if [ ! -e $_raw.bai ]; then
-	samtools index -@$threads $_raw
-    fi
-done
-
-## get the total number of copy variants per sample
+cp $_storage/pyclone_analysis/497746/variants/output.3_bash*vcf $workdir
 cd $workdir
 
-if [ $cnvs == "cnvkit" ]; then
-    cnvkit.py batch *.bam -n \
-	      -t $agilent \
-	      -f $genome_reference \
-	      --short-names \
-	      --output-reference $workdir/cnvkit.index_reference.cnn \
-	      --annotate $ucsc \
-	      -d $workdir/output.2_bash.$cnvs.multi_samples.cnv.txt
-
-elif [ $cnvs == "cnmops" ]; then
-    R CMD BATCH $home/script*/r/cnv.detection.R
-
-else
-    echo "Copy number calling approach not specified!"
-    exit 0
-fi
-
-
-
-##############################################
-# Single polymorphism on individual samples  #
-# No batch sampling (because pyclone)	     #
-# Mutation annotation with ClinVar and dbSnp #
-##############################################
-## run analysis one sample at a time
-## the following will create one annotated pileup VCF per sample
-## one VCF per sample ensures correct execution of pyClone
-cd $workdir
 _listingFiles=$(find $_data -name "*bam")
 for _idx in $_listingFiles; do
 
     sample_label=$(basename $_idx | cut -f1 -d'_')
     _DIR=$(dirname $_idx)
 
-    output[1]=output.1_bash.$pipeline.samtools.mpileup.agilent.$sample_label
-    samtools mpileup -EC 50 --ignore-RG -l $agilent -f $genome_reference $_idx \
-	| java -jar $varscan_dir/VarScan.jar mpileup2snp - \
-	       --min-var-freq 0.01 \
-	       --p-value 0.01 \
-	       --output-vcf 1 \
-	       > ${output[1]}.vcf
 
 
-    ## get the total number of copy variants per sample
-    output[2]=output.2_r.$cnvs.multi_samples.cnv
-    total_cnv=$(cut -f6 ${output[2]}.txt | sed '1d' | sort - | uniq -c | awk -vc=$sample_label '{if($2 == c)print$1}')
-    total_cnv=2
-
-    ## CHOICE 1
-    ## annotate variants with human genome GRCh37
-    ## annotate variants with dbsnp
-    ## annotate variants with clinvar
-    ## optional parameters -a -v -d
     output[3]=output.3_bash.snpeff_annot.$snpeff_genome.clinvar.dbsnp.$sample_label
-    java -jar $snpeff_dir/SnpSift.jar annotate \
-	 -noLog -noDownload \
-	 -c $snpeff_config \
-	 -clinvar \
-	 ${output[1]}.vcf \
-	| java -jar $snpeff_dir/SnpSift.jar annotate \
-	       -noLog -noDownload \
-	       -c $snpeff_config \
-	       -dbsnp - \
-	| java -jar $snpeff_dir/snpEff.jar eff \
-	       -noDownload -noLog \
-	       -c $snpeff_config \
-	       -stats ${output[3]}.html \
-	       $snpeff_genome \
-	       > ${output[3]}.vcf
-
-
-
-    output[4]=output.4_bash.mining.snpeff_annot.$snpeff_genome.clinvar.dbsnp.$sample_label
-    ## create personalized input for pyclone without annoated VCF
-    grep -v "^#" ${output[1]}.vcf \
-	| cut -f1-2,4-5,10 \
-	| sed 's/:/\t/g' \
-	| awk -F"\t" '{print$1":"$2,$9,$10}' \
-	| sed -e 's/ /\t/g' -e "s/$/\\t$normal_cnv\\t$minor_cnv\\t$total_cnv/g" \
-	      > ${output[4]}.tsv
-    sed -i "1i$(echo -e "mutation_id\tref_counts\tvar_counts\tnormal_cn\tminor_cn\tmajor_cn")" ${output[4]}.tsv
-
-
-    ## CHOICE 2
-    ## annotate only with dbSnp
-    output[5]=output.5_bash.snpeff_annot.dbsnp.$sample_label
-    java -jar $snpeff_dir/SnpSift.jar annotate \
-	 -noLog -noDownload \
-	 -c $snpeff_config \
-	 -dbsnp \
-	 ${output[1]}.vcf \
-	 > ${output[5]}.vcf
-
-
-
     output[6]=output.6_bash.snpeff_annot.$_protocol.noFilter_clean.$sample_label
     output[7]=output.7_bash.snpeff_annot.$_protocol.reduced.clean_pyclone.$sample_label
     ## create personalized input for pyclone from annotated VCF
@@ -197,105 +96,7 @@ for _idx in $_listingFiles; do
     ## format table to include depth -i to reference and ii- to variant
     ## clean rows with false MU index
 
-    if [ $_protocol == "keepAnnotated" ]; then
-
-	## based on dbSnp annotation formatting
-	## this will keep gene names and rs ID
-	grep -v "^#" ${output[5]}.vcf \
-	    | awk 'match($3, /rs.*/) {print $0}' \
-	    | sed -e 's/WT=.*GENEINFO=//g' -e 's/:.*ADR\t/\t/g' -e 's/PASS.*ADP=//g' \
-	    | grep -v "=" \
-	    | sed -e 's/\trs.*;rs/\trs/g' -e 's/:/\t/g' -e 's/;/\t/g' -e 's/%//g' \
-	    | tee ${output[6]}.txt \
-	    | awk -vd=$_read_depth '{if($7 >= d) print $0}' \
-	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
-	    | awk -va=$_allel_freq '{if($15 <= a) print $0}' \
-	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
-	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
-	    | grep -v "^\." \
-	    | grep -wv "FREQ" - \
-		   > ${output[7]}.tsv
-
-    elif [ $_protocol == "removeAnnotated" ]; then
-
-	## based on dbSnp annotation formatting
-	## this wont keep gene names
-	grep -v "^#" ${output[5]}.vcf \
-	    | grep -v "rs" \
-	    | cut -f1-5,10 \
-	    | sed -e 's/:/\t/g' -e 's/%//g' \
-	    | tee ${output[6]}.txt \
-	    | awk -vp=$_allel_pval '{if($13 <= p) print $0}' \
-	    | awk -va=$_allel_freq '{if($12 >= a) print $0}' \
-	    | awk -F"\t" '{print$1":"$2,$10,$11}' \
-	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
-	    | grep -v "^\." \
-	    | grep -wv "FREQ" - \
-		   > ${output[7]}.tsv
-
-    elif [ $_protocol == "keepClinvar" ]; then
-	
-	## output formatting based on clinvar and dbSnp annotation
-	## this will keep gene handles
-	grep -v "^#" ${output[3]}.vcf \
-	    | grep -v "rs" \
-	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
-	    | cut -f1-2,4-5,8-10 \
-	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
-	    | tee ${output[6]}.txt \
-	    | awk -vd=$_read_depth '{if($5 >= d) print $0}' \
-	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
-	    | awk -va=$_allel_freq '{if($15 >= a) print $0}' \
-	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
-	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
-	    | grep -v "^\." \
-	    | grep -wv "FREQ" - \
-		   > ${output[7]}.tsv
-
-
-    elif [ $_protocol == "removeFunctionV1" ]; then
-	
-	## output formatting based on clinvar and dbSnp annotation
-	## this will keep gene handles
-	## this will discard variants based on their functions (stop ..)
-	## uses allele pvalue to select high confidence variants
-	grep -v "^#" ${output[3]}.vcf \
-	    | grep -v "rs" \
-	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
-	    | cut -f1-2,4-5,8-10 \
-	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
-	    | tee ${output[6]}.txt \
-	    | grep -vFwf <(cat $_variant_function) - \
-	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
-	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
-	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
-	    | grep -v "^\." \
-	    | grep -wv "FREQ" - \
-		   > ${output[7]}.tsv
-
-    elif [ $_protocol == "removeFunctionV2" ]; then
-	
-	## output formatting based on clinvar and dbSnp annotation
-	## this will keep gene handles
-	## this will discard variants based on their functions (stop ..)
-	## uses variant depth, allele freq, and variant/reference ratio to discard SNVs
-	grep -v "^#" ${output[3]}.vcf \
-	    | grep -v "rs" \
-	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
-	    | cut -f1-2,4-5,8-10 \
-	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
-	    | tee ${output[6]}.txt \
-	    | grep -vFwf <(cat $_variant_function) - \
-	    | awk -vd=$_read_depth '{if($5 >= d) print $0}' \
-	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
-	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
-	    | awk '{if($2 > $3) print $0}' \
-	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
-	    | grep -v "^\." \
-	    | grep -wv "FREQ" - \
-		   > ${output[7]}.tsv
-
-    elif [ $_protocol == "removeFunctionV3" ]; then
+    if [ $_protocol == "removeFunctionV3" ]; then
 	
 	## output formatting based on clinvar and dbSnp annotation
 	## this will keep gene handles
