@@ -232,19 +232,19 @@ elif [ $pipeline == "bcftools" ]; then
     ## samtools mpileup produces stats
     ## bcftools mpileup can be piped for calls
     ## multiple samples can be used
-    bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
+    bamtools filter -tag XT:U -tag XM:0 -in A61960_sample.bam \
 	| samtools view -uq39 -b - -@16 \
 	| samtools mpileup - -E \
 		   --adjust-MQ 50 -d 5000 \
 		   --positions padded.clean.bed \
-		   --fasta-ref ../mutations/reference/GRCh37-lite.fa -o test.txt
+		   --fasta-ref ../../../databases/GRCh37-lite.fa -o test.txt
 
 
     ## call snps using bcftools
-    bamtools filter -tag XT:U -tag XM:0 -in sample.a61961.bam \
+    bamtools filter -tag XT:U -tag XM:0 -in A61960_sample.bam \
 	| samtools view -uq39 -b - -@32 \
 	| bcftools mpileup -Ou -EC 50 -d 1000 \
-		   --ignore-RG -f ../mutations/reference/GRCh37-lite.fa - \
+		   --ignore-RG -f ../../../databases/GRCh37-lite.fa - \
 	| bcftools call -vmO z -o test.bcftools.vcf.gz
 
     sleep 120

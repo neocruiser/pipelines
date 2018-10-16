@@ -68,11 +68,13 @@ _pyclone_config=$_storage/pyclone_configs
 ## idx created from ClinVar annotating current samples
 _variant_function=$_storage/variant_function.idx
 _EXAC=$user_databases/gnomad.rs_position.idx
+_COSMIC=$user_databases/cosmic/CosmicCodingMuts.vcf.gz
+_COSMIC_mut=$user_databases/cosmic/CosmicMutantExportCensus.tsv.gz
 genome_reference=$user_databases/GRCh37-lite.fa
 
 
 mkdir -p $workdir/yaml/$_priors
-cp $_storage/pyclone_analysis/497746/variants/output.3_bash*vcf $workdir
+cp $_storage/pyclone_analysis/504182/variants/output.3_bash*vcf $workdir
 cd $workdir
 
 _listingFiles=$(find $_data -name "*bam")
@@ -103,22 +105,22 @@ for _idx in $_listingFiles; do
 	## this will discard variants based on their functions (stop ..)
 	## uses variant depth, allele freq, and pvalues
 	## this will discard variants also found in exAC
-	grep -v "^#" ${output[3]}.vcf \
-	    | grep -v "rs" \
-	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
-	    | cut -f1-2,4-5,8-10 \
-	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
-	    | grep -vFwf <(cat $_EXAC) \
-	    | tee ${output[6]}.txt \
-	    | grep -vFwf <(cat $_variant_function) - \
-	    | awk -va=$_allel_freq '{if($15 > a) print $0}' \
-	    | awk -vd=$_read_depth '{if($5 >= d) print $0}' \
-	    | awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
-	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
-	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
-	    | grep -v "^\." \
-	    | grep -wv "FREQ" - \
-		   > ${output[7]}.tsv
+	    grep -v "^#" ${output[3]}.vcf \
+		| grep -v "rs" \
+		| grep -iv "^[a-z]" \
+		| sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
+		| cut -f1-2,4-5,8-10 \
+		| sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
+		| grep -vFwf <(cat $_EXAC) \
+		| grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \
+		| grep -vFwf <(zcat $_COSMIC_mut | grep -o ":.*-" | sed -e 's/://g' -e 's/-.*$//g') \
+		| tee ${output[6]}.txt \
+		| grep -vFwf <(cat $_variant_function) - \
+		| egrep -iv "^\.|muc|usp|rp11" \
+		| awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
+		| awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
+		| sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
+		       > ${output[7]}.tsv
 
     else
 
@@ -147,7 +149,7 @@ for _idx in $_listingFiles; do
     ## pvalues and variant frequencies (VAF) by all SNV position
     output[9]=output.9_bash.summary.snv.preFilter_distributions.txt
     grep -v "^#" ${output[6]}.txt \
-	| cut -f1-2,15-16 \
+	| awk -F"\t" '{print$8"_"$1":"$2,$5,$13,$14,$15,$16}' \
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[9]}
 
@@ -157,9 +159,8 @@ for _idx in $_listingFiles; do
     output[10]=output.10_bash.summary.snv.postFilter_VAFpval.txt
     grep -v "^#" ${output[6]}.txt \
 	| grep -vFwf <(cat $_variant_function) - \
-	| awk -va=$_allel_freq '{if($15 > a) print $0}' \
-	| awk -vd=$_read_depth '{if($5 >= d) print $0}' \
 	| awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
+	| grep -iv "^\.|muc|usp|rp11" \
 	| awk -F"\t" '{print$8"_"$1":"$2,$5,$13,$14,$15,$16}' \
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[10]}
@@ -169,8 +170,8 @@ for _idx in $_listingFiles; do
 done
 
 ## add headers for summary reports
-sed -i "1i $(echo -e "function\tcount\tsample")" ${output[8]}
-sed -i "1i $(echo -e "function\tcount\tsample")" ${output[9]}
+sed -i "1i $(echo -e "fct\tcount\tsample")" ${output[8]}
+sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[9]}
 sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[10]}
 
 
@@ -241,9 +242,6 @@ for _cfg in $_configFiles; do
     PyClone plot_loci --config_file $_cfg \
 	    --plot_file pyclone.$_ix.similarity_matrix.png \
 	    --plot_type similarity_matrix
-    PyClone plot_loci --config_file $_cfg \
-	    --plot_file pyclone.$_ix.density.png \
-	    --plot_type density
 done
 
 source deactivate
@@ -253,8 +251,8 @@ source deactivate
 sleep 300
 cd $workdir
 mkdir configs figures pyclone_input reports variants
+mv *vcf variamts
 mv *tsv pyclone_input
-mv *vcf variants
 mv conf*yaml configs
 mv *txt reports
 mv *pdf *png *html figures
