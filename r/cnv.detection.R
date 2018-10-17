@@ -16,7 +16,8 @@ genomic.ranges <- GRanges(chromosome.segments[,1],
                                   chromosome.segments[,3]))
 
 ## load aligned read to refernce bam files
-raw.bam <- list.files("/cluster/projects/kridelgroup/relapse/mutations/raw", pattern=".bam$", full.names = TRUE)
+raw.bam <- list.files("/cluster/projects/kridelgroup/relapse/mutations/raw",
+                      pattern=".realigned.bam$", full.names = TRUE)
 raw.bam
 name.bam <- gsub("_.*$","",raw.bam)
 name.bam <- gsub("^.*A61","A61",name.bam)

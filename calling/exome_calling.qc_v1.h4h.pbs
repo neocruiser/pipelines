@@ -276,6 +276,22 @@ if [ $pipeline == "gatk" ]; then
 fi
 
 
+module load gatk/3.8
+java -Xmx$_gVMEM -jar $gatk_dir/GenomeAnalysisTK.jar -T RealignerTargetCreator \
+     -R $genome_reference \
+     -I A61962_sample.bam \
+     -known $gold_indels \
+     -o A61962.intervals
+
+
+java -Xmx$_gVMEM -jar $gatk_dir/GenomeAnalysisTK.jar -T IndelRealigner \
+     -R $genome_reference \
+     -I A61960_sample.bam \
+     -known $gold_indels \
+     -targetIntervals A61960.intervals \
+     -o A61960_sample_realigned.bam
+
+
 ################
 # experimental #
 ################

@@ -24,7 +24,8 @@ module load HTSeq/0.7.2 bwa/0.7.15 bedops/2.4.14 picard/2.10.9
 module load bamtools/2.4.2 tabix/0.2.6 varscan/2.4.2 
 module load snpEff/4.3
 module load R/3.5.0 python/2.7 
-#module load python3/3.6.5 CNVkit/0.9.3 gatk/4.0.5.1 
+module load gatk/3.8
+#module load python3/3.6.5 CNVkit/0.9.3
 
 ## use the below exec when loading R
 ## java -jar $gatk_dir/gatk-package-4.0.5.1-local.jar HaplotypeCaller
@@ -43,13 +44,14 @@ jobid=$pbs.exome_calling.multitool.annotated_pyclone
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 # __CHANGE__
-pipeline=bcftools
+pipeline=varscan2
+_realign2indels=FALSE
 cnvs=cnmops
 _protocol=removeFunctionV3
 normal_cnv=2
 minor_cnv=0
 _priors=major_copy_number
-_read_depth=50
+_read_depth=20
 _allel_pval=10e-25
 _allel_freq=1
 
@@ -57,6 +59,7 @@ _allel_freq=1
 compression=0
 threads=32
 mapq=39
+_gVMEM=30g
 snpeff_genome=GRCh37.75
 _data=$_storage/raw
 workdir=$_storage/pyclone_analysis/$pbs
@@ -70,25 +73,49 @@ _EXAC=$user_databases/gnomad.rs_position.idx
 _COSMIC=$user_databases/cosmic/CosmicCodingMuts.vcf.gz
 _COSMIC_mut=$user_databases/cosmic/CosmicMutantExportCensus.tsv.gz
 genome_reference=$user_databases/GRCh37-lite.fa
-
+## make sure chromosomes in gold_indels match bam (eg, chr1 or 1)
+gold_indels=$user_databases/Mills.gold.standard.adapted_noChr.vcf
 
 mkdir -p $workdir/yaml/$_priors
+
+
+###########################
+# Preprocessing BAM reads #
+###########################
+## index bam samples after merging
+## required for samtools and gatk workflows
+cd $_data
+_listingRaw=$(find $_data -name "*Flagged.bam")
+
+if [ $_realign2indels == "TRUE" ]; then
+    for _raw in $_listingRaw; do
+
+	if [ ! -e $_raw.bai ]; then
+	    ## index files
+	    samtools index -@$threads $_raw
+	fi
+
+	## realign reads around indels
+	sample_label=$(basename $_raw | cut -f1 -d'_')
+	java -Xmx$_gVMEM -jar $gatk_dir/GenomeAnalysisTK.jar -T RealignerTargetCreator \
+	     -R $genome_reference \
+	     -I $_raw \
+	     -known $gold_indels \
+	     -o $sample_label.intervals
+
+	java -Xmx$_gVMEM -jar $gatk_dir/GenomeAnalysisTK.jar -T IndelRealigner \
+	     -R $genome_reference \
+	     -I $_raw \
+	     -known $gold_indels \
+	     -targetIntervals $sample_label.intervals \
+	     -o $sample_label.realigned.bam
+    done
+fi
 
 #############################################
 # Indexing and calling copy number variants #
 # Batch sample CNV calling		    #
 #############################################
-## index bam samples after merging
-## required for samtools and gatk workflows
-cd $_data
-_listingRaw=$(find . -name "*bam")
-
-for _raw in $_listingRaw; do
-    if [ ! -e $_raw.bai ]; then
-	samtools index -@$threads $_raw
-    fi
-done
-
 ## get the total number of copy variants per sample
 cd $workdir
 
@@ -120,7 +147,7 @@ fi
 ## the following will create one annotated pileup VCF per sample
 ## one VCF per sample ensures correct execution of pyClone
 cd $workdir
-_listingFiles=$(find $_data -name "*bam")
+_listingFiles=$(find $_data -name "*realigned.bam")
 for _idx in $_listingFiles; do
 
     sample_label=$(basename $_idx | cut -f1 -d'_')
@@ -128,16 +155,14 @@ for _idx in $_listingFiles; do
 
     output[1]=output.1_bash.$pipeline.samtools.mpileup.agilent.$sample_label
 
-    if [ $pipeline == "varscan" ]; then
+    if [ $pipeline == "varscan2" ]; then
 	module load samtools/1.3.1
-    samtools mpileup -EC 50 --ignore-RG -l $agilent -f $genome_reference $_idx \
-	| java -jar $varscan_dir/VarScan.jar mpileup2snp - \
-	       --min-var-freq 0.01 \
-	       --p-value 0.01 \
-	       --output-vcf 1 \
-	       > ${output[1]}.vcf
-
-    gzip ${output[1]}.vcf
+	samtools mpileup -EC 50 --ignore-RG -l $agilent -f $genome_reference $_idx \
+	    | java -jar $varscan_dir/VarScan.jar mpileup2snp - \
+		   --min-var-freq 0.01 \
+		   --p-value 0.01 \
+		   --output-vcf 1 \
+		   > ${output[1]}.vcf
 
     elif [ $pipeline == "bcftools" ]; then
 	## call snps with bcftools
@@ -147,19 +172,22 @@ for _idx in $_listingFiles; do
 	## max-depth is in effect when the -d 8000 default is passed
 	## multiple samples can be used, pyclone requires one at a time
 	## bcftools mpileup can be piped for calls for all samples
-	## call snps using bcftools constrained alleles (not multiallelic -m)
-	bamtools filter -tag XT:U -tag XM:0 -in $_idx \
-	    | samtools view -uq39 -b - -@$threads \
+	## call snps using bcftools multiallelic -m
+	## discard indel calls
+	bamtools filter -tag XT:U -in $_idx \
+	    | samtools view -u -b - -@$threads \
 	    | bcftools mpileup -Ou -EC 50 -d 1000 \
 		       --targets-file $agilent \
 		       --ignore-RG -f $genome_reference - \
-	    | bcftools call -vcO z --skip-variants indels -o ${output[1]}.vcf.gz
+	    | bcftools call -vmO z --skip-variants indels -o ${output[1]}.vcf.gz
 
 	sleep 30
 
 	## samtools mpileup stats
 	tabix -p vcf ${output[1]}.vcf.gz
 	bcftools stats -F $genome_reference -s - ${output[1]}.vcf.gz > ${output[1]}.stats.txt
+
+	gzip -d ${output[1]}.vcf.gz
 
     else
 	echo "SNP calling approach not specified!"
@@ -182,7 +210,7 @@ for _idx in $_listingFiles; do
 	 -noLog -noDownload \
 	 -c $snpeff_config \
 	 -clinvar \
-	 ${output[1]}.vcf.gz \
+	 ${output[1]}.vcf \
 	| java -jar $snpeff_dir/SnpSift.jar annotate \
 	       -noLog -noDownload \
 	       -c $snpeff_config \
@@ -194,11 +222,9 @@ for _idx in $_listingFiles; do
 	       $snpeff_genome \
 	       > ${output[3]}.vcf
 
-
-
     output[4]=output.4_bash.mining.snpeff_annot.$snpeff_genome.clinvar.dbsnp.$sample_label
     ## create personalized input for pyclone without annoated VCF
-    grep -v "^#" ${output[1]}.vcf.gz \
+    grep -v "^#" ${output[1]}.vcf \
 	| cut -f1-2,4-5,10 \
 	| sed 's/:/\t/g' \
 	| awk -F"\t" '{print$1":"$2,$9,$10}' \
@@ -214,10 +240,10 @@ for _idx in $_listingFiles; do
 	 -noLog -noDownload \
 	 -c $snpeff_config \
 	 -dbsnp \
-	 ${output[1]}.vcf.gz \
+	 ${output[1]}.vcf \
 	 > ${output[5]}.vcf
 
-
+    gzip ${output[1]}.vcf
 
     output[6]=output.6_bash.snpeff_annot.$_protocol.noFilter_clean.$sample_label
     output[7]=output.7_bash.snpeff_annot.$_protocol.reduced.clean_pyclone.$sample_label
@@ -231,7 +257,7 @@ for _idx in $_listingFiles; do
     ## format table to include depth -i to reference and ii- to variant
     ## clean rows with false MU index
 
-    if [ $pipeline == "varscan" ]; then
+    if [ $pipeline == "varscan2" ]; then
 
 	if [ $_protocol == "keepAnnotated" ]; then
 
@@ -351,6 +377,8 @@ for _idx in $_listingFiles; do
 		| grep -vFwf <(zcat $_COSMIC_mut | grep -o ":.*-" | sed -e 's/://g' -e 's/-.*$//g') \
 		| tee ${output[6]}.txt \
 		| grep -vFwf <(cat $_variant_function) - \
+		| awk -vd=$_read_depth '{if($5 >= d) print $0}' \
+		| awk -va=$_allel_freq '{if($15 > a) print $0}' \
 		| egrep -iv "^\.|muc|usp|rp11" \
 		| awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
 		| sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
@@ -419,6 +447,8 @@ for _idx in $_listingFiles; do
     grep -v "^#" ${output[6]}.txt \
 	| grep -vFwf <(cat $_variant_function) - \
 	| egrep -iv "^\.|muc|usp|rp11" \
+	| awk -vd=$_read_depth '{if($5 >= d) print $0}' \
+	| awk -va=$_allel_freq '{if($15 > a) print $0}' \
 	| awk -F"\t" '{print$8"_"$1":"$2,$5,$13,$14,$15,$16}' \
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[10]}
@@ -463,7 +493,7 @@ done
 ## do not load h4h pyclone (not correctly installed)
 source activate pyclone
 
-_listingFiles=$(find $_data -name "*bam")
+_listingFiles=$(find $_data -name "*realigned.bam")
 for _idx in $_listingFiles; do
 
     sample_label=$(basename $_idx | cut -f1 -d'_')

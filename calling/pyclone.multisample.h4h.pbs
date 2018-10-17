@@ -117,7 +117,6 @@ for _idx in $_listingFiles; do
 		| tee ${output[6]}.txt \
 		| grep -vFwf <(cat $_variant_function) - \
 		| egrep -iv "^\.|muc|usp|rp11" \
-		| awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
 		| awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
 		| sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
 		       > ${output[7]}.tsv
@@ -159,7 +158,6 @@ for _idx in $_listingFiles; do
     output[10]=output.10_bash.summary.snv.postFilter_VAFpval.txt
     grep -v "^#" ${output[6]}.txt \
 	| grep -vFwf <(cat $_variant_function) - \
-	| awk -vp=$_allel_pval '{if($16 <= p) print $0}' \
 	| grep -iv "^\.|muc|usp|rp11" \
 	| awk -F"\t" '{print$8"_"$1":"$2,$5,$13,$14,$15,$16}' \
 	| sed "s/$/\t$sample_label/g" \
@@ -251,7 +249,7 @@ source deactivate
 sleep 300
 cd $workdir
 mkdir configs figures pyclone_input reports variants
-mv *vcf variamts
+mv *vcf variants
 mv *tsv pyclone_input
 mv conf*yaml configs
 mv *txt reports
