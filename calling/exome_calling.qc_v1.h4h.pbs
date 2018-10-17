@@ -267,12 +267,14 @@ fi
 ################
 
 if [ $pipeline == "gatk" ]; then
+
+    modulel load gatk/4.0.5.1
     ## calling variants with GATK
     gatk HaplotypeCaller -R ../mutations/reference/GRCh37-lite.fa -I sample.a61960.bam -ERC GVCF -O output.a61960.snps.indels.g.vcf
 
     ## set a maximum threshold for AF with --max-population-af (default 0.01)
     ## include germline resource with population AF to remove common variants
-    gatk Mutect2 -R ../mutations/reference/GRCh37-lite.fa -I sample.a61960.bam -tumor CNR1002T1 --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter -O output.a61960.mutect.vcf.gz
+java -Xmx10g -jar $gatk_dir/gatk-package-4.0.5.1-local.jar Mutect2 -R $genome_reference -I sample.a61960.bam -tumor CNR1002T1 --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter -O output.a61960.mutect.vcf.gz
 fi
 
 

@@ -52,8 +52,10 @@ normal_cnv=2
 minor_cnv=0
 _priors=major_copy_number
 _read_depth=20
+_read_phred=35
 _allel_pval=10e-25
 _allel_freq=1
+_call_quality=10
 
 # __DONT CHANGE__
 compression=0
@@ -177,6 +179,7 @@ for _idx in $_listingFiles; do
 	bamtools filter -tag XT:U -in $_idx \
 	    | samtools view -u -b - -@$threads \
 	    | bcftools mpileup -Ou -EC 50 -d 1000 \
+		       --annotate AD,ADF,ADR \
 		       --targets-file $agilent \
 		       --ignore-RG -f $genome_reference - \
 	    | bcftools call -vmO z --skip-variants indels -o ${output[1]}.vcf.gz
@@ -187,6 +190,17 @@ for _idx in $_listingFiles; do
 	tabix -p vcf ${output[1]}.vcf.gz
 	bcftools stats -F $genome_reference -s - ${output[1]}.vcf.gz > ${output[1]}.stats.txt
 
+	gzip -d ${output[1]}.vcf.gz
+
+    elif [ $pipeline == "gatk" ]; then
+	java -Xmx10g -jar $gatk_dir/gatk-package-4.0.5.1-local.jar Mutect2 \
+	     -R $genome_reference \
+	     -I $_idx \
+	     -tumor $sample_label \
+	     --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter \
+	     -O ${output[1]}.vcf.gz
+
+	sleep 30
 	gzip -d ${output[1]}.vcf.gz
 
     else
@@ -398,18 +412,23 @@ for _idx in $_listingFiles; do
 	## this will keep gene handles
 	## this will discard variants based on their functions (stop ..)
 	## this will discard variants also found in exAC
+	## remove known sites based on COSMIC database
+	## Keep only new sites (ID column must be ".")
 	grep -v "^#" ${output[3]}.vcf \
 	    | grep -v "rs" \
 	    | grep -iv "^[a-z]" \
-	    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
-	    | cut -f1-2,4-5,8-10 \
-	    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
+	    | awk 'match($3, /\./) {print $0}' \
 	    | grep -vFwf <(cat $_EXAC) \
+	    | grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \
+	    | grep -vFwf <(zcat $_COSMIC_mut | grep -o ":.*-" | sed -e 's/://g' -e 's/-.*$//g') \
+	    | sed -e 's/;/\t/g' -e 's/\tDP=/\t/g' -e 's/SGB=.*MQ=/MQ=/g' -e 's/VDB=.*MQ=/MQ=/g' \
+	    | sed -e 's/MQ=//g' -e 's/ANN=.|//g' -e 's/|ENS.*$//g' -e 's/|/\t/g' \
 	    | tee ${output[6]}.txt \
+	    | awk -vql=$_call_quality '{if($6 >= ql) print $0}' \
+	    | awk -vdp=$_read_depth '{if($8 >= dp) print $0}' \
+	    | awk -vph=$_read_phred '{if($9 >= ph) print $0}' \
 	    | grep -vFwf <(cat $_variant_function) - \
 	    | egrep -iv "^\.|muc|usp|rp11" \
-	    | awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
-	    | sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
 		   > ${output[7]}.tsv
 
 
