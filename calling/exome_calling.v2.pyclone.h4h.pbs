@@ -8,7 +8,7 @@
 #PBS -M slei.bass@gmail.com
 
 :'
-	This batch script accomplishes 6 separate tasks
+	This batch script accomplishes 6 Layers of protocols:
 	- Task 1: Index merged bam files
 	  + Exome QC (hg19)
 	- Task 2: Call copy number variants single samples at a time
@@ -53,25 +53,26 @@ jobid=$pbs.exome_calling.multitool.annotated_pyclone
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 # __CHANGE__
+_realign2indels=FALSE
+_call2variants=TRUE
+cnvs=cnmops
 pipeline=varscan2
 _protocol=removeFunctionV3
-_realign2indels=FALSE
-_call2variants=FALSE
-cnvs=cnmops
 normal_cnv=2
 minor_cnv=0
 _priors=major_copy_number
-_read_depth=20
+_read_depth=5
 _read_phred=35
 _allel_pval=10e-10
-_allel_freq=1
+_allel_freq=5
 _call_quality=10
+_pyclone_method=binomial
 
 # __DONT CHANGE__
 compression=0
 threads=32
 mapq=39
-_gVMEM=30g
+_gVMEM=50g
 snpeff_genome=GRCh37.75
 _data=$_storage/raw
 workdir=$_storage/pyclone_analysis/$pbs
@@ -163,7 +164,8 @@ cd $workdir
 _listingFiles=$(find $_data -name "*realigned.bam")
 for _idx in $_listingFiles; do
 
-    sample_label=$(basename $_idx | cut -f1 -d'_')
+    sample_label=$(basename $_idx | cut -f1 -d'.')
+    tumor_label=$(basename $_idx | cut -f2 -d'.')
     _DIR=$(dirname $_idx)
 
     output[1]=output.1_bash.$pipeline.samtools.mpileup.agilent.$sample_label
@@ -203,10 +205,11 @@ for _idx in $_listingFiles; do
 	    gzip -d ${output[1]}.vcf.gz
 
 	elif [ $pipeline == "gatk" ]; then
-	    java -Xmx10g -jar $gatk_dir/gatk-package-4.0.5.1-local.jar Mutect2 \
+	    module load gatk/4.0.5.1
+	    java -Xmx$_gVMEM -jar $gatk_dir/gatk-package-4.0.5.1-local.jar Mutect2 \
 		 -R $genome_reference \
 		 -I $_idx \
-		 -tumor $sample_label \
+		 -tumor $tumor_label \
 		 --disable-read-filter MateOnSameContigOrNoMappedMateReadFilter \
 		 -O ${output[1]}.vcf.gz
 
@@ -228,10 +231,11 @@ for _idx in $_listingFiles; do
 	    cp $_storage/pyclone_analysis/504182/variants/output.3_bash*vcf $workdir
 
 	elif [ $pipeline == "bcftools" ]; then
-
+	    exit 0
 
 	elif [ $pipeline == "gatk" ]; then
-
+	    exit 0
+	    
 	else
 	    echo "Error! Did not produce VCF files and did not import pre-existent ones."
 	    exit 0
@@ -285,7 +289,9 @@ for _idx in $_listingFiles; do
     # 	 ${output[1]}.vcf \
     # 	 > ${output[5]}.vcf
 
+    sleep 60
     gzip ${output[1]}.vcf
+    sleep 30
 
     output[6]=output.6_bash.$pipeline.snpeff_annot.$_protocol.noFilter_clean.$sample_label
     output[7]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.$sample_label
@@ -415,8 +421,6 @@ for _idx in $_listingFiles; do
 		| cut -f1-2,4-5,8-10 \
 		| sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
 		| grep -vFwf <(cat $_EXAC) \
-		| grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \
-		| grep -vFwf <(zcat $_COSMIC_mut | grep -o ":.*-" | sed -e 's/://g' -e 's/-.*$//g') \
 		| tee ${output[6]}.txt \
 		| grep -vFwf <(cat $_variant_function) - \
 		| awk -vd=$_read_depth '{if($5 >= d) print $0}' \
@@ -440,15 +444,12 @@ for _idx in $_listingFiles; do
 	## this will keep gene handles
 	## this will discard variants based on their functions (stop ..)
 	## this will discard variants also found in exAC
-	## remove known sites based on COSMIC database
 	## Keep only new sites (ID column must be ".")
 	grep -v "^#" ${output[3]}.vcf \
 	    | grep -v "rs" \
 	    | grep -iv "^[a-z]" \
 	    | awk 'match($3, /\./) {print $0}' \
 	    | grep -vFwf <(cat $_EXAC) \
-	    | grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \
-	    | grep -vFwf <(zcat $_COSMIC_mut | grep -o ":.*-" | sed -e 's/://g' -e 's/-.*$//g') \
 	    | sed -e 's/;/\t/g' -e 's/\tDP=/\t/g' -e 's/SGB=.*MQ=/MQ=/g' -e 's/VDB=.*MQ=/MQ=/g' \
 	    | sed -e 's/MQ=//g' -e 's/ANN=.|//g' -e 's/|ENS.*AD//g' -e 's/|/\t/g' \
 	    | cut -f1,5 -d':' \
@@ -471,7 +472,6 @@ for _idx in $_listingFiles; do
 	## this will keep gene handles
 	## this will discard variants based on their functions (stop ..)
 	## this will discard variants also found in exAC
-	## remove known sites based on COSMIC database
 	## Keep only new sites (ID column must be ".")
 	## remove indels
 	grep -v "^#" ${output[3]}.vcf \
@@ -479,8 +479,6 @@ for _idx in $_listingFiles; do
 	    | grep -iv "^[a-z]" \
 	    | awk 'match($3, /\./) {print $0}' \
 	    | grep -vFwf <(cat $_EXAC) \
-	    | grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \
-	    | grep -vFwf <(zcat $_COSMIC_mut | grep -o ":.*-" | sed -e 's/://g' -e 's/-.*$//g') \
 	    | sed -e 's/;/\t/g' -e 's/\tDP=/\t/g' -e 's/ECNT=.*ANN=/ANN=/g' \
 	    | sed -e 's/ANN=[A-Z]*|//g' -e 's/|ENS.*PROB//g' \
 	    | cut -f1,2 -d':' \
@@ -495,6 +493,8 @@ for _idx in $_listingFiles; do
 	    | sed "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
 		  > ${output[7]}.tsv
 
+##	    | grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \
+##	    | grep -vFwf <(zcat $_COSMIC_mut | grep -o ":.*-" | sed -e 's/://g' -e 's/-.*$//g') \
 
     else
 	echo "VCF data reformatting for pattern recognition procedures not specified!"
@@ -512,11 +512,11 @@ for _idx in $_listingFiles; do
     ## descriptive statistics
     ## distribution of variant by function
     if [ $pipeline == "varscan2" ]; then
-	local _fct_col=6
+	_fct_col=6
     elif [ $pipeline == "bcftools" ]; then
-	local _fct_col=10
+	_fct_col=10
     elif [ $pipeline == "gatk" ]; then
-	local _fct_col=9
+	_fct_col=9
     else
 	echo "Error from wrong column assignment for SNV function extraction!"
 	exit 0
@@ -581,7 +581,7 @@ cd $workdir
 
 ## create config files, manually
 ## only samples from same individual are compared together
-_yaml=$(find $_pyclone_config -name "*individual*yaml")
+_yaml=$(find $_pyclone_config -name "$_pyclone_method.yaml")
 
 ## change the directory of each config file
 ## for each analysis using same samples but different iteration
@@ -604,7 +604,7 @@ source activate pyclone
 _listingFiles=$(find $_data -name "*realigned.bam")
 for _idx in $_listingFiles; do
 
-    sample_label=$(basename $_idx | cut -f1 -d'_')
+    sample_label=$(basename $_idx | cut -f1 -d'.')
 
     ## build mutation file
     PyClone build_mutations_file \
