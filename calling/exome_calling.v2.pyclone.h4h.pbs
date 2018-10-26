@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=32,walltime=168:00:00,vmem=60g,mem=220g
+#PBS -l nodes=1:ppn=32,walltime=100:00:00,vmem=60g,mem=220g
 #PBS -N variantCalls
 #PBS -q himem
 #PBS -V
@@ -61,12 +61,14 @@ _protocol=removeFunctionV3
 normal_cnv=2
 minor_cnv=0
 _priors=major_copy_number
-_read_depth=5
-_read_phred=35
+_read_depth=10
+_read_depth_bcftools=2
+_read_depth_gatk=20
+_read_phred=30
 _allel_pval=10e-10
 _allel_freq=5
-_call_quality=10
-_pyclone_method=binomial
+_call_quality=5
+_pyclone_method=pyclone_binomial
 
 # __DONT CHANGE__
 compression=0
@@ -228,10 +230,14 @@ for _idx in $_listingFiles; do
     else
 
 	if [ $pipeline == "varscan2" ]; then
-	    cp $_storage/pyclone_analysis/504182/variants/output.3_bash*vcf $workdir
+	    cp $_storage/pyclone_analysis/516274/variants/output.1_bash*$sample_label.vcf.gz $workdir
+	    cd $workdir
+	    gzip -d output.1_bash*vcf.gz
 
 	elif [ $pipeline == "bcftools" ]; then
-	    exit 0
+	    cp $_storage/pyclone_analysis/517376/variants/output.1_bash*$sample_label.vcf.gz $workdir
+	    cd $workdir
+	    gzip -d output.1_bash*vcf.gz
 
 	elif [ $pipeline == "gatk" ]; then
 	    exit 0
@@ -457,14 +463,14 @@ for _idx in $_listingFiles; do
 	    | grep -v ">" \
 	    | tee ${output[6]}.txt \
 	    | grep -vFwf <(cat $_variant_function) - \
-	    | awk -vql=$_call_quality '{if($6 >= ql) print $0}' \
-	    | awk -vdp=$_read_depth '{if($8 >= dp) print $0}' \
-	    | awk -vph=$_read_phred '{if($9 >= ph) print $0}' \
 	    | egrep -iv "^\.|muc|usp|rp11" \
 	    | awk -F"\t" '{print$12"_"$1":"$2,$13,$14}' \
-	    | sed "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
+	    | sed -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" -e 's/ /\t/g' \
 		  > ${output[7]}.tsv
 
+##	    | awk -vql=$_call_quality '{if($6 >= ql) print $0}' \
+##	    | awk -vdp=$_read_depth_bcftools '{if($8 >= dp) print $0}' \
+##	    | awk -vph=$_read_phred '{if($9 >= ph) print $0}' \
 
     elif [ $pipeline == "gatk" ]; then
 
@@ -487,10 +493,10 @@ for _idx in $_listingFiles; do
 	    | awk '$5=="A" || $5=="G" || $5=="C" || $5=="T"' \
 	    | tee ${output[6]}.txt \
 	    | grep -vFwf <(cat $_variant_function) - \
-	    | awk -vdp=$_read_depth '{if($8 >= dp) print $0}' \
+	    | awk -vdp=$_read_depth_gatk '{if($8 >= dp) print $0}' \
 	    | egrep -iv "^\.|muc|usp|rp11" \
 	    | awk -F"\t" '{print$11"_"$1":"$2,$12,$13}' \
-	    | sed "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
+	    | sed -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" -e 's/ /\t/g' \
 		  > ${output[7]}.tsv
 
 ##	    | grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \
@@ -521,7 +527,8 @@ for _idx in $_listingFiles; do
 	echo "Error from wrong column assignment for SNV function extraction!"
 	exit 0
     fi
-    
+
+    ## aggregate all selected metrics into one report
     output[8]=output.8_bash.summary.snv_functions.$pipeline.txt
     grep -v "^#" ${output[6]}.txt \
 	| cut -f$_fct_col \
@@ -559,12 +566,11 @@ for _idx in $_listingFiles; do
 	sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[9]}
 	sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[10]}
 
-
-    else
-	echo "Error from wrong column assignment!"
-	exit 0
     fi
 
+    sleep 60
+    gzip ${output[3]}.vcf
+    sleep 30
 
 
 done
@@ -581,7 +587,7 @@ cd $workdir
 
 ## create config files, manually
 ## only samples from same individual are compared together
-_yaml=$(find $_pyclone_config -name "$_pyclone_method.yaml")
+_yaml=$(find $_pyclone_config -name "*.yaml")
 
 ## change the directory of each config file
 ## for each analysis using same samples but different iteration
@@ -591,6 +597,7 @@ for _pyCfg in $_yaml; do
     cat $_pyCfg \
 	| sed '2d' \
 	      > $workdir/$new_name
+    sed -i "1i$(echo "density: $_pyclone_method")" $workdir/$new_name
     sed -i "1i$(echo "working_dir: $workdir")" $workdir/$new_name
         
 done
@@ -599,17 +606,37 @@ done
 ## run python 2.7
 ## load pyclone 0.13.1 that I deployed
 ## do not load h4h pyclone (not correctly installed)
+## TypeError: int() argument must be a string or a number, not 'NoneType'
+
 source activate pyclone
+
+
+
+
+_listingFiles=$(find $workdir -name "output.7*" | paste -s -d' ')
+PyClone run_analysis_pipeline \
+        --in_files $_listingFiles \
+        --working_dir $workdir \
+        --density pyclone_$_pyclone_method \
+        --init_method disconnected \
+        --num_iters 1000 \
+        --prior $_priors \
+        --seed 124565 \
+        --plot_file_format svg \
+        --max_clusters 7 \
+        --min_cluster_size 5
+
+
 
 _listingFiles=$(find $_data -name "*realigned.bam")
 for _idx in $_listingFiles; do
 
     sample_label=$(basename $_idx | cut -f1 -d'.')
-
+    output[7]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.$sample_label
     ## build mutation file
     PyClone build_mutations_file \
 	    --in_file ${output[7]}.tsv \
-	    --out_file $workdir/yaml/total_copy_number/$sample_label.yaml \
+	    --out_file $workdir/yaml/$sample_label.yaml \
 	    --prior $_priors
 
 done
@@ -652,9 +679,9 @@ cd $workdir
 mkdir configs figures pyclone_input reports variants
 mv *tsv pyclone_input
 mv *gz variants
-mv conf*yaml configs
 mv *txt reports
 mv *pdf *png *html figures
+mv conf*yaml configs
 
 
 
