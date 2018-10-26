@@ -1,0 +1,66 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=12,walltime=10:00:00,vmem=16g,mem=220g
+#PBS -N variantCalls
+#PBS -q all
+#PBS -V
+#PBS -j oe
+#PBS -m abe
+#PBS -M slei.bass@gmail.com
+
+set -eux
+
+
+## H4H directories
+## Misc tools parameters
+scratch=/cluster/projects/kridelgroup
+_storage=$scratch/relapse/mutations
+home=/cluster/home/sbassim
+user_databases=$scratch/databases
+admin_databases=/cluster/tools/data/genomes/human/hg19/variantcallingdata
+pbs=$(echo $PBS_JOBID | cut -f1 -d '.')
+
+# __CHANGE__
+pipeline=varscan2
+_protocol=removeFunctionV3
+_priors=major_copy_number
+_pyclone_method=pyclone_binomial
+
+# __DONT CHANGE__
+workdir=$_storage/pyclone_analysis/$pbs
+
+mkdir -p $workdir
+
+cp $_storage/pyclone_analysis/516274/pyclone_input/output.7* $workdir
+#cp $_storage/pyclone_analysis/517376/pyclone_input/output.7* $workdir
+#cp $_storage/pyclone_analysis/517373/pyclone_input/output.7* $workdir
+
+cd $workdir
+
+
+source activate pyclone
+
+sample[1]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61960.tsv
+sample[2]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61961.tsv
+
+sample[3]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61962.tsv
+sample[4]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61963.tsv
+
+sample[5]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61964.tsv
+sample[6]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61965.tsv
+
+PyClone run_analysis_pipeline \
+        --in_files ${sample[1]} ${sample[2]} \
+        --working_dir $workdir \
+        --density $_pyclone_method \
+        --init_method connected \
+        --num_iters 10000 \
+        --prior $_priors \
+        --seed 124565 \
+        --plot_file_format png \
+        --max_clusters 7 \
+        --min_cluster_size 3
+
+
+
+
+source deactivate
