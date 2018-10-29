@@ -192,7 +192,7 @@ for _idx in $_listingFiles; do
 	    module load samtools/1.9
 	    bamtools filter -tag XT:U -in $_idx \
 		| samtools view -u -b - -@$threads \
-		| bcftools mpileup -Ou -EC 50 -d 1000 \
+		| bcftools mpileup -Ou -EC 40 -d 8000 \
 			   --annotate AD,ADF,ADR \
 			   --targets-file $agilent \
 			   --ignore-RG -f $genome_reference - \
@@ -607,26 +607,8 @@ done
 ## load pyclone 0.13.1 that I deployed
 ## do not load h4h pyclone (not correctly installed)
 ## TypeError: int() argument must be a string or a number, not 'NoneType'
-
+## solved by replacing spaces with tabs in tsv output[7]
 source activate pyclone
-
-
-
-
-_listingFiles=$(find $workdir -name "output.7*" | paste -s -d' ')
-PyClone run_analysis_pipeline \
-        --in_files $_listingFiles \
-        --working_dir $workdir \
-        --density pyclone_$_pyclone_method \
-        --init_method disconnected \
-        --num_iters 1000 \
-        --prior $_priors \
-        --seed 124565 \
-        --plot_file_format svg \
-        --max_clusters 7 \
-        --min_cluster_size 5
-
-
 
 _listingFiles=$(find $_data -name "*realigned.bam")
 for _idx in $_listingFiles; do
@@ -678,7 +660,7 @@ sleep 300
 cd $workdir
 mkdir configs figures pyclone_input reports variants
 mv *tsv pyclone_input
-mv *gz variants
+mv *gz* variants
 mv *txt reports
 mv *pdf *png *html figures
 mv conf*yaml configs
