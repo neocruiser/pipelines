@@ -538,11 +538,9 @@ for _idx in $_listingFiles; do
 	| sed "s/$/\t$sample_label/g" \
 	      >> ${output[8]}
 
-    ## add headers for summary reports
-    sed -i "1i $(echo -e "fct\tcount\tsample")" ${output[8]}
-
     ## additional summary reporting
     if [ $pipeline == "varscan2" ]; then
+
 	## pvalues and variant frequencies (VAF) by all SNV position
 	output[9]=output.9_bash.summary.snv.preFilter_distributions.$pipeline.txt
 	grep -v "^#" ${output[6]}.txt \
@@ -562,10 +560,6 @@ for _idx in $_listingFiles; do
 	    | sed "s/$/\t$sample_label/g" \
 		  >> ${output[10]}
 
-	## add headers for summary reports
-	sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[9]}
-	sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[10]}
-
     fi
 
     sleep 60
@@ -575,12 +569,27 @@ for _idx in $_listingFiles; do
 
 done
 
+## add headers for summary reports
+sed -i "1i $(echo -e "fct\tcount\tsample")" ${output[8]}
+## additional summary reporting
+## add headers for summary reports
+if [ $pipeline == "varscan2" ]; then
 
+    sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[9]}
+    sed -i "1i $(echo -e "snv\tDP\trefCounts\tvarCounts\tvaf\tpval\tsample")" ${output[10]}
+
+fi
 
 
 ##############################################
 # Clonal evolution by pair samples (pyClone) #
 ##############################################
+## Below code works well
+## But it should be deprecated
+## That because using pyclone standard filters
+## Cell prevalence is not well interepretable
+## Please use the standalone pyclone script
+
 ## preprocess VCF for assessement of clonal evolution
 ## main tool: pyclone
 cd $workdir
