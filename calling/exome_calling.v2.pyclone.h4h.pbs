@@ -62,7 +62,7 @@ normal_cnv=2
 minor_cnv=0
 _priors=major_copy_number
 _read_depth=10
-_read_depth_bcftools=2
+_read_depth_bcftools=
 _read_depth_gatk=20
 _read_phred=30
 _allel_pval=10e-10
@@ -462,14 +462,14 @@ for _idx in $_listingFiles; do
 	    | sed -e 's/\t.\/.*:/\t/g' -e 's/,/\t/g' \
 	    | grep -v ">" \
 	    | tee ${output[6]}.txt \
-	    | grep -vFwf <(cat $_variant_function) - \
+	    | awk -vdp=$_read_depth_bcftools '{if($8 >= dp) print $0}' \
 	    | egrep -iv "^\.|muc|usp|rp11" \
 	    | awk -F"\t" '{print$12"_"$1":"$2,$13,$14}' \
 	    | sed -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" -e 's/ /\t/g' \
 		  > ${output[7]}.tsv
 
+##	    | grep -vFwf <(cat $_variant_function) - \
 ##	    | awk -vql=$_call_quality '{if($6 >= ql) print $0}' \
-##	    | awk -vdp=$_read_depth_bcftools '{if($8 >= dp) print $0}' \
 ##	    | awk -vph=$_read_phred '{if($9 >= ph) print $0}' \
 
     elif [ $pipeline == "gatk" ]; then
