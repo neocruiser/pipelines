@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=32,walltime=100:00:00,vmem=60g,mem=220g
+#PBS -l nodes=1:ppn=32,walltime=168:00:00,vmem=60g,mem=220g
 #PBS -N variantCalls
 #PBS -q himem
 #PBS -V
@@ -8,6 +8,7 @@
 #PBS -M slei.bass@gmail.com
 
 :'
+	Following code base is consistently documented & extensible
 	This batch script accomplishes 6 Layers of protocols:
 	- Task 1: Index merged bam files
 	  + Exome QC (hg19)
@@ -53,8 +54,10 @@ jobid=$pbs.exome_calling.multitool.annotated_pyclone
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 # __CHANGE__
-_realign2indels=FALSE
+_markDuplicates=TRUE
+_realign2indels=TRUE
 _call2variants=TRUE
+run_pyclone=FALSE
 cnvs=cnmops
 pipeline=varscan2
 _protocol=removeFunctionV3
@@ -62,7 +65,7 @@ normal_cnv=2
 minor_cnv=0
 _priors=major_copy_number
 _read_depth=10
-_read_depth_bcftools=
+_read_depth_bcftools=5
 _read_depth_gatk=20
 _read_phred=30
 _allel_pval=10e-10
@@ -74,9 +77,9 @@ _pyclone_method=pyclone_binomial
 compression=0
 threads=32
 mapq=39
-_gVMEM=50g
+_gVMEM=20g
 snpeff_genome=GRCh37.75
-_data=$_storage/raw
+_data=$_storage/raw/new
 workdir=$_storage/pyclone_analysis/$pbs
 snpeff_config=$home/snpEff/snpEff.config
 agilent=$_storage/targets/padded.clean.bed
@@ -100,8 +103,27 @@ mkdir -p $workdir/yaml/$_priors
 ## index bam samples after merging
 ## required for samtools and gatk workflows
 cd $_data
-_listingRaw=$(find $_data -name "*Flagged.bam")
+_listingRaw=$(find $_data -name "*.bam")
 
+
+if [ $_markDuplicates == "TRUE" ]; then
+    for _new in $_listingRaw; do
+
+	## remove duplicates
+	sample_label=$(basename $_new | cut -f1 -d'.')
+	samtools index -@$threads $_new
+
+	java -Xmx$_gVMEM -jar $picard_dir/picard.jar MarkDuplicates \
+	     VALIDATION_STRINGENCY=LENIENT \
+	     INPUT=$_new \
+	     OUTPUT=$sample_label.flagged.bam \
+	     M=$sample_label.flagged.metrics
+
+    done
+ fi
+
+
+_listingRaw=$(find $_data -iname "*flagged.bam")
 if [ $_realign2indels == "TRUE" ]; then
     for _raw in $_listingRaw; do
 
@@ -124,6 +146,8 @@ if [ $_realign2indels == "TRUE" ]; then
 	     -known $gold_indels \
 	     -targetIntervals $sample_label.intervals \
 	     -o $sample_label.realigned.bam
+
+	samtools index -@$threads $sample_label.realigned.bam
     done
 fi
 
@@ -590,91 +614,92 @@ fi
 ## Cell prevalence is not well interepretable
 ## Please use the standalone pyclone script
 
-## preprocess VCF for assessement of clonal evolution
-## main tool: pyclone
-cd $workdir
+if [ $run_pyclone == "TRUE" ]; then
+    ## preprocess VCF for assessement of clonal evolution
+    ## main tool: pyclone
+    cd $workdir
 
-## create config files, manually
-## only samples from same individual are compared together
-_yaml=$(find $_pyclone_config -name "*.yaml")
+    ## create config files, manually
+    ## only samples from same individual are compared together
+    _yaml=$(find $_pyclone_config -name "*.yaml")
 
-## change the directory of each config file
-## for each analysis using same samples but different iteration
-for _pyCfg in $_yaml; do
-    new_name=$(basename $_pyCfg)
+    ## change the directory of each config file
+    ## for each analysis using same samples but different iteration
+    for _pyCfg in $_yaml; do
+	new_name=$(basename $_pyCfg)
 
-    cat $_pyCfg \
-	| sed '2d' \
-	      > $workdir/$new_name
-    sed -i "1i$(echo "density: $_pyclone_method")" $workdir/$new_name
-    sed -i "1i$(echo "working_dir: $workdir")" $workdir/$new_name
+	cat $_pyCfg \
+	    | sed '2d' \
+		  > $workdir/$new_name
+	sed -i "1i$(echo "density: $_pyclone_method")" $workdir/$new_name
+	sed -i "1i$(echo "working_dir: $workdir")" $workdir/$new_name
         
-done
+    done
 
 
-## run python 2.7
-## load pyclone 0.13.1 that I deployed
-## do not load h4h pyclone (not correctly installed)
-## TypeError: int() argument must be a string or a number, not 'NoneType'
-## solved by replacing spaces with tabs in tsv output[7]
-source activate pyclone
+    ## run python 2.7
+    ## load pyclone 0.13.1 that I deployed
+    ## do not load h4h pyclone (not correctly installed)
+    ## TypeError: int() argument must be a string or a number, not 'NoneType'
+    ## solved by replacing spaces with tabs in tsv output[7]
+    source activate pyclone
 
-_listingFiles=$(find $_data -name "*realigned.bam")
-for _idx in $_listingFiles; do
+    _listingFiles=$(find $_data -name "*realigned.bam")
+    for _idx in $_listingFiles; do
 
-    sample_label=$(basename $_idx | cut -f1 -d'.')
-    output[7]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.$sample_label
-    ## build mutation file
-    PyClone build_mutations_file \
-	    --in_file ${output[7]}.tsv \
-	    --out_file $workdir/yaml/$sample_label.yaml \
-	    --prior $_priors
+	sample_label=$(basename $_idx | cut -f1 -d'.')
+	output[7]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.$sample_label
+	## build mutation file
+	PyClone build_mutations_file \
+		--in_file ${output[7]}.tsv \
+		--out_file $workdir/yaml/$sample_label.yaml \
+		--prior $_priors
 
-done
-
-
-## run final clonal evolution analysis
-## MCMC 10,000 iterations
-_configFiles=$(find $workdir -name "config*yaml")
-for _cfg in $_configFiles; do
-
-    _ix=$(basename $_cfg | sed -e 's/config.//g' -e 's/.yaml//g')
-    
-    ## build configuration file (manually)
-    PyClone run_analysis --config_file $_cfg
-
-    ## summary table
-    PyClone build_table --config_file $_cfg \
-	    --out_file pyclone.$_ix.exome.summary_table.$pipeline.txt \
-	    --table_type loci
-
-    ## plot
-    PyClone plot_loci --config_file $_cfg \
-	    --plot_file pyclone.$_ix.parallel.$pipeline.png \
-	    --plot_type parallel_coordinates
-    PyClone plot_loci --config_file $_cfg \
-	    --plot_file pyclone.$_ix.similarity_matrix.$pipeline.png \
-	    --plot_type similarity_matrix
-##    PyClone plot_loci --config_file $_cfg \
-##	    --plot_file pyclone.$_ix.density.$pipeline.png \
-##	    --plot_type density
-
-done
-
-source deactivate
+    done
 
 
-## repo organization
-sleep 300
-cd $workdir
-mkdir configs figures pyclone_input reports variants
-mv *tsv pyclone_input
-mv *gz* variants
-mv *txt reports
-mv *pdf *png *html figures
-mv conf*yaml configs
+    ## run final clonal evolution analysis
+    ## MCMC 10,000 iterations
+    _configFiles=$(find $workdir -name "config*yaml")
+    for _cfg in $_configFiles; do
+
+	_ix=$(basename $_cfg | sed -e 's/config.//g' -e 's/.yaml//g')
+	
+	## build configuration file (manually)
+	PyClone run_analysis --config_file $_cfg
+
+	## summary table
+	PyClone build_table --config_file $_cfg \
+		--out_file pyclone.$_ix.exome.summary_table.$pipeline.txt \
+		--table_type loci
+
+	## plot
+	PyClone plot_loci --config_file $_cfg \
+		--plot_file pyclone.$_ix.parallel.$pipeline.png \
+		--plot_type parallel_coordinates
+	PyClone plot_loci --config_file $_cfg \
+		--plot_file pyclone.$_ix.similarity_matrix.$pipeline.png \
+		--plot_type similarity_matrix
+	##    PyClone plot_loci --config_file $_cfg \
+	    ##	    --plot_file pyclone.$_ix.density.$pipeline.png \
+	    ##	    --plot_type density
+
+    done
+
+    source deactivate
 
 
+    ## repo organization
+    sleep 300
+    cd $workdir
+    mkdir configs figures pyclone_input reports variants
+    mv *tsv pyclone_input
+    mv *gz* variants
+    mv *txt reports
+    mv *pdf *png *html figures
+    mv conf*yaml configs
+
+fi
 
 
 end=$(date); echo "Job ended at: $end" >> $time/$jobid.time
