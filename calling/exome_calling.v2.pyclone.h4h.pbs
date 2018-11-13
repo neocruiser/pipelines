@@ -54,12 +54,12 @@ jobid=$pbs.exome_calling.multitool.annotated_pyclone
 start=$(date); echo "Job started at: $start" > $time/$jobid.time
 
 # __CHANGE__
-_markDuplicates=TRUE
-_realign2indels=TRUE
+_markDuplicates=FALSE
+_realign2indels=FALSE
 _call2variants=TRUE
 run_pyclone=FALSE
 cnvs=cnmops
-pipeline=varscan2
+pipeline=bcftools
 _protocol=removeFunctionV3
 normal_cnv=2
 minor_cnv=0
