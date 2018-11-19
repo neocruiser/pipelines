@@ -214,7 +214,7 @@ for _idx in $_listingFiles; do
 	    ## call snps using bcftools multiallelic -m
 	    ## discard indel calls
 	    module load samtools/1.9
-	    bamtools filter -tag XT:U -in $_idx \
+	    bamtools filter -tag XT:U XM:0 -in $_idx \
 		| samtools view -u -b - -@$threads \
 		| bcftools mpileup -Ou -EC 40 -d 8000 \
 			   --annotate AD,ADF,ADR \

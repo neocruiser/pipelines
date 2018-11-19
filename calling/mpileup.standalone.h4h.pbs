@@ -77,7 +77,7 @@ threads=32
 mapq=39
 _gVMEM=20g
 snpeff_genome=GRCh37.75
-_data=$_storage/raw/new
+_data=$_storage/raw
 workdir=$_storage/pyclone_analysis/$pbs
 snpeff_config=$home/snpEff/snpEff.config
 
@@ -95,15 +95,14 @@ mkdir -p $workdir
 
 agilent=$_storage/targets/padded.clean.bed
 agilent_corrected=$_storage/targets/padded.clean_qualimap.bed
+#agilent_corrected=$_storage/targets/regions.clean_qualimap.bed
 ucsc=$_storage/targets/exons.ucsc.clean.bed
 genome_reference=$user_databases/GRCh37-lite.fa
 
 
 
-sample[1]=$_data/A95615.*.realigned.bam
-sample[2]=$_data/A95616.*.realigned.bam
-sample[3]=$_data/A95617.*.realigned.bam
-sample[4]=$_data/A95618.*.realigned.bam
+sample[1]=$_data/A61960.*.realigned.bam
+
 
 cd $workdir
 pipeline=bcftools
@@ -143,10 +142,11 @@ gzip ${output[1]}.vcf.gz
 
 
 awk 'BEGIN{OFS="\t"}{print $1,$2,$3,$4,0,"."}' $agilent > $agilent_corrected
-output[2]=output.2.quality.ucsc
+output[2]=output.2.quality.agilent
 qualimap bamqc -bam ${sample[1]} -c \
 	--java-mem-size=$_gVMEM \
 	-gd HUMAN - hg19 \
+	-sd -sdmode 0 \
 	-gff $agilent_corrected \
 	-hm 3 \
 	-nr 1000 \
