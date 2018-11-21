@@ -102,6 +102,7 @@ genome_reference=$user_databases/GRCh37-lite.fa
 
 
 sample[1]=$_data/A61960.*.realigned.bam
+sample[2]=$_data/A61961.*.realigned.bam
 
 
 cd $workdir
@@ -137,8 +138,8 @@ samtools mpileup -B --ignore-RG -l $agilent -f $genome_reference ${sample[1]} ${
 	   --output-vcf 1 \
 	   > ${output[1]}.vcf
 
-gzip ${output[1]}.vcf.gz
 
+gzip ${output[1]}.vcf.gz
 
 
 awk 'BEGIN{OFS="\t"}{print $1,$2,$3,$4,0,"."}' $agilent > $agilent_corrected
@@ -158,6 +159,63 @@ qualimap bamqc -bam ${sample[1]} -c \
 	-outfile $workdir/${output[2]}.report.pdf \
 	-outformat HTML \
 	-p non-strand-specific
+
+
+## any tool any sample size
+output[3]=output.3_bash.$pipeline.snpeff_annot.$snpeff_genome.clinvar.dbsnp
+java -jar $snpeff_dir/SnpSift.jar annotate \
+     -noLog -noDownload \
+     -c $snpeff_config \
+     -clinvar \
+     ${output[1]}.vcf \
+    | java -jar $snpeff_dir/SnpSift.jar annotate \
+	   -noLog -noDownload \
+	   -c $snpeff_config \
+	   -dbsnp - \
+    | java -jar $snpeff_dir/snpEff.jar eff \
+	   -noDownload -noLog \
+	   -c $snpeff_config \
+	   -stats ${output[3]}.html \
+	   $snpeff_genome \
+	   > ${output[3]}.vcf
+
+
+## only varscan2 with sample comparison
+output[4]=output.4_mined.$pipeline.snpeff_annot.$snpeff_genome.clinvar.dbsnp.exac
+grep -v "^#" ${output[3]}.vcf \
+    | grep -v "rs" \
+    | grep -iv "^[a-z]" \
+    | awk 'match($3, /\./) {print $0}' \
+    | grep -vFwf <(cat $_EXAC) \
+    | sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g' \
+    | cut -f1-2,4-5,8-11 \
+    | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
+    | cut -f1-8,12-16,26-30 \
+    | grep -v ">" \
+    | awk 'NF > 17' \
+	  > ${output[4]}.txt
+
+sed -i "1i$(echo -e "chromosome\tposition\treference\tvariant\tquality\tsite\teffect\tgene\ts1_dp\ts1_rd\ts1_ad\ts1_freq\ts1_pval\ts2_dp\ts2_rd\ts2_ad\ts2_freq\ts2_pval")" ${output[4]}.txt
+
+
+
+
+## only bcftools with sample comparison
+output[4]=output.4_mined.$pipeline.snpeff_annot.$snpeff_genome.clinvar.dbsnp.exac
+grep -v "^#" ${output[3]}.vcf \
+    | grep -v "rs" \
+    | grep -iv "^[a-z]" \
+    | awk 'match($3, /\./) {print $0}' \
+    | grep -vFwf <(cat $_EXAC) \
+    | sed -e 's/;/\t/g' -e 's/\tDP=/\t/g' -e 's/SGB=.*MQ=/MQ=/g' -e 's/VDB=.*MQ=/MQ=/g' \
+    | sed -e 's/MQ=//g' -e 's/ANN=.|//g' -e 's/|ENS.*AD//g' -e 's/|/\t/g' \
+    | cut -f1,5,9 -d':' \
+    | sed -e 's/\t.\/./\t/g' -e 's/,/\t/g' -e 's/://g' \
+    | grep -v ">" \
+    | awk 'NF > 15' \
+	  > ${output[4]}.txt
+
+sed -i "1i$(echo -e "chromosome\tposition\tannotated\treference\tvariant\tquality\tstrand\tdp\tmq\tsite\teffect\tgene\ts1_rd\ts1_ad\ts2_rd\ts2_ad")" ${output[4]}.txt
 
 
 
