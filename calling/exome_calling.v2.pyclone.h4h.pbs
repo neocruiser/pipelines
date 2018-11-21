@@ -458,7 +458,8 @@ for _idx in $_listingFiles; do
 		| egrep -iv "^\.|muc|usp|rp11" \
 		| awk -F"\t" '{print$8"_"$1":"$2,$13,$14}' \
 		| sed -e 's/ /\t/g' -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" \
-		       > ${output[7]}.tsv
+		| awk 'NF > 5' \
+		      > ${output[7]}.tsv
 
 	else
 
@@ -490,7 +491,26 @@ for _idx in $_listingFiles; do
 	    | egrep -iv "^\.|muc|usp|rp11" \
 	    | awk -F"\t" '{print$12"_"$1":"$2,$13,$14}' \
 	    | sed -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" -e 's/ /\t/g' \
+	    | awk 'NF > 5' \
 		  > ${output[7]}.tsv
+
+    elif [ $pipeline == "bcftools_all" ]; then
+
+	## keep all
+	grep -v "^#" ${output[3]}.vcf \
+            | grep -iv "^[a-z]" \
+            | awk '{gsub(";","-",$3); print $0}' \
+            | sed -e 's/ /\t/g' \
+            | sed -e 's/;/\t/g' -e 's/\tDP=/\t/g' -e 's/SGB=.*MQ=/MQ=/g' -e 's/VDB=.*MQ=/MQ=/g' \
+            | sed -e 's/MQ=//g' -e 's/\tASP.*dbSNPBuildID=..\t/\t/g' -e 's/\tASP.*dbSNPBuildID=...\t/\t/g' \
+            | sed -e 's/ANN=.|//g' -e 's/|ENS.*AD//g' -e 's/|/\t/g' -e 's/ALLELEID.*ORIGIN=.//g' \
+            | sed -e 's/AF_.*=0.....\t//g' \
+            | egrep -iv "alleleid|geneinfo" \
+            | cut -f1,5,9,13 -d':' \
+            | sed -e 's/\t.\/.:/\t/g' -e 's/,/\t/g' -e 's/\t...$//g'\
+            | grep -v ">" \
+	    | awk 'NF > 5' \
+		  > ${output[2]}.txt
 
 ##	    | grep -vFwf <(cat $_variant_function) - \
 ##	    | awk -vql=$_call_quality '{if($6 >= ql) print $0}' \
@@ -521,6 +541,7 @@ for _idx in $_listingFiles; do
 	    | egrep -iv "^\.|muc|usp|rp11" \
 	    | awk -F"\t" '{print$11"_"$1":"$2,$12,$13}' \
 	    | sed -e "s/$/\t$normal_cnv\t$minor_cnv\t$total_cnv/g" -e 's/ /\t/g' \
+	    | awk 'NF > 5' \
 		  > ${output[7]}.tsv
 
 ##	    | grep -vFwf <(zcat $_COSMIC | cut -f2 | sed '1d') - \

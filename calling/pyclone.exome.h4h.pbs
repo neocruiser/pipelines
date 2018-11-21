@@ -30,9 +30,11 @@ workdir=$_storage/pyclone_analysis/$pbs
 
 mkdir -p $workdir
 
-cp $_storage/pyclone_analysis/516274/pyclone_input/output.7* $workdir
+#cp $_storage/pyclone_analysis/516274/pyclone_input/output.7* $workdir
 #cp $_storage/pyclone_analysis/517376/pyclone_input/output.7* $workdir
 #cp $_storage/pyclone_analysis/517373/pyclone_input/output.7* $workdir
+
+cp $_storage/variant_analysis/test/output.7* $workdir
 
 cd $workdir
 
@@ -48,6 +50,10 @@ sample[4]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.
 sample[5]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61964.tsv
 sample[6]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61965.tsv
 
+sample[1]=output.7_bash.bcftools.snpeff_annot.reduced.clean_pyclone.individual_1.T1.tsv
+sample[2]=output.7_bash.bcftools.snpeff_annot.reduced.clean_pyclone.individual_1.T2.tsv
+
+
 PyClone run_analysis_pipeline \
         --in_files ${sample[1]} ${sample[2]} \
         --working_dir $workdir \
@@ -56,7 +62,7 @@ PyClone run_analysis_pipeline \
         --num_iters 10000 \
         --prior $_priors \
         --seed 124565 \
-        --plot_file_format png \
+        --plot_file_format pdf \
         --max_clusters 7 \
         --min_cluster_size 3
 
