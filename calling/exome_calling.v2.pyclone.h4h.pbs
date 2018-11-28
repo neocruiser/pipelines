@@ -496,6 +496,7 @@ for _idx in $_listingFiles; do
 
     elif [ $pipeline == "bcftools_all" ]; then
 
+	## experimental
 	## keep all
 	grep -v "^#" ${output[3]}.vcf \
             | grep -iv "^[a-z]" \

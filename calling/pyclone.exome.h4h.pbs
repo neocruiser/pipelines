@@ -30,10 +30,6 @@ workdir=$_storage/pyclone_analysis/$pbs
 
 mkdir -p $workdir
 
-#cp $_storage/pyclone_analysis/516274/pyclone_input/output.7* $workdir
-#cp $_storage/pyclone_analysis/517376/pyclone_input/output.7* $workdir
-#cp $_storage/pyclone_analysis/517373/pyclone_input/output.7* $workdir
-
 cp $_storage/variant_analysis/test/output.7* $workdir
 
 cd $workdir
@@ -44,21 +40,11 @@ source activate pyclone
 sample[1]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61960.tsv
 sample[2]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61961.tsv
 
-sample[3]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61962.tsv
-sample[4]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61963.tsv
-
-sample[5]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61964.tsv
-sample[6]=output.7_bash.$pipeline.snpeff_annot.$_protocol.reduced.clean_pyclone.A61965.tsv
-
-sample[1]=output.7_bash.bcftools.snpeff_annot.reduced.clean_pyclone.individual_1.T1.tsv
-sample[2]=output.7_bash.bcftools.snpeff_annot.reduced.clean_pyclone.individual_1.T2.tsv
-
-
 PyClone run_analysis_pipeline \
         --in_files ${sample[1]} ${sample[2]} \
         --working_dir $workdir \
         --density $_pyclone_method \
-        --init_method connected \
+        --init_method disconnected \
         --num_iters 10000 \
         --prior $_priors \
         --seed 124565 \
@@ -70,3 +56,39 @@ PyClone run_analysis_pipeline \
 
 
 source deactivate
+
+
+
+
+
+
+## varscan
+for depth in {340..500..5}; do echo "> "$depth; grep -v "^#" pyclone_analysis/556793/output.3_bash.varscan2.snpeff_annot.GRCh37.75.clinvar.dbsnp.vcf     | grep -v "rs"     | grep -iv "^[a-z]"     | awk 'match($3, /\./) {print $0}' |  sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g'| cut -f1-2,4-5,8-11| sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g'      | cut -f1-8,12-16,26-30  | awk 'NF>17' | awk -vdp=$depth '{if($9 >= dp || $12 >= dp) print $0}' | grep -v ">"  | egrep -iv "^\.|muc|usp|rp11" | wc -l; done
+
+output[4]=output.4_mined.varscan2.snpeff_annot_genome.clinvar.dbsnp.exac.individual_4.95615-95616.txt
+output[4]=output.4_mined.varscan2.snpeff_annot_genome.clinvar.dbsnp.exac.individual_1.61960-61961.txt
+depth=345;grep -v "^#" pyclone_analysis/556793/output.3_bash.varscan2.snpeff_annot.GRCh37.75.clinvar.dbsnp.vcf     | grep -v "rs"     | grep -iv "^[a-z]"     | awk 'match($3, /\./) {print $0}' |  sed -e 's/;WT=.*ANN=.|/\t/g' -e 's/|ENS.*:ADR//g'| cut -f1-2,4-5,8-11| sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g'      | cut -f1-8,12-16,26-30  | awk 'NF>17' | awk -vdp=$depth '{if($9 >= dp || $12 >= dp) print $0}' | grep -v ">"  | egrep -iv "^\.|muc|usp|rp11" > variant_analysis/stringent_analysis/${output[4]}
+
+
+output[7]=output.7_mined.varscan2.snpeff_annot_genome.clinvar.dbsnp.exac.individual_1.T1.tsv
+cat ${output[4]} | awk -F"\t" '{print$8"_"$1":"$2,$10,$11}' | sed -e "s/$/\t2\t0\t2/g" -e 's/ /\t/g' | awk 'NF>5' > ${output[7]}
+output[7]=output.7_mined.varscan2.snpeff_annot_genome.clinvar.dbsnp.exac.individual_1.T2.tsv
+cat ${output[4]} | awk -F"\t" '{print$8"_"$1":"$2,$15,$16}' | sed -e "s/$/\t2\t0\t2/g" -e 's/ /\t/g' | awk 'NF>5' > ${output[7]}
+sed -i "1i$(echo -e "mutation_id\tref_counts\tvar_counts\tnormal_cn\tminor_cn\tmajor_cn")" ${output[7]}
+
+sed -i "1i$(echo -e "chromosome\tposition\treference\tvariant\tquality\tsite\teffect\tgene\ts1_dp\ts1_rd\ts1_ad\ts1_freq\ts1_pval\ts2_dp\ts2_rd\ts2_ad\ts2_freq\ts2_pval")" reduced_variants/${output[4]}
+
+
+
+for i in $loc; do echo $i; for depth in {5..20..2}; do echo "> $depth"; awk -vdp=$depth '$3 >= dp' $i | wc -l; done; done
+
+## bcftools
+output[4]=output.4_mined.bcftools.snpeff_annot_genome.clinvar.dbsnp.exac.individual_1.61960-61961.txt
+for depth in {100..200..5}; do echo "..> $depth"; grep -v "^#" pyclone_analysis/556778/output.3_bash.bcftools.snpeff_annot.GRCh37.75.clinvar.dbsnp.vcf     | grep -v "rs"     | grep -iv "^[a-z]"     | awk 'match($3, /\./) {print $0}'     | sed -e 's/;/\t/g' -e 's/\tDP=/\t/g' -e 's/SGB=.*MQ=/MQ=/g' -e 's/VDB=.*MQ=/MQ=/g' | sed -e 's/MQ=//g' -e 's/ANN=.|//g' -e 's/|ENS.*AD//g' -e 's/|/\t/g' | cut -f1,5,9 -d':' | sed -e 's/\t.\/./\t/g' -e 's/,/\t/g' -e 's/://g' | grep -v ">" | awk -vdp=$depth '{if($8 >= dp) print $0}' | egrep -iv "^\.|muc|usp|rp11" | awk 'NF > 15' | wc -l; done
+
+
+
+cat ${output[4]} | awk -F"\t" '{print$12"_"$1":"$2,$13,$14}' | sed -e "s/$/\t2\t0\t2/g" -e 's/ /\t/g' | awk 'NF>5'    > ${output[7]}
+cat ${output[4]} | awk -F"\t" '{print$12"_"$1":"$2,$15,$16}' | sed -e "s/$/\t2\t0\t2/g" -e 's/ /\t/g' | awk 'NF>5'    > ${output[7]}
+sed -i "1i$(echo -e "mutation_id\tref_counts\tvar_counts\tnormal_cn\tminor_cn\tmajor_cn")" ${output[7]}
+sed -i "1i$(echo -e "chromosome\tposition\tannotated\treference\tvariant\tquality\tstrand\tdp\tmq\tsite\teffect\tgene\ts1_rd\ts1_ad\ts2_rd\ts2_ad")" ${output[4]}

@@ -191,8 +191,10 @@ grep -v "^#" ${output[3]}.vcf \
     | cut -f1-2,4-5,8-11 \
     | sed -e 's/ADP=//g' -e 's/|/\t/g' -e 's/:/\t/g' -e 's/%//g' \
     | cut -f1-8,12-16,26-30 \
-    | grep -v ">" \
     | awk 'NF > 17' \
+    | awk -vdp=$_read_depth_bcftools '{if($9 >= dp && $12 >= dp) print $0}' \
+    | egrep -iv "^\.|muc|usp|rp11" \
+    | grep -v ">" \
 	  > ${output[4]}.txt
 
 sed -i "1i$(echo -e "chromosome\tposition\treference\tvariant\tquality\tsite\teffect\tgene\ts1_dp\ts1_rd\ts1_ad\ts1_freq\ts1_pval\ts2_dp\ts2_rd\ts2_ad\ts2_freq\ts2_pval")" ${output[4]}.txt
@@ -211,6 +213,8 @@ grep -v "^#" ${output[3]}.vcf \
     | sed -e 's/MQ=//g' -e 's/ANN=.|//g' -e 's/|ENS.*AD//g' -e 's/|/\t/g' \
     | cut -f1,5,9 -d':' \
     | sed -e 's/\t.\/./\t/g' -e 's/,/\t/g' -e 's/://g' \
+    | awk -vdp=$_read_depth_bcftools '{if($8 >= dp) print $0}' \
+    | egrep -iv "^\.|muc|usp|rp11" \
     | grep -v ">" \
     | awk 'NF > 15' \
 	  > ${output[4]}.txt
