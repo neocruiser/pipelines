@@ -1,3 +1,14 @@
+#########################################################################################################
+## The current pipeline accomplishes the following steps:                                              ##
+## 1- Linux-based toolchain to go from basic prototyping to full-fledged operational/production models ##
+## 2- Model development workflows                                                                      ##
+## 3- Exploratory analysis                                                                             ##
+## 4- Model design                                                                                     ##
+## 5- Operationalization                                                                               ##
+## 6- Reporting                                                                                        ##
+#########################################################################################################
+
+
 pkgs <- c('RColorBrewer', 'pvclust', 'gplots',
           'dplyr', 'glmnet', 'caret', 'foreach',
           'doSNOW', 'lattice', 'ROCR', 'earth', 'vegan',
