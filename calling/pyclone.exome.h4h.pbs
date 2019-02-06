@@ -92,3 +92,54 @@ cat ${output[4]} | awk -F"\t" '{print$12"_"$1":"$2,$13,$14}' | sed -e "s/$/\t2\t
 cat ${output[4]} | awk -F"\t" '{print$12"_"$1":"$2,$15,$16}' | sed -e "s/$/\t2\t0\t2/g" -e 's/ /\t/g' | awk 'NF>5'    > ${output[7]}
 sed -i "1i$(echo -e "mutation_id\tref_counts\tvar_counts\tnormal_cn\tminor_cn\tmajor_cn")" ${output[7]}
 sed -i "1i$(echo -e "chromosome\tposition\tannotated\treference\tvariant\tquality\tstrand\tdp\tmq\tsite\teffect\tgene\ts1_rd\ts1_ad\ts2_rd\ts2_ad")" ${output[4]}
+
+
+
+
+
+
+
+## container with all standalone developmental algorithms
+
+
+scratch=/cluster/projects/kridelgroup
+_storage=$scratch/relapse/mutations
+home=/cluster/home/sbassim
+mutationseq=$home/museq/mutationseq/museq/classify.py
+user_databases=$scratch/databases
+genome_reference=$user_databases/GRCh37-lite.fa
+output=testing.vcf
+logs=testing.log
+sample[1]=A61960_sample.bam
+sample[2]=A61961_sample.bam
+
+
+conda activate mutationseq
+python $mutationseq normal:${sample[1]} tumour:${sample[2]} reference:$genome_reference -o test.vcf
+
+
+samtools index ${sample[1]}
+
+
+python $install_dir/classify.py \
+        -d \
+        -c $install_dir/metadata.config \
+        --manifest /path/to/manifest.txt \
+        tumour:${sample[1]} \
+        model:$install_dir/model_single_v4.0.2.npz  \
+        reference:$genome_reference \
+        -b 2G \
+        -l /path/to/log/file \
+        -i [CHROM] \
+        -o $output 2> run_mutationseq.err &
+
+python $install_dir/classify.py \
+        tumour:${sample[1]} \
+        reference:$genome_reference \
+        model:$install_dir/model_single_v4.0.2.npz  \
+	--single \
+        -c $install_dir/metadata.config -b 2G -l $logs -o $output
+
+
+
+source deactivate
