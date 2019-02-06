@@ -33,6 +33,7 @@ Licence: MIT Licence
    - Abundance analysis (FPKM, RPKM) multi-tool cross comparison
    - Genome & targeted exome sequencing
    - Variant calling (SNVs, CNVs, Indels)
+   - Germline filtering analysis
    - Gene/Variant annotations (model, non-model species) multi-DB cross matches
    - Differential gene expression (microarrays, RNA-seq) in R/Python
    - Feature engineering & regularization (lasso, ridge, elastic)
