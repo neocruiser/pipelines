@@ -34,7 +34,7 @@ binomial = FALSE
 ## apply normalization methods within samples
 ## applying a regularization transformation
 ## increases the number of selected genens
-standardization = TRUE
+standardization = FALSE
 lasso.std = FALSE
 
 ## how many iterations during feature selection (max 50)
@@ -42,10 +42,10 @@ lasso.std = FALSE
 ## how many CV folds during model validation (max 10)
 ## use grid tuning or not for model optimization
 ## length of the training data set (percent, max 85)
-lambda.epochs = 50
+lambda.epochs = 20
 baseline.epochs = 5
 validate.folds = 10
-validate.tune = TRUE
+validate.tune = FALSE
 train.size = 80
 
 ## choose between methods of normalization and correlation
@@ -114,7 +114,7 @@ miniBatch.balancedSampling <- function (meta.selected, y, adj.x, batch = 65, min
 
 
 ## Multi model classification
-modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.metrics=NULL){
+modelTune.clas <- function(dat, train, newDF=NULL, method, folds=10, grid=TRUE, confusion.metrics=NULL){
     ## requires caret
     ## GRID search HYPERPARAMETERS tuning
     ## Cross validation for parameter tuning
@@ -291,8 +291,11 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
 
     ## get prediction accuracy
     ## confusion matrix for classification
-    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")
+    Predd <- predict(modelTrain, newdata=dat[-train,], type="raw")    
     conf.m <- confusionMatrix(data=Predd, dat[-train,1])
+
+    Predd.new <- predict(modelTrain, newdata=newDF, type="raw")    
+    conf.m.new <- confusionMatrix(data=Predd.new, new.df[,1])
 
     ## Compile everything for later accessibility
     ## time, best model based on training performance metrics
@@ -302,12 +305,13 @@ modelTune.clas <- function(dat, train, method, folds=10, grid=TRUE, confusion.me
                    Results=modelTrain$results,
                    Hyperparameters=modelTrain$bestTune,
                    ConfusionMatrix=conf.m,
+                   ConfusionMatrix.newData=conf.m.new,                   
                    metrics=confusion.metrics)
     return(output)
 }
 
 
-## get probabilityy scores for support vector machines (used as best predictor)
+## get probability scores for support vector machines (used as best predictor)
 svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
     ## requires previous functions
     ## requires hyperparameter tuning on best model
@@ -343,6 +347,7 @@ svmPoly.prob <- function(dat, train, folds = 10, risk.prob = NULL){
 ##########################
 ## optimized for t-statistics microarray expressions
 ## rows are genes & col are samples
+## expressions are normalized with background correction & standardized
 ## remove controls (imbalanced samples)
 ## append gene names instead of transcript numbers
 cat("\n\nNormalized expression scores: Samples are columns and genes are rows\n")
@@ -1378,8 +1383,19 @@ parameter_counts <- c(
 )
 
 ## debugging single models
-##model_types="svmPoly"
-##parameter_counts=3
+model_types="svmPoly"
+parameter_counts=3
+
+model_types <- c(
+    "svmLinear", "svmPoly"
+)
+
+# number of parameters per model
+# the deep network used in this step is an automated model
+# hence the low number of parameters to adjust
+parameter_counts <- c(
+    1,3
+)
 
 
 ##########################
@@ -1481,7 +1497,7 @@ if ( classification == TRUE & grouped == TRUE ) {
 
         ## multimodel analysis
         ## with summary output
-        model.metrics <- modelTune.clas(dat, training, method=mods,
+        model.metrics <- modelTune.clas(dat, training, newDF=new.df, method=mods,
                                         folds=validate.folds, grid=validate.tune)
 
         ## get predictor importance
@@ -1590,6 +1606,7 @@ write.table(class.prob.bestmod,
             sep = "\t", quote = FALSE)
 
 ## save classification output
+## save.image(file="1.RData") 
 save(list=ls(pattern="*metrics"),file="systemsMetrics.Rdata")
 save(list=ls(pattern="*summaryFull"),file="performanceSummaryFull.Rdata")
 

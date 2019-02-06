@@ -2,7 +2,7 @@
 pkgs <- c('RColorBrewer', 'genefilter', 'limma',
           'pvclust', 'foreach', 'oligo', 'pd.hta.2.0',
           'plyr', 'dplyr', 'reshape', 'tidyr', 'doMC',
-          'vegan', 'WGCNA', 'readr')
+          'vegan', 'WGCNA', 'readr', 'hgu219.db')
 lapply(pkgs, require, character.only = TRUE)
 
 ## set boolean variable
