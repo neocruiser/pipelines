@@ -29,13 +29,6 @@ are running on H4H cluster at [[http://www.uhnresearch.ca/][UHN]], in Toronto Ca
 Licence: MIT Licence
 
 * Algorithms will include:
-   - QC for most next generation sequencing platforms
-   - Abundance analysis (FPKM, RPKM) multi-tool cross comparison
-   - Genome & targeted exome sequencing
-   - Variant calling (SNVs, CNVs, Indels)
-   - Germline filtering analysis
-   - Gene/Variant annotations (model, non-model species) multi-DB cross matches
-   - Differential gene expression (microarrays, RNA-seq) in R/Python
    - Feature engineering & regularization (lasso, ridge, elastic)
    - Data subsetting, extraction, reformatting & report designs
    - Subsampling, mini-batch sampling & bagging
@@ -58,7 +51,15 @@ Licence: MIT Licence
    - Machine learning optimizations
    - Random seeding optimizations
    - Over 20 machine learning models
-   - Deep learning (Mxnet, H2O, Keras)
+   - Deep learning (Tensor, Torch, Caffe, Mxnet, H2O, Keras)
+   - Reinforcement learning (batch, temporal abstraction, deep RL)
+   - QC for most next generation sequencing platforms
+   - Abundance analysis (FPKM, RPKM) multi-tool cross comparison
+   - Genome & targeted exome sequencing
+   - Variant calling (SNVs, CNVs, Indels)
+   - Germline filtering analysis
+   - Gene/Variant annotations (model, non-model species) multi-DB cross matches
+   - Differential gene expression (microarrays, RNA-seq) in R/Python
 
 
 * Systemic Analytical Pipelines
