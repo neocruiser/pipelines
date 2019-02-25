@@ -51,7 +51,7 @@ Licence: MIT Licence
    - Machine learning optimizations
    - Random seeding optimizations
    - Over 20 machine learning models
-   - Deep learning (Tensor, Torch, Caffe, Mxnet, H2O, Keras)
+   - Deep learning (Tensor, Torch, Mxnet, H2O, Keras)
    - Reinforcement learning (batch, temporal abstraction, deep RL)
    - QC for most next generation sequencing platforms
    - Abundance analysis (FPKM, RPKM) multi-tool cross comparison
