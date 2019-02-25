@@ -75,7 +75,7 @@ reproducible on other data sets=
 9. [[https://github.com/neocruiser/pipelines/blob/master/r/heatmaps.3.0.R][Clustering & gene expression with bootstrapped approach & metric aggregation]] in R (Bassim 2018)
 10. =hot= [[https://github.com/neocruiser/pipelines/blob/master/calling/exome_calling.v2.pyclone.h4h.pbs][Targeted exome calling]] for variants in bash (Bassim 2018)
 11. [[https://github.com/neocruiser/pipelines/blob/master/calling/mpileup.standalone.h4h.pbs][Variant clustering]] for classification of tumor clones in bash and python (Bassim 2018)
-12. [[https://github.com/neocruiser/pipelines/blob/master/debug/reinforce_v2.py][Reinforcement]] and [[https://github.com/neocruiser/pipelines/blob/master/debug/deep_v3.py][Deep learning]] for data embedding in python (Bassim 2017)
+12. [[https://github.com/neocruiser/pipelines/blob/master/debug/reinforce_v2.py][Reinforcement]], [[https://github.com/neocruiser/pipelines/blob/master/debug/generative_mod.v1.23.py][Generative CNN]] & [[https://github.com/neocruiser/pipelines/blob/master/debug/deep_v3.py][Deep learning]] for data embedding in python (Bassim 2017)
 13. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug2.pbs][Two species reads separation from dual RNA-seq of host & parasite]] in bash (Bassim 2017)
 14. [[https://github.com/neocruiser/pipelines/blob/master/debug/debug4.slurm][Sequence abundance and expression from dual RNA-seq]] in R (Bassim 2017)
 15. =hot= [[https://github.com/neocruiser/pipelines/blob/master/mining/automated_analyses.sh][Aggregating & optimizing data structure ]]for pathway discovery in bash (Bassim 2016) 
