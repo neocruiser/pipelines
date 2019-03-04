@@ -142,6 +142,8 @@ samtools mpileup -B --ignore-RG -l $agilent -f $genome_reference ${sample[1]} ${
 gzip ${output[1]}.vcf.gz
 
 
+## add 2 new dummy columns that will override an error in
+## qualimap coding 
 awk 'BEGIN{OFS="\t"}{print $1,$2,$3,$4,0,"."}' $agilent > $agilent_corrected
 output[2]=output.2.quality.agilent
 qualimap bamqc -bam ${sample[1]} -c \

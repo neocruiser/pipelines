@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+
+
+
 ##  two-bidirectional-GRU-layer neural net
 
 import time
