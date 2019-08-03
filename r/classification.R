@@ -1,4 +1,3 @@
-
 #########################################################################################################
 ## The current pipeline accomplishes the following steps:                                              ##
 ## 1- Linux-based toolchain to go from basic prototyping to full-fledged operational/production models ##
