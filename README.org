@@ -66,7 +66,7 @@ Licence: MIT Licence
 =scripts can be scaled while adjusted for any sample size. Majority
 reproducible on other data sets=
 1. =hot= [[https://github.com/neocruiser/pipelines/blob/master/r/classification.R][Machine & Deep learning multi-model]] analyses for cancer prediction in R (Bassim 2018)
-2. =hot= [[Https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][Multi-grid search approch with data-driven gene networks]] in R (Bassim 2018)
+2. =hot= [[https://github.com/neocruiser/pipelines/blob/master/r/weighted.nets.affymetrix.R][Multi-grid search approch with data-driven gene networks]] in R (Bassim 2018)
 3. [[https://github.com/neocruiser/pipelines/blob/master/r/line.ranking.R][Gene ranking]] in R & [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.extract.genes.sh][multi-output wrangling]] in bash from transcriptional data (Bassim 2018)
 4. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.expression.distribution.R][Polygenic]] & [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.pval.distribution.R][probability distributions]] reported by batch visualization in R (Bassim 2018)
 5. [[https://github.com/neocruiser/pipelines/blob/master/r/affymetrix.h4h.pbs][Microarray sample preprocessing & automation]] in bash (Bassim 2018)
